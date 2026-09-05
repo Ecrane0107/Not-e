@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dead Static</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;700;900&family=Geist+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .back-btn{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:1000;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 11px;
+    background:rgba(5,8,7,.72);
+    border:1px solid rgba(216,162,74,.35);
+    border-radius:0;
+    color:#c9cdc2;
+    font:600 11px "Geist Mono",monospace;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    text-decoration:none;
+    backdrop-filter:blur(4px);
+  }
+  .back-btn:hover{color:#0c0d0a;background:#d8a24a;border-color:#d8a24a}
+</style>
+</head>
+<body>
+
+<a class="back-btn" href="../index.html">
+  <svg viewBox="0 0 12 12" width="10" height="10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  Menu
+</a>
+
+<div id="root"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.181.0"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script type="module">
+  const source = await fetch('game.tsx').then(r => r.text());
+  const { code } = Babel.transform(source, {
+    presets: [
+      ['typescript', { isTSX: true, allExtensions: true }],
+      ['react', { runtime: 'classic' }],
+    ],
+    filename: 'game.tsx',
+    sourceType: 'module',
+  });
+  const blobUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+  await import(blobUrl);
+</script>
+
+</body>
+</html>
