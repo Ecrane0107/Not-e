@@ -31,20 +31,21 @@
 
     <div class="clock" id="clock">10<span class="unit">:00 left on this one</span></div>
 
-    <div class="cig-stage">
-      <div class="smoke" id="smoke1"></div>
-      <div class="smoke s2" id="smoke2"></div>
-      <div class="smoke s3" id="smoke3"></div>
-      <div class="cig">
+    <div class="cig-stage" id="cigStage">
+      <div class="cig" id="cig">
         <div class="cig-filter"></div>
         <div class="cig-paper" id="cigPaper"></div>
-        <div class="cig-ash" id="cigAsh" style="width:0"></div>
+        <div class="ash-clump" id="ashClump" style="width:0"></div>
         <div class="ember out" id="ember"></div>
+        <div class="smoke" id="smoke1"></div>
+        <div class="smoke s2" id="smoke2"></div>
+        <div class="smoke s3" id="smoke3"></div>
       </div>
     </div>
 
     <div class="controls">
       <button class="primary-btn" id="toggleBtn">Light one</button>
+      <button class="ghost-btn" id="tapBtn" disabled>Tap ash off</button>
       <button class="ghost-btn" id="skipBtn" disabled>Light a new one</button>
     </div>
 
@@ -59,24 +60,28 @@
 </div>
 
 <script>
-  const BASE = 600;       // 10 minutes, in seconds
-  const VARIANCE = 90;    // +/- up to 90s, so roughly 8:30-11:30
+  const BASE = 600;          // 10 minutes, in seconds
+  const VARIANCE = 90;       // +/- up to 90s, so roughly 8:30-11:30
+  const ASH_CYCLE_MIN = 16;  // seconds of burn before ash *could* fall
+  const ASH_CYCLE_MAX = 34;
+  const FILTER_W = 54;       // px, fixed - the butt never burns or shrinks
+  const PAPER_FULL = 226;    // px, full unburnt paper length
+  const MAX_ASH_W = 20;      // px, how far the ash clump grows before falling
 
-  const statusLine = document.getElementById("statusLine");
-  const statusDot  = document.getElementById("statusDot");
-  const statusText = document.getElementById("statusText");
-  const clockEl    = document.getElementById("clock");
-  const paperEl    = document.getElementById("cigPaper");
-  const ashEl      = document.getElementById("cigAsh");
-  const emberEl    = document.getElementById("ember");
-  const toggleBtn  = document.getElementById("toggleBtn");
-  const skipBtn    = document.getElementById("skipBtn");
-  const statCount  = document.getElementById("statCount");
-  const statTime   = document.getElementById("statTime");
+  const statusLine  = document.getElementById("statusLine");
+  const statusText  = document.getElementById("statusText");
+  const clockEl     = document.getElementById("clock");
+  const cigEl       = document.getElementById("cig");
+  const paperEl     = document.getElementById("cigPaper");
+  const ashClumpEl  = document.getElementById("ashClump");
+  const emberEl     = document.getElementById("ember");
+  const toggleBtn   = document.getElementById("toggleBtn");
+  const tapBtn      = document.getElementById("tapBtn");
+  const skipBtn     = document.getElementById("skipBtn");
+  const statCount   = document.getElementById("statCount");
+  const statTime    = document.getElementById("statTime");
   const supportNote = document.getElementById("supportNote");
-  const smokeEls   = [document.getElementById("smoke1"), document.getElementById("smoke2"), document.getElementById("smoke3")];
-
-  const PAPER_FULL = 226; // px, total width minus the filter
+  const smokeEls    = [document.getElementById("smoke1"), document.getElementById("smoke2"), document.getElementById("smoke3")];
 
   let wakeLock = null;
   let active = false;
@@ -85,6 +90,13 @@
   let cigCount = 0;
   let awakeSeconds = 0;
   let tickHandle = null;
+
+  let ashProgress = 0;
+  let ashCycleLen = randomAshCycle();
+
+  function randomAshCycle() {
+    return ASH_CYCLE_MIN + Math.random() * (ASH_CYCLE_MAX - ASH_CYCLE_MIN);
+  }
 
   function randomDuration() {
     const offset = Math.round((Math.random() * 2 - 1) * VARIANCE);
@@ -107,13 +119,19 @@
 
   function renderCigarette() {
     const progress = duration ? Math.min(1, Math.max(0, 1 - remaining / duration)) : 0;
-    const ashWidth = PAPER_FULL * progress;
-    const paperWidth = PAPER_FULL - ashWidth;
+    const paperWidth = PAPER_FULL * (1 - progress);
     paperEl.style.width = paperWidth + "px";
-    ashEl.style.width = ashWidth + "px";
-    // ember sits right where paper meets ash, in px from the left edge of .cig
-    const filterWidth = 54;
-    emberEl.style.left = (filterWidth + paperWidth) + "px";
+
+    // the tip: where the paper currently ends and the burning happens.
+    // the filter side (FILTER_W) never moves and never burns.
+    const tipLeft = FILTER_W + paperWidth;
+    emberEl.style.left = tipLeft + "px";
+
+    const ashWidth = Math.min(MAX_ASH_W, MAX_ASH_W * ashProgress);
+    ashClumpEl.style.left = tipLeft + "px";
+    ashClumpEl.style.width = ashWidth + "px";
+
+    smokeEls.forEach(el => { el.style.left = tipLeft + "px"; });
   }
 
   function renderClock() {
@@ -140,7 +158,7 @@
       wakeLock = await navigator.wakeLock.request("screen");
       wakeLock.addEventListener("release", () => { wakeLock = null; });
     } catch (err) {
-      // e.g. tab not visible yet, or permission denied - harmless, we retry on visibilitychange
+      // e.g. tab not visible yet - harmless, we retry on visibilitychange
     }
   }
 
@@ -148,10 +166,42 @@
     if (wakeLock) { wakeLock.release(); wakeLock = null; }
   }
 
+  function spawnAshParticles(atLeft) {
+    for (let i = 0; i < 4; i++) {
+      const bit = document.createElement("div");
+      bit.className = "ash-bit";
+      bit.style.left = (atLeft + (Math.random() * 8 - 4)) + "px";
+      bit.style.setProperty("--dx", (Math.random() * 26 - 13) + "px");
+      bit.style.animationDelay = (Math.random() * 90) + "ms";
+      cigEl.appendChild(bit);
+      bit.addEventListener("animationend", () => bit.remove());
+      setTimeout(() => bit.remove(), 1000); // safety net if animationend doesn't fire
+    }
+  }
+
+  function shakeCig() {
+    cigEl.classList.remove("shake");
+    void cigEl.offsetWidth; // restart the animation even if it's already mid-shake
+    cigEl.classList.add("shake");
+    setTimeout(() => cigEl.classList.remove("shake"), 450);
+  }
+
+  function tapAsh() {
+    if (!active) return;
+    const atLeft = parseFloat(ashClumpEl.style.left || "0") + parseFloat(ashClumpEl.style.width || "0") / 2;
+    spawnAshParticles(atLeft);
+    shakeCig();
+    ashProgress = 0;
+    ashCycleLen = randomAshCycle();
+    renderCigarette();
+  }
+
   function lightNew() {
     duration = randomDuration();
     remaining = duration;
     cigCount++;
+    ashProgress = 0;
+    ashCycleLen = randomAshCycle();
     emberEl.classList.remove("out");
     renderCigarette();
     renderClock();
@@ -162,9 +212,12 @@
     if (!active) return;
     remaining--;
     awakeSeconds++;
+    ashProgress += 1 / ashCycleLen;
+
     if (remaining <= 0) {
       lightNew();
     } else {
+      if (ashProgress >= 1) tapAsh();
       renderCigarette();
       renderClock();
     }
@@ -177,6 +230,7 @@
     lightNew();
     tickHandle = setInterval(tick, 1000);
     toggleBtn.textContent = "Put it out";
+    tapBtn.disabled = false;
     skipBtn.disabled = false;
     setStatus("Screen will stay awake", true);
     smokeEls.forEach(el => el.style.display = "block");
@@ -188,6 +242,7 @@
     releaseWakeLock();
     emberEl.classList.add("out");
     toggleBtn.textContent = "Light one";
+    tapBtn.disabled = true;
     skipBtn.disabled = true;
     setStatus("Not lit", false);
     smokeEls.forEach(el => el.style.display = "none");
@@ -197,6 +252,8 @@
   toggleBtn.addEventListener("click", () => {
     if (active) stop(); else start();
   });
+
+  tapBtn.addEventListener("click", tapAsh);
 
   skipBtn.addEventListener("click", () => {
     if (active) lightNew();
@@ -214,6 +271,7 @@
 
   smokeEls.forEach(el => el.style.display = "none");
   renderClock();
+  renderCigarette();
 </script>
 </body>
 </html>

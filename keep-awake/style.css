@@ -118,18 +118,26 @@ h1{
   height:96px;
   display:flex;
   align-items:center;
-  justify-content:center;
+  padding-left:40px;
 }
 
 .cig{
   position:relative;
-  width:280px;
   height:26px;
   display:flex;
-  border-radius:4px;
-  overflow:visible;
+  flex:0 0 auto;
+}
+.cig.shake{animation:shake .4s ease-in-out}
+
+@keyframes shake{
+  0%,100%{transform:translate(0,0) rotate(0)}
+  20%{transform:translate(-2px,-1px) rotate(-1.5deg)}
+  40%{transform:translate(2px,1px) rotate(1.5deg)}
+  60%{transform:translate(-2px,1px) rotate(-1deg)}
+  80%{transform:translate(2px,-1px) rotate(1deg)}
 }
 
+/* the butt: fixed size, fixed place, never burns */
 .cig-filter{
   flex:0 0 54px;
   height:100%;
@@ -144,25 +152,12 @@ h1{
   border-radius:inherit;
 }
 
+/* the paper: shrinks from the tip as it burns, nothing fills in behind it */
 .cig-paper{
   height:100%;
   background:linear-gradient(180deg,#F3F1EC,#DDD9CF);
   border-radius:0 4px 4px 0;
   transition:width 1s linear;
-}
-
-.cig-ash{
-  height:100%;
-  background:linear-gradient(180deg,#6B7278,#484D51);
-  border-radius:0 4px 4px 0;
-  transition:width 1s linear;
-  position:relative;
-}
-.cig-ash::before{
-  content:"";
-  position:absolute;inset:0;
-  background:repeating-linear-gradient(100deg,rgba(255,255,255,.06) 0 2px,transparent 2px 5px);
-  border-radius:inherit;
 }
 
 .ember{
@@ -175,6 +170,7 @@ h1{
   box-shadow:0 0 10px 3px rgba(255,122,61,.7), 0 0 22px 8px rgba(255,122,61,.35);
   animation:flicker 1.6s ease-in-out infinite;
   pointer-events:none;
+  transition:left 1s linear;
 }
 .ember.out{
   animation:none;
@@ -189,15 +185,43 @@ h1{
   80%{opacity:.9;transform:translate(-50%,-50%) scale(.97)}
 }
 
+/* ash clump: builds up hanging off the tip, then falls */
+.ash-clump{
+  position:absolute;
+  top:50%;
+  height:16px;
+  transform:translateY(-50%);
+  background:linear-gradient(180deg,#D6D8DA,#AEB3B7);
+  border-radius:0 3px 3px 0;
+  transition:left 1s linear, width .25s ease-out;
+  pointer-events:none;
+}
+
+.ash-bit{
+  position:absolute;
+  top:50%;
+  width:4px;height:4px;
+  border-radius:50%;
+  background:#B7BBBE;
+  transform:translate(-50%,-50%);
+  animation:ashfall .8s ease-in forwards;
+  pointer-events:none;
+}
+@keyframes ashfall{
+  0%{opacity:1;transform:translate(-50%,-50%) translate(0,0) rotate(0)}
+  100%{opacity:0;transform:translate(-50%,-50%) translate(var(--dx,10px),44px) rotate(140deg)}
+}
+
 .smoke{
   position:absolute;
-  bottom:60%;
+  top:-2px;
   width:14px;height:14px;
   border-radius:50%;
   background:rgba(237,239,240,.16);
   filter:blur(3px);
   animation:drift 4.5s ease-in infinite;
   pointer-events:none;
+  transition:left 1s linear;
 }
 .smoke.s2{animation-delay:1.5s;width:10px;height:10px}
 .smoke.s3{animation-delay:3s;width:8px;height:8px}
