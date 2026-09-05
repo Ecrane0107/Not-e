@@ -2,9 +2,30 @@ import React, { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent 
 import * as THREE from 'three';
 import { createRoot } from 'react-dom/client';
 
-type GameStatus = 'menu' | 'playing' | 'paused' | 'dead' | 'cleared';
+type GameStatus = 'menu' | 'map' | 'playing' | 'paused' | 'dead' | 'cleared' | 'victory';
 type EnemyState = 'patrol' | 'chase' | 'search' | 'attack' | 'stagger' | 'dead';
-type WeaponId = 'handgun' | 'shotgun';
+type WeaponId = 'handgun' | 'shotgun' | 'rifle';
+
+type MapNodeKind = 'start' | 'combat' | 'end';
+
+type MapNode = {
+  id: string;
+  col: number;
+  row: number;
+  x: number;
+  y: number;
+  kind: MapNodeKind;
+  enemyCount: number;
+  layoutIndex: number;
+  connections: string[];
+  cleared: boolean;
+};
+
+type RunMap = {
+  nodes: Record<string, MapNode>;
+  order: string[];
+  currentId: string;
+};
 
 type WeaponConfig = {
   label: string;
@@ -22,7 +43,12 @@ type WeaponConfig = {
 };
 
 type ActionApi = {
-  reset: (regenerate?: boolean) => void;
+  reset: (
+    regenerate?: boolean,
+    enemyCount?: number,
+    layoutIndex?: number,
+    kind?: MapNodeKind,
+  ) => void;
   shoot: () => void;
   reload: () => void;
   cycleWeapon: () => void;
@@ -74,6 +100,7 @@ type Enemy = {
     rightLeg: THREE.Group;
     leftKnee: THREE.Group;
     rightKnee: THREE.Group;
+    rightWrist: THREE.Group;
   };
 };
 
@@ -114,7 +141,7 @@ type WebModelContext = {
 
 const WEAPONS: Record<WeaponId, WeaponConfig> = {
   handgun: {
-    label: 'Handgun',
+    label: 'Pistol',
     caliber: '9 MM',
     magazine: 8,
     reserve: 24,
@@ -141,10 +168,117 @@ const WEAPONS: Record<WeaponId, WeaponConfig> = {
     noiseRadius: 29,
     recoil: 0.065,
   },
+  rifle: {
+    label: 'Assault rifle',
+    caliber: '5.56 MM',
+    magazine: 30,
+    reserve: 60,
+    fireInterval: 110,
+    reloadTime: 1700,
+    range: 60,
+    pellets: 1,
+    pelletDamage: 0.72,
+    spread: 0.014,
+    noiseRadius: 34,
+    recoil: 0.03,
+  },
 };
-const ENEMY_COUNT = 3;
+const WEAPON_ORDER: WeaponId[] = ['handgun', 'shotgun', 'rifle'];
 const ROOM_HALF_X = 15;
 const ROOM_HALF_Z = 13;
+const MAP_LAYER_SIZES = [3, 3, 2];
+const MIN_ENEMIES_PER_NODE = 3;
+const MAX_ENEMIES_PER_NODE = 9;
+
+function randomInt(min: number, max: number) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function generateRunMap(): RunMap {
+  const nodes: Record<string, MapNode> = {};
+  const order: string[] = [];
+  const layers: string[][] = [];
+
+  const startId = 'start';
+  nodes[startId] = {
+    id: startId,
+    col: 0,
+    row: 0,
+    x: 50,
+    y: 92,
+    kind: 'start',
+    enemyCount: 0,
+    layoutIndex: 0,
+    connections: [],
+    cleared: true,
+  };
+  order.push(startId);
+  layers.push([startId]);
+
+  MAP_LAYER_SIZES.forEach((size, layerIndex) => {
+    const ids: string[] = [];
+    for (let row = 0; row < size; row += 1) {
+      const id = `n${layerIndex}_${row}`;
+      const spread = size === 1 ? 50 : 18 + (row / (size - 1)) * 64;
+      nodes[id] = {
+        id,
+        col: layerIndex + 1,
+        row,
+        x: spread,
+        y: 92 - (layerIndex + 1) * (72 / (MAP_LAYER_SIZES.length + 1)),
+        kind: 'combat',
+        enemyCount: randomInt(MIN_ENEMIES_PER_NODE, MAX_ENEMIES_PER_NODE),
+        layoutIndex: randomInt(0, 2),
+        connections: [],
+        cleared: false,
+      };
+      order.push(id);
+      ids.push(id);
+    }
+    layers.push(ids);
+  });
+
+  const endId = 'end';
+  nodes[endId] = {
+    id: endId,
+    col: MAP_LAYER_SIZES.length + 1,
+    row: 0,
+    x: 50,
+    y: 8,
+    kind: 'end',
+    enemyCount: randomInt(MIN_ENEMIES_PER_NODE + 1, MAX_ENEMIES_PER_NODE),
+    layoutIndex: randomInt(0, 2),
+    connections: [],
+    cleared: false,
+  };
+  order.push(endId);
+  layers.push([endId]);
+
+  for (let layerIndex = 0; layerIndex < layers.length - 1; layerIndex += 1) {
+    const current = layers[layerIndex];
+    const next = layers[layerIndex + 1];
+    const reached = new Set<string>();
+    current.forEach((fromId) => {
+      const fromNode = nodes[fromId];
+      const sorted = [...next].sort(
+        (a, b) => Math.abs(nodes[a].x - fromNode.x) - Math.abs(nodes[b].x - fromNode.x),
+      );
+      const linkCount = next.length <= 1 ? 1 : Math.random() < 0.55 ? 2 : 1;
+      const picked = sorted.slice(0, Math.min(linkCount, sorted.length));
+      picked.forEach((toId) => {
+        fromNode.connections.push(toId);
+        reached.add(toId);
+      });
+    });
+    next.forEach((toId) => {
+      if (reached.has(toId)) return;
+      const fromId = current[randomInt(0, current.length - 1)];
+      nodes[fromId].connections.push(toId);
+    });
+  }
+
+  return { nodes, order, currentId: startId };
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -164,12 +298,111 @@ async function requestPointerLockSafely(canvas: HTMLCanvasElement) {
   }
 }
 
+function MapScreen({
+  runMap,
+  onEnterNode,
+  onBackToMenu,
+}: {
+  runMap: RunMap;
+  onEnterNode: (id: string) => void;
+  onBackToMenu: () => void;
+}) {
+  const current = runMap.nodes[runMap.currentId];
+  const availableIds = new Set(
+    current.connections.filter((id) => !runMap.nodes[id].cleared),
+  );
+  const nodeList = Object.values(runMap.nodes);
+
+  return (
+    <section className="menu-screen" aria-label="Relay map">
+      <div className="menu-rail">
+        <div>
+          <div className="signal-row">
+            <span className="signal-dot" aria-hidden="true" />
+            <span className="eyebrow">Relay map</span>
+          </div>
+          <h1 className="game-title map-title">
+            Choose <span>a route</span>
+          </h1>
+          <p className="menu-brief">
+            Gold nodes are open to you now. Clear one to reveal what connects beyond
+            it, all the way to the exit at the top.
+          </p>
+        </div>
+        <footer className="menu-footer">
+          <button className="menu-action" onClick={onBackToMenu}>
+            Abandon run <span className="action-index">Esc</span>
+          </button>
+        </footer>
+      </div>
+
+      <div className="map-canvas" aria-label="Node map">
+        <svg className="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {nodeList.flatMap((node) =>
+            node.connections.map((toId) => {
+              const to = runMap.nodes[toId];
+              const lit = node.cleared;
+              return (
+                <line
+                  key={`${node.id}-${toId}`}
+                  x1={node.x}
+                  y1={node.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={lit ? '#d8a24a' : '#3a3f38'}
+                  strokeWidth={0.6}
+                  strokeOpacity={lit ? 0.85 : 0.45}
+                />
+              );
+            }),
+          )}
+        </svg>
+        {nodeList.map((node) => {
+          const isAvailable = availableIds.has(node.id);
+          const isCurrent = node.id === runMap.currentId;
+          const label =
+            node.kind === 'start' ? 'IN' : node.kind === 'end' ? 'OUT' : String(node.enemyCount);
+          const classNames = [
+            'map-node',
+            node.kind,
+            node.cleared ? 'cleared' : '',
+            isAvailable ? 'available' : '',
+            isCurrent ? 'current' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <button
+              key={node.id}
+              className={classNames}
+              style={{ left: `${node.x}%`, top: `${node.y}%` }}
+              disabled={!isAvailable}
+              onClick={() => onEnterNode(node.id)}
+              aria-label={
+                node.kind === 'end'
+                  ? `Exit room, ${node.enemyCount} hostiles`
+                  : node.kind === 'start'
+                    ? 'Entry point'
+                    : `Room, ${node.enemyCount} hostiles`
+              }
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function GamePrototype() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const actionsRef = useRef<ActionApi | null>(null);
   const statusRef = useRef<GameStatus>('menu');
   const audioRef = useRef<AudioContext | null>(null);
   const touchPointRef = useRef<{ x: number; y: number } | null>(null);
+  const runMapRef = useRef<RunMap | null>(null);
+  const activeNodeRef = useRef<MapNode | null>(null);
 
   const [status, setStatus] = useState<GameStatus>('menu');
   const [health, setHealth] = useState(100);
@@ -179,15 +412,21 @@ export default function GamePrototype() {
   const [layoutName, setLayoutName] = useState('Switchback');
   const [threatState, setThreatState] = useState('Patrolling');
   const [kills, setKills] = useState(0);
+  const [enemyTotal, setEnemyTotal] = useState(3);
   const [isAiming, setIsAiming] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [hitMarker, setHitMarker] = useState(0);
   const [damageFlash, setDamageFlash] = useState(0);
+  const [runMap, setRunMap] = useState<RunMap | null>(null);
 
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  useEffect(() => {
+    runMapRef.current = runMap;
+  }, [runMap]);
 
   function sound(kind: 'shot' | 'shotgun' | 'hit' | 'hurt' | 'reload') {
     try {
@@ -421,7 +660,7 @@ export default function GamePrototype() {
       return value - Math.floor(value);
     }
 
-    function applyArenaLayout(generation: number) {
+    function applyArenaLayout(generation: number, forceLayoutIndex?: number) {
       generatedCoverMeshes.forEach((mesh) => {
         scene.remove(mesh);
         const blockerIndex = blockers.indexOf(mesh);
@@ -432,7 +671,8 @@ export default function GamePrototype() {
       generatedCoverMeshes.length = 0;
       obstacles.length = 0;
 
-      const layout = arenaLayouts[generation % arenaLayouts.length];
+      const layout =
+        arenaLayouts[(forceLayoutIndex ?? generation) % arenaLayouts.length];
       layout.cover.forEach((spec, index) => {
         const position = [...spec.position] as [number, number, number];
         if (spec.size[1] < 2) {
@@ -921,6 +1161,42 @@ export default function GamePrototype() {
     shotgunPump.position.set(0, -0.025, -0.35);
     shotgun.add(shotgunPump);
 
+    const rifle = new THREE.Group();
+    rifle.position.set(0, -0.145, -0.32);
+    rifle.visible = false;
+    rightArmRig.wrist.add(rifle);
+    const rifleReceiver = new THREE.Mesh(
+      new THREE.BoxGeometry(0.11, 0.13, 0.5),
+      flatMaterial(0x2a2e29),
+    );
+    rifle.add(rifleReceiver);
+    const rifleStock = new THREE.Mesh(
+      taperedBoxGeometry(0.1, 0.1, 0.09, 0.14, 0.34),
+      flatMaterial(0x1e211d),
+    );
+    rifleStock.position.set(0, -0.02, 0.4);
+    rifle.add(rifleStock);
+    const rifleBarrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.024, 0.03, 0.62, 6),
+      flatMaterial(0x14100e),
+    );
+    rifleBarrel.rotation.x = Math.PI / 2;
+    rifleBarrel.position.z = -0.56;
+    rifle.add(rifleBarrel);
+    const rifleMagazine = new THREE.Mesh(
+      taperedBoxGeometry(0.09, 0.34, 0.075, 0.13, 0.08),
+      flatMaterial(0x232620),
+    );
+    rifleMagazine.position.set(0, -0.16, -0.08);
+    rifleMagazine.rotation.x = 0.32;
+    rifle.add(rifleMagazine);
+    const rifleSight = new THREE.Mesh(
+      new THREE.BoxGeometry(0.03, 0.07, 0.16),
+      flatMaterial(0x191b18),
+    );
+    rifleSight.position.set(0, 0.095, -0.05);
+    rifle.add(rifleSight);
+
     const enemySpawns = [
       new THREE.Vector3(-11.5, 0, -10.2),
       new THREE.Vector3(0.8, 0, -10.5),
@@ -965,6 +1241,10 @@ export default function GamePrototype() {
       scene.add(group);
       addBlobShadow(group, 0.48);
 
+      // `look` cycles the three hand-authored appearances for any enemy
+      // count, while `id` stays the enemy's real, unique identity (used for
+      // hit targeting and gameplay pacing below).
+      const look = id % 3;
       const targets: THREE.Mesh[] = [];
       const palette = [
         {
@@ -997,7 +1277,7 @@ export default function GamePrototype() {
           hair: 0x181716,
           accent: 0x69423d,
         },
-      ][id];
+      ][look];
       const markTarget = (mesh: THREE.Mesh, multiplier: number) => {
         mesh.userData = { enemyId: id, multiplier };
         targets.push(mesh);
@@ -1005,14 +1285,14 @@ export default function GamePrototype() {
 
       const torso = new THREE.Group();
       torso.position.y = 1.34;
-      torso.rotation.x = id === 2 ? 0.12 : 0.075;
+      torso.rotation.x = look === 2 ? 0.12 : 0.075;
       torso.rotation.z = id % 2 ? 0.035 : -0.045;
       group.add(torso);
       const coat = new THREE.Mesh(
         taperedBoxGeometry(
-          id === 1 ? 0.405 : 0.43,
+          look === 1 ? 0.405 : 0.43,
           0.23,
-          id === 2 ? 0.55 : 0.52,
+          look === 2 ? 0.55 : 0.52,
           0.27,
           0.54,
         ),
@@ -1022,31 +1302,31 @@ export default function GamePrototype() {
       torso.add(coat);
 
       const shirtFront = new THREE.Mesh(
-        new THREE.BoxGeometry(id === 1 ? 0.2 : 0.15, 0.44, 0.024),
+        new THREE.BoxGeometry(look === 1 ? 0.2 : 0.15, 0.44, 0.024),
         flatMaterial(palette.shirt),
       );
-      shirtFront.position.set(id === 2 ? -0.025 : 0, -0.01, -0.149);
+      shirtFront.position.set(look === 2 ? -0.025 : 0, -0.01, -0.149);
       torso.add(shirtFront);
 
       for (const side of [-1, 1]) {
         const panel = new THREE.Mesh(
-          new THREE.BoxGeometry(id === 1 ? 0.135 : 0.16, 0.46, 0.035),
+          new THREE.BoxGeometry(look === 1 ? 0.135 : 0.16, 0.46, 0.035),
           flatMaterial(side < 0 ? palette.jacketLight : palette.jacketDark),
         );
-        panel.position.set(side * (id === 1 ? 0.165 : 0.17), -0.025, -0.151);
-        panel.rotation.z = id === 2 && side > 0 ? -0.035 : 0;
+        panel.position.set(side * (look === 1 ? 0.165 : 0.17), -0.025, -0.151);
+        panel.rotation.z = look === 2 && side > 0 ? -0.035 : 0;
         torso.add(panel);
 
         const lapel = new THREE.Mesh(
-          new THREE.BoxGeometry(0.075, id === 0 ? 0.28 : 0.23, 0.03),
+          new THREE.BoxGeometry(0.075, look === 0 ? 0.28 : 0.23, 0.03),
           flatMaterial(side < 0 ? palette.jacketLight : palette.jacketDark),
         );
         lapel.position.set(side * 0.078, 0.135, -0.174);
-        lapel.rotation.z = side * (id === 1 ? 0.25 : 0.34);
+        lapel.rotation.z = side * (look === 1 ? 0.25 : 0.34);
         torso.add(lapel);
       }
 
-      if (id === 0) {
+      if (look === 0) {
         for (const side of [-1, 1]) {
           const coatTail = new THREE.Mesh(
             taperedBoxGeometry(0.19, 0.21, 0.21, 0.235, 0.39),
@@ -1063,7 +1343,7 @@ export default function GamePrototype() {
         );
         collarWrap.position.set(0, 0.27, 0.015);
         torso.add(collarWrap);
-      } else if (id === 1) {
+      } else if (look === 1) {
         const workVest = new THREE.Mesh(
           taperedBoxGeometry(0.315, 0.245, 0.38, 0.275, 0.34),
           flatMaterial(palette.jacketDark),
@@ -1097,15 +1377,15 @@ export default function GamePrototype() {
         new THREE.CylinderGeometry(0.06, 0.07, 0.115, 6),
         flatMaterial(palette.skin),
       );
-      neck.position.set(id === 2 ? 0.018 : 0, 0.335, -0.005);
+      neck.position.set(look === 2 ? 0.018 : 0, 0.335, -0.005);
       torso.add(neck);
 
       const headPivot = new THREE.Group();
       headPivot.position.set(id % 2 ? 0.018 : -0.018, 0.535, -0.025);
       headPivot.rotation.z = id % 2 ? 0.055 : -0.07;
       torso.add(headPivot);
-      addHumanHead(headPivot, palette.skin, palette.hair, (id + 1) % 3, markTarget);
-      if (id === 2) {
+      addHumanHead(headPivot, palette.skin, palette.hair, (look + 1) % 3, markTarget);
+      if (look === 2) {
         const scar = new THREE.Mesh(
           new THREE.BoxGeometry(0.014, 0.075, 0.01),
           flatMaterial(0x552f2c),
@@ -1131,7 +1411,7 @@ export default function GamePrototype() {
         hip.add(knee);
         const shin = new THREE.Mesh(
           taperedBoxGeometry(0.102, 0.122, 0.135, 0.15, 0.4),
-          flatMaterial(id === 1 ? 0x252c2b : 0x2b2927),
+          flatMaterial(look === 1 ? 0x252c2b : 0x2b2927),
         );
         shin.position.y = -0.2;
         markTarget(shin, 0.8);
@@ -1141,7 +1421,7 @@ export default function GamePrototype() {
         knee.add(ankle);
         const shoe = new THREE.Mesh(
           taperedBoxGeometry(0.15, 0.28, 0.17, 0.22, 0.12),
-          flatMaterial(id === 0 ? 0x1c1a17 : 0x171918),
+          flatMaterial(look === 0 ? 0x1c1a17 : 0x171918),
         );
         shoe.position.set(0, -0.055, -0.045);
         markTarget(shoe, 0.7);
@@ -1161,7 +1441,7 @@ export default function GamePrototype() {
         shoulder.rotation.x = raised ? 0.18 : -0.06;
         torso.add(shoulder);
         const shoulderCap = new THREE.Mesh(
-          new THREE.SphereGeometry(id === 2 ? 0.115 : 0.102, 6, 4),
+          new THREE.SphereGeometry(look === 2 ? 0.115 : 0.102, 6, 4),
           flatMaterial(x < 0 ? palette.jacketLight : palette.jacketDark),
         );
         shoulderCap.scale.set(0.8, 1, 0.82);
@@ -1214,6 +1494,20 @@ export default function GamePrototype() {
       const leftArmRig = createEnemyArm(-0.285, id % 2 === 0);
       const rightArmRig = createEnemyArm(0.285, id % 2 !== 0);
 
+      const sidearm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.09, 0.11, 0.28),
+        flatMaterial(0x14100e),
+      );
+      sidearm.position.set(0, -0.13, -0.14);
+      rightArmRig.wrist.add(sidearm);
+      const sidearmGrip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.07, 0.14, 0.08),
+        flatMaterial(0x201a17),
+      );
+      sidearmGrip.position.set(0, -0.11, 0.07);
+      sidearmGrip.rotation.x = -0.2;
+      sidearm.add(sidearmGrip);
+
       return {
         id,
         group,
@@ -1256,13 +1550,66 @@ export default function GamePrototype() {
           rightLeg: rightLegRig.hip,
           leftKnee: leftLegRig.knee,
           rightKnee: rightLegRig.knee,
+          rightWrist: rightArmRig.wrist,
         },
       };
     }
 
-    const enemies = enemySpawns.map((spawn, index) =>
-      createEnemy(index, spawn, patrolRoutes[index]),
-    );
+    function randomOpenSpawn(): THREE.Vector3 {
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const x = (Math.random() * 2 - 1) * (ROOM_HALF_X - 2.2);
+        const z = (Math.random() * 2 - 1) * (ROOM_HALF_Z - 2.2);
+        if (isBlocked(x, z, 0.6)) continue;
+        if (Math.hypot(x - playerSpawn.x, z - playerSpawn.z) < 6) continue;
+        return nearestNavigablePosition(new THREE.Vector3(x, 0, z));
+      }
+      return nearestNavigablePosition(new THREE.Vector3(0, 0, -10));
+    }
+
+    function randomPatrolRoute(spawn: THREE.Vector3): THREE.Vector3[] {
+      const points = [spawn.clone()];
+      const legs = 2 + Math.floor(Math.random() * 2);
+      for (let leg = 0; leg < legs; leg += 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 2.5 + Math.random() * 4;
+        points.push(
+          nearestNavigablePosition(
+            new THREE.Vector3(spawn.x + Math.cos(angle) * dist, 0, spawn.z + Math.sin(angle) * dist),
+          ),
+        );
+      }
+      return points;
+    }
+
+    function disposeEnemy(enemy: Enemy) {
+      scene.remove(enemy.group);
+      enemy.group.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        child.geometry.dispose();
+        const material = child.material;
+        if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
+        else material.dispose();
+      });
+    }
+
+    let enemies: Enemy[] = [];
+
+    function buildEnemies(count: number) {
+      enemies.forEach(disposeEnemy);
+      const total = clamp(count, MIN_ENEMIES_PER_NODE, MAX_ENEMIES_PER_NODE);
+      const built: Enemy[] = [];
+      for (let index = 0; index < total; index += 1) {
+        const spawn = index < enemySpawns.length ? enemySpawns[index] : randomOpenSpawn();
+        const route =
+          index < patrolRoutes.length ? patrolRoutes[index] : randomPatrolRoute(spawn);
+        built.push(createEnemy(index, spawn, route));
+      }
+      enemies = built;
+      setEnemyTotal(total);
+    }
+
+    buildEnemies(MIN_ENEMIES_PER_NODE);
+
     const input = {
       keys: new Set<string>(),
       aim: false,
@@ -1279,12 +1626,16 @@ export default function GamePrototype() {
     const loadedAmmo: Record<WeaponId, number> = {
       handgun: WEAPONS.handgun.magazine,
       shotgun: WEAPONS.shotgun.magazine,
+      rifle: WEAPONS.rifle.magazine,
     };
     const reserveAmmo: Record<WeaponId, number> = {
       handgun: WEAPONS.handgun.reserve,
       shotgun: WEAPONS.shotgun.reserve,
+      rifle: WEAPONS.rifle.reserve,
     };
     let defeated = 0;
+    let roomKind: MapNodeKind = 'combat';
+    let currentLayoutIndex = 0;
     let raf = 0;
     let lastFrame = performance.now();
     let clearTimer = 0;
@@ -1503,6 +1854,31 @@ export default function GamePrototype() {
       tracers.push({ line, expires: performance.now() + 68 });
     }
 
+    const ENEMY_GUN_RANGE = 15;
+
+    function fireEnemyWeapon(enemy: Enemy, distance: number) {
+      const origin = new THREE.Vector3();
+      enemy.rig.rightWrist.getWorldPosition(origin);
+      const targetPoint = player.position.clone().add(new THREE.Vector3(0, 1.05, 0));
+      const direction = targetPoint.clone().sub(origin).normalize();
+      const accuracy = clamp(1 - distance / ENEMY_GUN_RANGE, 0.15, 0.92);
+      const missed = Math.random() > accuracy;
+      raycaster.set(origin, direction);
+      raycaster.far = ENEMY_GUN_RANGE + 4;
+      const blocked = raycaster.intersectObjects(blockers, false)[0];
+      const clearShot = !blocked || blocked.distance >= distance - 0.6;
+      const end =
+        blocked && blocked.distance < distance
+          ? blocked.point.clone()
+          : origin.clone().addScaledVector(direction, distance);
+      const connects = clearShot && !missed;
+      makeTracer(origin, end, connects);
+      sound('shot');
+      if (connects) {
+        damagePlayer(5 + Math.random() * 5);
+      }
+    }
+
     function applyDamage(
       enemy: Enemy,
       amount: number,
@@ -1530,11 +1906,12 @@ export default function GamePrototype() {
         enemy.group.position.y = 0.08;
         defeated += 1;
         setKills(defeated);
-        if (defeated === ENEMY_COUNT) {
+        if (defeated === enemies.length) {
           window.clearTimeout(clearTimer);
+          const finalStatus: GameStatus = roomKind === 'end' ? 'victory' : 'cleared';
           clearTimer = window.setTimeout(() => {
-            statusRef.current = 'cleared';
-            setStatus('cleared');
+            statusRef.current = finalStatus;
+            setStatus(finalStatus);
             if (document.pointerLockElement === canvas) document.exitPointerLock();
           }, 550);
         }
@@ -1547,6 +1924,7 @@ export default function GamePrototype() {
       setReserve(reserveAmmo[currentWeapon]);
       handgun.visible = currentWeapon === 'handgun';
       shotgun.visible = currentWeapon === 'shotgun';
+      rifle.visible = currentWeapon === 'rifle';
     }
 
     function selectWeapon(nextWeapon: WeaponId) {
@@ -1677,20 +2055,30 @@ export default function GamePrototype() {
       sound('reload');
     }
 
-    function resetWorld(regenerate = true) {
+    function resetWorld(
+      regenerate = true,
+      enemyCount?: number,
+      layoutIndex?: number,
+      kind?: MapNodeKind,
+    ) {
       window.clearTimeout(clearTimer);
       clearTimer = 0;
+      roomKind = kind ?? 'combat';
+      currentLayoutIndex = layoutIndex ?? currentLayoutIndex;
       if (regenerate) {
         arenaGeneration += 1;
-        applyArenaLayout(arenaGeneration);
+        applyArenaLayout(arenaGeneration, layoutIndex);
       }
       playerHealth = 100;
       currentWeapon = 'handgun';
       loadedAmmo.handgun = WEAPONS.handgun.magazine;
       loadedAmmo.shotgun = WEAPONS.shotgun.magazine;
+      loadedAmmo.rifle = WEAPONS.rifle.magazine;
       reserveAmmo.handgun = WEAPONS.handgun.reserve;
       reserveAmmo.shotgun = WEAPONS.shotgun.reserve;
+      reserveAmmo.rifle = WEAPONS.rifle.reserve;
       defeated = 0;
+      buildEnemies(enemyCount ?? enemies.length);
       input.keys.clear();
       input.aim = false;
       input.yaw = 0;
@@ -1703,34 +2091,6 @@ export default function GamePrototype() {
       shoulderBlend = 1;
       player.position.copy(nearestNavigablePosition(playerSpawn));
       player.rotation.set(0, 0, 0);
-      enemies.forEach((enemy) => {
-        enemy.health = 3;
-        enemy.alive = true;
-        enemy.cooldown = 0;
-        enemy.attackTimer = 0;
-        enemy.stagger = 0;
-        enemy.state = 'patrol';
-        enemy.lastKnown.copy(enemy.spawn);
-        enemy.searchTarget.copy(enemy.spawn);
-        enemy.searchTimer = 0;
-        enemy.memoryTimer = 0;
-        enemy.patrolIndex = 1;
-        enemy.searchIndex = 0;
-        enemy.nextSightCheck = enemy.id * 0.07;
-        enemy.rawSight = false;
-        enemy.canSeePlayer = false;
-        enemy.heardShotSerial = shotSerial;
-        enemy.path.length = 0;
-        enemy.pathIndex = 0;
-        enemy.pathGoal.copy(enemy.spawn);
-        enemy.pathRefresh = 0;
-        enemy.dwellTimer = 0;
-        enemy.sightConfirm = 0;
-        enemy.lostSightGrace = 0;
-        enemy.group.position.copy(nearestNavigablePosition(enemy.spawn));
-        enemy.group.rotation.set(0, 0, 0);
-        enemy.group.visible = true;
-      });
       setHealth(100);
       syncWeaponHud();
       setKills(0);
@@ -1745,7 +2105,8 @@ export default function GamePrototype() {
       shoot,
       reload: startReload,
       cycleWeapon() {
-        selectWeapon(currentWeapon === 'handgun' ? 'shotgun' : 'handgun');
+        const nextIndex = (WEAPON_ORDER.indexOf(currentWeapon) + 1) % WEAPON_ORDER.length;
+        selectWeapon(WEAPON_ORDER[nextIndex]);
       },
       swapShoulder() {
         input.shoulderSide = input.shoulderSide === 1 ? -1 : 1;
@@ -1769,6 +2130,7 @@ export default function GamePrototype() {
       if (event.code === 'KeyR') startReload();
       if (!event.repeat && event.code === 'Digit1') selectWeapon('handgun');
       if (!event.repeat && event.code === 'Digit2') selectWeapon('shotgun');
+      if (!event.repeat && event.code === 'Digit3') selectWeapon('rifle');
       if (!event.repeat && event.code === 'KeyQ') {
         input.shoulderSide = input.shoulderSide === 1 ? -1 : 1;
       }
@@ -2350,6 +2712,17 @@ export default function GamePrototype() {
           } else {
             enemy.memoryTimer = Math.max(0, enemy.memoryTimer - dt);
           }
+          if (enemy.rawSight && distance > 1.7 && distance <= ENEMY_GUN_RANGE) {
+            enemy.group.rotation.y = lerpAngle(
+              enemy.group.rotation.y,
+              Math.atan2(-toPlayer.x, -toPlayer.z),
+              1 - Math.exp(-8 * dt),
+            );
+            if (enemy.cooldown <= 0) {
+              enemy.cooldown = 0.95 + Math.random() * 0.75;
+              fireEnemyWeapon(enemy, distance);
+            }
+          }
           const arrived = moveEnemyToward(
             enemy,
             enemy.lastKnown,
@@ -2586,14 +2959,51 @@ export default function GamePrototype() {
     };
   }, []);
 
-  function startGame() {
-    actionsRef.current?.reset();
+  function enterPlayState() {
     statusRef.current = 'playing';
     setStatus('playing');
     setShowHelp(false);
     if (canvasRef.current && window.matchMedia('(pointer: fine)').matches) {
       void requestPointerLockSafely(canvasRef.current);
     }
+  }
+
+  function startNewRun() {
+    const map = generateRunMap();
+    setRunMap(map);
+    runMapRef.current = map;
+    activeNodeRef.current = null;
+    statusRef.current = 'map';
+    setStatus('map');
+  }
+
+  function enterNode(nodeId: string) {
+    const map = runMapRef.current;
+    const node = map?.nodes[nodeId];
+    if (!node) return;
+    activeNodeRef.current = node;
+    actionsRef.current?.reset(true, node.enemyCount, node.layoutIndex, node.kind);
+    enterPlayState();
+  }
+
+  function retryRoom() {
+    const node = activeNodeRef.current;
+    actionsRef.current?.reset(true, node?.enemyCount, node?.layoutIndex, node?.kind);
+    enterPlayState();
+  }
+
+  function continueToMap() {
+    const map = runMapRef.current;
+    const node = activeNodeRef.current;
+    if (map && node) {
+      const nextNodes = { ...map.nodes, [node.id]: { ...node, cleared: true } };
+      const nextMap: RunMap = { ...map, nodes: nextNodes, currentId: node.id };
+      runMapRef.current = nextMap;
+      setRunMap(nextMap);
+    }
+    if (document.pointerLockElement) document.exitPointerLock();
+    statusRef.current = 'map';
+    setStatus('map');
   }
 
   function resumeGame() {
@@ -2623,7 +3033,7 @@ export default function GamePrototype() {
           name: 'start_combat_room',
           title: 'Start combat room',
           description:
-            'Reset Dead Static and begin the playable relay-room encounter.',
+            'Reset Dead Static and generate a new relay map to play through.',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -2642,12 +3052,12 @@ export default function GamePrototype() {
             ) {
               throw new Error('start_combat_room accepts an empty object only.');
             }
-            startGame();
+            startNewRun();
             return {
-              state: 'playing',
-              objective: 'clear_relay_room',
-              enemies: ENEMY_COUNT,
-              weapons: ['handgun', 'shotgun'],
+              state: 'map',
+              objective: 'clear_the_relay_map',
+              weapons: ['handgun', 'shotgun', 'rifle'],
+              enemiesPerNode: [MIN_ENEMIES_PER_NODE, MAX_ENEMIES_PER_NODE],
               proceduralLayouts: 3,
             };
           },
@@ -2718,12 +3128,13 @@ export default function GamePrototype() {
                   Dead <span>Static</span>
                 </h1>
                 <p className="menu-brief">
-                  The emergency channel is still broadcasting. Each entry shifts the
-                  maintenance maze. Break sight, search your angles, and reach the north door.
+                  The emergency channel is still broadcasting. Every run redraws the relay
+                  map from the entry node to the exit. Break sight, search your angles, and
+                  fight your way to the far side.
                 </p>
 
                 <div className="menu-actions">
-                  <button className="menu-action primary" onClick={startGame}>
+                  <button className="menu-action primary" onClick={startNewRun}>
                     Begin transmission <span className="action-index">01</span>
                   </button>
                   <button
@@ -2749,7 +3160,7 @@ export default function GamePrototype() {
                       <dt>Reload</dt>
                       <dd>R</dd>
                       <dt>Weapons</dt>
-                      <dd>1 handgun · 2 shotgun</dd>
+                      <dd>1 pistol · 2 shotgun · 3 rifle</dd>
                       <dt>Shoulder</dt>
                       <dd>Q swaps camera side</dd>
                       <dt>Sprint</dt>
@@ -2770,9 +3181,9 @@ export default function GamePrototype() {
             <aside className="menu-side-note" aria-label="Mission details">
               <span className="brief-label">Threat scan</span>
               <br />
-              03 signatures
+              3&ndash;9 signatures per room
               <br />
-              Handgun + shotgun
+              Armed hostiles &mdash; pistol, shotgun, rifle
               <br />
               Search protocol active
               <br />
@@ -2781,14 +3192,22 @@ export default function GamePrototype() {
           </section>
         )}
 
-        {status !== 'menu' && (
+        {status === 'map' && runMap && (
+          <MapScreen
+            runMap={runMap}
+            onEnterNode={enterNode}
+            onBackToMenu={backToMenu}
+          />
+        )}
+
+        {status !== 'menu' && status !== 'map' && (
           <section className="hud" aria-label="Combat status">
             <div className="hud-objective">
               <div className="hud-label">
                 {layoutName} / {threatState}
               </div>
               <div className="objective-copy">
-                Clear the relay room — {kills}/{ENEMY_COUNT}
+                Clear the room — {kills}/{enemyTotal}
               </div>
             </div>
 
@@ -2835,7 +3254,7 @@ export default function GamePrototype() {
 
             {status === 'playing' && (
               <div className="interaction-hint">
-                Q swaps shoulder · 1/2 weapons · Esc pauses
+                Q swaps shoulder · 1-3 weapons · Esc pauses
               </div>
             )}
 
@@ -2888,7 +3307,7 @@ export default function GamePrototype() {
                     className="touch-action compact"
                     onPointerDown={() => actionsRef.current?.cycleWeapon()}
                   >
-                    1/2
+                    1-3
                   </button>
                   <button
                     className="touch-action compact"
@@ -2933,17 +3352,15 @@ export default function GamePrototype() {
                 Room clear
               </h2>
               <p className="result-copy">
-                Three signals dropped. The north lock is responding again.
+                {kills} signal{kills === 1 ? '' : 's'} dropped. The connecting locks are
+                responding again.
               </p>
               <div className="result-actions">
-                <button className="menu-action primary" onClick={startGame}>
-                  Run it again
+                <button className="menu-action primary" onClick={continueToMap}>
+                  Back to the map
                 </button>
-                <button
-                  className="menu-action"
-                  onClick={backToMenu}
-                >
-                  Return to menu
+                <button className="menu-action" onClick={backToMenu}>
+                  Abandon run
                 </button>
               </div>
             </div>
@@ -2962,13 +3379,32 @@ export default function GamePrototype() {
                 consoles.
               </p>
               <div className="result-actions">
-                <button className="menu-action primary" onClick={startGame}>
+                <button className="menu-action primary" onClick={retryRoom}>
                   Retry room
                 </button>
-                <button
-                  className="menu-action"
-                  onClick={backToMenu}
-                >
+                <button className="menu-action" onClick={backToMenu}>
+                  Return to menu
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {status === 'victory' && (
+          <section className="game-overlay" aria-labelledby="victory-title">
+            <div className="result-card">
+              <span className="status-kicker">Channel closed</span>
+              <h2 className="result-title" id="victory-title">
+                Relay cleared
+              </h2>
+              <p className="result-copy">
+                Every node on the map is quiet. The exit signal is finally yours.
+              </p>
+              <div className="result-actions">
+                <button className="menu-action primary" onClick={startNewRun}>
+                  New run
+                </button>
+                <button className="menu-action" onClick={backToMenu}>
                   Return to menu
                 </button>
               </div>
