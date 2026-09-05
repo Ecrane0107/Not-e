@@ -24,7 +24,10 @@ body{
 .page{
   max-width:1040px;
   margin:0 auto;
-  padding:72px 32px 64px;
+  padding:72px 32px 40px;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
 }
 
 header{margin-bottom:56px}
@@ -139,7 +142,8 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile.placeholder .label{color:var(--ink-mid)}
 
 footer{
-  margin-top:56px;
+  margin-top:auto;
+  padding-top:56px;
   font-size:12.5px;
   color:var(--ink-dim);
 }
