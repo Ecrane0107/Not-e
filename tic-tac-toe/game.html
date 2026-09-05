@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tic-tac-toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+  <a class="back-btn" href="../index.html">
+    <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Menu
+  </a>
+
+  <p class="eyebrow">Project</p>
+  <h1>Tic-tac-toe</h1>
+  <p class="blurb">A small React build &mdash; two players, one board, no server involved.</p>
+
+  <div id="root"></div>
+
+</div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+const LINES = [
+  [0,1,2],[3,4,5],[6,7,8],
+  [0,3,6],[1,4,7],[2,5,8],
+  [0,4,8],[2,4,6],
+];
+
+function calculateResult(squares) {
+  for (const line of LINES) {
+    const [a, b, c] = line;
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return { winner: squares[a], line };
+    }
+  }
+  if (squares.every(Boolean)) return { winner: null, line: null, draw: true };
+  return null;
+}
+
+function Square({ value, onClick, highlight, disabled }) {
+  return (
+    <button
+      className={"square" + (highlight ? " win" : "")}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={value ? `Square, ${value}` : "Empty square"}
+    >
+      {value}
+    </button>
+  );
+}
+
+function Board({ squares, onPlay, winLine, locked }) {
+  return (
+    <div className="board" role="grid">
+      {squares.map((value, i) => (
+        <Square
+          key={i}
+          value={value}
+          onClick={() => onPlay(i)}
+          highlight={!!winLine && winLine.includes(i)}
+          disabled={locked || !!value}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Game() {
+  const [squares, setSquares] = useState(Array(9).fill(null));
+  const [xIsNext, setXIsNext] = useState(true);
+  const [score, setScore] = useState({ x: 0, o: 0, draws: 0 });
+
+  const result = calculateResult(squares);
+  const locked = !!result;
+
+  function handlePlay(i) {
+    if (squares[i] || locked) return;
+    const next = squares.slice();
+    next[i] = xIsNext ? "X" : "O";
+    setSquares(next);
+    setXIsNext(!xIsNext);
+
+    const outcome = calculateResult(next);
+    if (outcome) {
+      setScore(s => outcome.draw
+        ? { ...s, draws: s.draws + 1 }
+        : { ...s, [outcome.winner.toLowerCase()]: s[outcome.winner.toLowerCase()] + 1 });
+    }
+  }
+
+  function newRound() {
+    setSquares(Array(9).fill(null));
+    setXIsNext(true);
+  }
+
+  function resetScore() {
+    newRound();
+    setScore({ x: 0, o: 0, draws: 0 });
+  }
+
+  let status;
+  if (result && result.winner) status = <><strong>{result.winner}</strong> wins</>;
+  else if (result && result.draw) status = "Draw";
+  else status = <>Turn: <strong>{xIsNext ? "X" : "O"}</strong></>;
+
+  return (
+    <div className="game">
+      <p className="status">{status}</p>
+
+      <Board squares={squares} onPlay={handlePlay} winLine={result ? result.line : null} locked={locked} />
+
+      <div className="controls">
+        <button className="ghost-btn" onClick={newRound}>New round</button>
+        <button className="ghost-btn" onClick={resetScore}>Reset score</button>
+      </div>
+
+      <div className="score">
+        <div><b>{score.x}</b><span>X wins</span></div>
+        <div><b>{score.draws}</b><span>Draws</span></div>
+        <div><b>{score.o}</b><span>O wins</span></div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Game />);
+</script>
+</body>
+</html>
