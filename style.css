@@ -137,3 +137,9 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile.placeholder .icon{color:var(--ink-dim)}
 .tile.placeholder .go{display:none}
 .tile.placeholder .label{color:var(--ink-mid)}
+
+footer{
+  margin-top:56px;
+  font-size:12.5px;
+  color:var(--ink-dim);
+}
