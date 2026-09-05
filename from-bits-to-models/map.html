@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>From bits to models — a map of computer science</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-topbar">
+      <a class="back-btn" href="../index.html">
+        <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Menu
+      </a>
+    </div>
+    <div class="rail-head">
+      <h1 class="wordmark">From bits<span>to models</span></h1>
+      <p class="blurb">Every concept sits below what it depends on. Begin at a marked entry point, or pick any concept to see the route there.</p>
+    </div>
+    <div class="search-wrap">
+      <input id="search" class="search" type="search" placeholder="Find a concept" aria-label="Find a concept">
+    </div>
+    <div class="rail-scroll">
+    <div class="goals" id="goals"></div>
+    <div class="starts" id="starts"></div>
+    <div class="lines" id="lines">
+      <p class="lines-title">Six lines run through the map</p>
+    </div>
+    </div>
+    <div class="rail-foot">
+      <div class="seg" role="group" aria-label="Flow direction">
+        <button class="ghost seg-btn" id="dirTB" aria-pressed="true">Top to bottom</button>
+        <button class="ghost seg-btn" id="dirLR" aria-pressed="false">Left to right</button>
+      </div>
+      <button class="ghost" id="fit">Fit view</button>
+      <button class="ghost" id="relayout">Redraw layout</button>
+      <button class="ghost" id="copy">Copy data</button>
+    </div>
+  </aside>
+
+  <main class="map">
+    <canvas id="c" aria-label="Map of computer science concepts and their prerequisites"></canvas>
+    <div class="grain" id="grain" aria-hidden="true"></div>
+    <p class="hint">Drag to pan · scroll to zoom · drag a concept to move it</p>
+  </main>
+
+  <aside class="drawer" id="drawer" aria-live="polite"></aside>
+</div>
+
+<div class="reader" id="reader" role="dialog" aria-modal="true" aria-label="Booklet" hidden>
+  <nav class="toc" id="toc"></nav>
+  <div class="read-body" id="readBody"></div>
+  <button class="read-close" id="readClose" aria-label="Close booklet">Close</button>
+</div>
+
+<div class="sr" id="fallback"></div>
+
+<!-- Data, in dependency order -->
+<script src="js/data-tracks.js"></script>
+<script src="js/data-nodes.js"></script>
+<script src="js/data-details.js"></script>
+<script src="js/data-booklets-core.js"></script>
+<script src="js/data-booklets-foundations.js"></script>
+<script src="js/data-booklets-dsa.js"></script>
+<script src="js/data-booklets-math.js"></script>
+<script src="js/data-booklets-systems.js"></script>
+<script src="js/data-booklets-ml.js"></script>
+<script src="js/data-booklets-ai.js"></script>
+<script src="js/data-problems.js"></script>
+<script src="js/data-edges.js"></script>
+
+<!-- Application logic -->
+<script src="js/graph.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/render.js"></script>
+<script src="js/interaction.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+const NODES = [
+  // Foundations
+  { id:"binary",        label:"Bits and binary",        track:"found", desc:"How numbers, text and everything else get stored as ones and zeros.", start:true, note:"Never written code. Start at the bottom and everything else is downstream of here." },
+  { id:"variables",     label:"Variables and types",    track:"found", desc:"Naming values and deciding what kind of thing each one is." },
+  { id:"control",       label:"Control flow",           track:"found", desc:"Branching and looping — the two ways a program decides what to do next." },
+  { id:"functions",     label:"Functions",              track:"found", desc:"Packaging a piece of behaviour so it can be named, reused and tested." },
+  { id:"strings",       label:"Strings",                track:"found", desc:"Text as data: encoding, slicing, comparing and building it up." },
+  { id:"arrays",        label:"Arrays",                 track:"found", desc:"Contiguous blocks of memory with constant-time access by index." },
+  { id:"pointers",      label:"Pointers and references",track:"found", desc:"Values that hold addresses instead of data, which is how structures link together." },
+  { id:"recursion",     label:"Recursion",              track:"found", desc:"A function defined in terms of smaller versions of itself." },
+  { id:"oop",           label:"Object-oriented design", track:"found", desc:"Bundling state with the behaviour that acts on it, and modelling relationships between those bundles." },
+  { id:"functional",    label:"Functional programming", track:"found", desc:"Building programs from pure functions and immutable values instead of mutable state." },
+  { id:"modules",       label:"Modules and interfaces", track:"found", desc:"Splitting a system into parts that hide their internals behind a contract." },
+  { id:"testing",       label:"Testing and debugging",  track:"found", desc:"Proving to yourself that code does what you claim, and finding out why when it doesn't." },
+
+  // Structures & algorithms
+  { id:"complexity",    label:"Big-O and complexity",   track:"dsa", desc:"Describing how runtime and memory grow as the input grows.", start:true, note:"You can already write programs. This is where computer science proper begins." },
+  { id:"linked",        label:"Linked lists",           track:"dsa", desc:"Nodes chained by references — cheap insertion, no random access." },
+  { id:"stackqueue",    label:"Stacks and queues",      track:"dsa", desc:"Last-in-first-out and first-in-first-out access, the backbone of traversal and scheduling." },
+  { id:"hash",          label:"Hash tables",            track:"dsa", desc:"Average constant-time lookup by turning a key into an array index." },
+  { id:"trees",         label:"Trees",                  track:"dsa", desc:"Hierarchies with one path between any two nodes; the shape behind search, parsing and indexing." },
+  { id:"heaps",         label:"Heaps",                  track:"dsa", desc:"A partially ordered tree that hands you the smallest or largest item fast." },
+  { id:"graphsds",      label:"Graphs",                 track:"dsa", desc:"Nodes and edges — the most general structure, and the one this map is built on." },
+  { id:"sorting",       label:"Sorting",                track:"dsa", desc:"Ordering data, and the classic setting for comparing algorithms against each other." },
+  { id:"searching",     label:"Binary search",          track:"dsa", desc:"Halving a sorted search space each step; the first genuinely logarithmic idea most people meet." },
+  { id:"divide",        label:"Divide and conquer",     track:"dsa", desc:"Split the problem, solve the pieces, combine the answers." },
+  { id:"greedy",        label:"Greedy algorithms",      track:"dsa", desc:"Taking the locally best option and knowing when that actually gives a global optimum." },
+  { id:"backtrack",     label:"Backtracking",           track:"dsa", desc:"Searching a space of choices and undoing the ones that dead-end." },
+  { id:"dp",            label:"Dynamic programming",    track:"dsa", desc:"Solving overlapping subproblems once and reusing the answers." },
+  { id:"graphalgo",     label:"Graph algorithms",       track:"dsa", desc:"Traversal, shortest paths, spanning trees and flow over networks of nodes." },
+  { id:"stringalgo",    label:"String algorithms",      track:"dsa", desc:"Pattern matching, edit distance and tokenising — where text meets algorithms." },
+
+  // Mathematics
+  { id:"discrete",      label:"Discrete mathematics",   track:"math", desc:"Logic, sets, counting and proof — the grammar of computer science.", start:true, note:"The proof-and-counting layer. Worth taking early if you like knowing why things work." },
+  { id:"linalg",        label:"Linear algebra",         track:"math", desc:"Vectors, matrices and the transformations between them. Every model in this map is matrix multiplication underneath.", start:true, note:"The shortest honest route into models — most of deep learning is matrices." },
+  { id:"prob",          label:"Probability",            track:"math", desc:"Reasoning about uncertainty, distributions and expectation." },
+  { id:"stats",         label:"Statistics",             track:"math", desc:"Drawing conclusions from samples and knowing how much to trust them." },
+  { id:"calculus",      label:"Calculus",               track:"math", desc:"Rates of change; derivatives are how a model learns which way to move.", start:true, note:"Take this if gradients are the part that feels like magic." },
+  { id:"optimization",  label:"Optimization",           track:"math", desc:"Finding the input that minimises a function, subject to constraints." },
+  { id:"infotheory",    label:"Information theory",     track:"math", desc:"Entropy and cross-entropy — measuring surprise, which is what most model losses are." },
+
+  // Systems
+  { id:"memory",        label:"Memory management",      track:"sys", desc:"Stack, heap, allocation and the cost of touching data that isn't cached.", start:true, note:"For the systems side: what the machine is actually doing underneath." },
+  { id:"os",            label:"Operating systems",      track:"sys", desc:"Processes, threads, scheduling and the layer that hands out the hardware." },
+  { id:"concurrency",   label:"Concurrency",            track:"sys", desc:"Doing several things at once without corrupting shared state." },
+  { id:"networking",    label:"Networking",             track:"sys", desc:"Getting bytes between machines reliably over an unreliable medium." },
+  { id:"databases",     label:"Databases",              track:"sys", desc:"Storing, indexing and querying data that outlives the process." },
+  { id:"distributed",   label:"Distributed systems",    track:"sys", desc:"Many machines behaving as one, with partial failure as the normal case." },
+  { id:"gpu",           label:"GPU and parallelism",    track:"sys", desc:"Thousands of cores doing the same arithmetic at once — the hardware that made deep learning practical." },
+
+  // Machine learning
+  { id:"datawrangle",   label:"Working with data",      track:"ml", desc:"Loading, cleaning, splitting and shaping data before any model sees it.", start:true, note:"You already work with data and want to start modelling it." },
+  { id:"supervised",    label:"Supervised learning",    track:"ml", desc:"Learning a mapping from inputs to labels: regression, trees, support vector machines." },
+  { id:"unsupervised",  label:"Unsupervised learning",  track:"ml", desc:"Finding structure without labels — clustering and dimensionality reduction." },
+  { id:"evaluation",    label:"Model evaluation",       track:"ml", desc:"Validation splits, overfitting, and picking metrics that match what you actually want." },
+  { id:"graddesc",      label:"Gradient descent",       track:"ml", desc:"Following the slope of the loss downhill, one small step at a time." },
+  { id:"nn",            label:"Neural networks",        track:"ml", desc:"Layers of weighted sums and nonlinearities, stacked into a function you can fit." },
+  { id:"backprop",      label:"Backpropagation",        track:"ml", desc:"The chain rule applied backwards through the network to get every gradient at once." },
+  { id:"cnn",           label:"Convolutional networks", track:"ml", desc:"Weight sharing over a grid, which is why they work so well on images." },
+  { id:"rnn",           label:"Sequence models",        track:"ml", desc:"Recurrent networks and state carried across time steps." },
+  { id:"embeddings",    label:"Embeddings",             track:"ml", desc:"Turning discrete things into vectors where distance means similarity." },
+  { id:"attention",     label:"Attention and transformers", track:"ml", desc:"Letting every position look at every other position; the architecture behind current language models." },
+  { id:"rl",            label:"Reinforcement learning", track:"ml", desc:"Learning a policy from reward rather than from labelled examples." },
+  { id:"scaletrain",    label:"Training at scale",      track:"ml", desc:"Sharding data and model across many GPUs, with mixed precision and checkpointing." },
+
+  // AI in practice
+  { id:"nlp",           label:"Natural language processing", track:"ai", desc:"Tokenisation, parsing and representation of human language." },
+  { id:"cv",            label:"Computer vision",        track:"ai", desc:"Detection, segmentation and recognition in images and video." },
+  { id:"llm",           label:"Large language models",  track:"ai", desc:"Transformers pretrained on enormous corpora to predict the next token." },
+  { id:"finetune",      label:"Fine-tuning and LoRA",   track:"ai", desc:"Adapting a pretrained model to a narrower task without retraining the whole thing." },
+  { id:"rag",           label:"Retrieval-augmented generation", track:"ai", desc:"Fetching relevant documents at query time and putting them in the model's context." },
+  { id:"agents",        label:"Agents and tool use",    track:"ai", desc:"Models that plan, call tools, and act over multiple steps." },
+  { id:"mlops",         label:"Serving and MLOps",      track:"ai", desc:"Getting a model into production and keeping it healthy: versioning, latency, monitoring, drift." },
+  { id:"alignment",     label:"Evaluation and alignment", track:"ai", desc:"Measuring model behaviour and shaping it toward what people actually intend." },
+  { id:"relevance",      label:"Staying relevant with AI", track:"ai", desc:"What separates durable human contribution from work AI increasingly automates, and how to build it on purpose." }
+];

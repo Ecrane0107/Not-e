@@ -1,0 +1,78 @@
+:root{
+  --ground:#0C0E0F;
+  --ground-deep:#08090A;
+  --panel:#101314;
+  --panel-hi:#1A1E20;
+  --line:#23282B;
+  --ink:#EDEFF0;
+  --ink-mid:#9AA1A6;
+  --ink-dim:#666D72;
+  --focus:#EDEFF0;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    var(--ground-deep);
+  color:var(--ink);
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  min-height:100dvh;
+}
+
+.page{
+  max-width:720px;
+  margin:0 auto;
+  padding:32px 32px 64px;
+}
+
+.back-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:40px;
+  padding:6px 10px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 12.5px "Space Grotesk",sans-serif;
+  text-decoration:none;
+}
+.back-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+.back-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+.eyebrow{
+  margin:0 0 12px;
+  font-size:12.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+h1{
+  margin:0;
+  font-size:34px;
+  line-height:1.15;
+  font-weight:700;
+  letter-spacing:-0.02em;
+}
+.blurb{
+  margin:16px 0 0;
+  max-width:52ch;
+  font-family:"Newsreader",Georgia,serif;
+  font-size:16px;
+  line-height:1.55;
+  color:var(--ink-mid);
+}
+
+.placeholder{
+  margin-top:40px;
+  padding:28px;
+  border-radius:14px;
+  background:var(--panel);
+  border:1px dashed var(--line);
+  color:var(--ink-dim);
+  font-size:13.5px;
+  line-height:1.6;
+}
