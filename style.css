@@ -128,17 +128,6 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile:hover .go{border-color:var(--ink-mid);color:var(--ink);transform:translate(1px,-1px)}
 .tile .go svg{width:11px;height:11px}
 
-/* featured tile: brighter, like the app's white CTA button */
-.tile.featured{
-  background:#fff;
-  color:#141413;
-  border-color:#fff;
-}
-.tile.featured:hover{background:#DDE3E7}
-.tile.featured .sub{color:#5C6066}
-.tile.featured .go{border-color:#c9cccf;color:#141413}
-.tile.featured:hover .go{border-color:#141413}
-
 /* placeholder / coming-soon tiles */
 .tile.placeholder{
   cursor:default;

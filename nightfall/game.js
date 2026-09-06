@@ -63,10 +63,10 @@ function freshState() {
   return {
     phase: "menu", // menu | day | night | reward | gameover
     day: 1,
-    survivors: 1,
+    survivors: 3,
     assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
-    food: 10,
-    ammo: 200,
+    food: 30,
+    ammo: 300,
     weaponTier: 1,
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
@@ -101,6 +101,7 @@ const hudDay = document.getElementById("hudDay");
 const hudSurvivors = document.getElementById("hudSurvivors");
 const hudFood = document.getElementById("hudFood");
 const hudAmmo = document.getElementById("hudAmmo");
+const hudWeapon = document.getElementById("hudWeapon");
 const wallBars = { N: document.getElementById("wallN"), E: document.getElementById("wallE"), S: document.getElementById("wallS"), W: document.getElementById("wallW") };
 const toast = document.getElementById("toast");
 
@@ -408,33 +409,60 @@ const survivorPool = Array.from({ length: MAX_SURVIVORS }, () => ({
   target: { x: 0, z: 0 },
   facing: 0,
   wall: null,
+  slot: null,
 }));
 const SURVIVOR_SPEED = 3.4; // units/sec walking inside the house
 const AIM_TURN_SPEED = 6; // rad/sec — how fast a stationed survivor swings to track a target
 
+// Recomputes who's stationed where, but "sticky" — anyone already correctly
+// posted at a station that's still needed keeps it untouched. Only a
+// genuine change in demand moves anyone, and only survivors who were
+// already active (just at a now-unneeded station) get retargeted smoothly;
+// a hard reset-to-center-and-walk-out only happens for someone who was
+// truly idle before. Without this, recomputing the roster from scratch
+// every tick reshuffled which pool entry represented which station even
+// when total demand barely changed, which looked like survivors randomly
+// popping back to the house center ("respawning").
 function assignSurvivorStations() {
-  let idx = 0;
+  const needed = [];
   WALL_IDS.forEach(w => {
     const crew = Math.min(S.assignment[w], STATION_CAP);
-    if (crew <= 0) return;
-    const slots = WINDOW_SLOTS[w];
-    const fixedVal = WALL_INNER[w];
-    const axis = WALL_AXIS[w];
-    for (let i = 0; i < crew; i++) {
-      const p = survivorPool[idx++];
-      if (!p) return;
-      const off = slots[i];
-      p.target.x = axis === "x" ? off : fixedVal;
-      p.target.z = axis === "z" ? off : fixedVal;
-      p.wall = w;
-      if (!p.mesh.visible) {
-        p.mesh.visible = true;
-        p.mesh.position.set(0, 0, 0); // start from the house's center and walk out
-        p.facing = WALL_FACE_ANGLE[w];
-      }
+    for (let i = 0; i < crew; i++) needed.push({ wall: w, slot: i });
+  });
+
+  const stillNeeded = needed.slice();
+  const keep = new Set();
+  survivorPool.forEach(p => {
+    if (!p.mesh.visible || p.wall == null) return;
+    const idx = stillNeeded.findIndex(n => n.wall === p.wall && n.slot === p.slot);
+    if (idx !== -1) { stillNeeded.splice(idx, 1); keep.add(p); }
+  });
+
+  // prefer reassigning survivors who are already up and about (smooth
+  // retarget, no pop) before waking up anyone who was fully idle
+  const displaced = survivorPool.filter(p => p.mesh.visible && !keep.has(p));
+  const idle = survivorPool.filter(p => !p.mesh.visible);
+  const available = [...displaced, ...idle];
+
+  stillNeeded.forEach(station => {
+    const p = available.shift();
+    if (!p) return;
+    const slots = WINDOW_SLOTS[station.wall];
+    const fixedVal = WALL_INNER[station.wall];
+    const axis = WALL_AXIS[station.wall];
+    const off = slots[station.slot];
+    p.target.x = axis === "x" ? off : fixedVal;
+    p.target.z = axis === "z" ? off : fixedVal;
+    p.wall = station.wall;
+    p.slot = station.slot;
+    if (!p.mesh.visible) {
+      p.mesh.visible = true;
+      p.mesh.position.set(0, 0, 0); // was truly idle — walk out from the house's center
+      p.facing = WALL_FACE_ANGLE[station.wall];
     }
   });
-  for (; idx < survivorPool.length; idx++) { survivorPool[idx].mesh.visible = false; survivorPool[idx].wall = null; }
+
+  available.forEach(p => { p.mesh.visible = false; p.wall = null; p.slot = null; });
 }
 
 function updateSurvivorMovement(dt) {
@@ -541,9 +569,10 @@ const TASKS = [
     apply: (s, n) => { WALL_IDS.forEach(w => { const wl = s.walls[w]; wl.hp = Math.min(wl.max, wl.hp + wl.max * 0.05 * n); }); },
   },
   {
+    // flat cost of 2 survivors per tier, whatever tier you're currently at
     id: "weapon", icon: "\u{1F52B}", title: "Upgrade weapons", unit: "tier",
-    gain: n => Math.floor(n / 3),
-    apply: (s, n) => { s.weaponTier += Math.floor(n / 3); },
+    gain: n => Math.floor(n / 2),
+    apply: (s, n) => { s.weaponTier += Math.floor(n / 2); },
   },
 ];
 
@@ -635,6 +664,7 @@ function updateHud() {
   hudSurvivors.textContent = S.survivors;
   hudFood.textContent = S.food;
   hudAmmo.textContent = S.ammo;
+  hudWeapon.textContent = "Tier " + S.weaponTier;
   WALL_IDS.forEach(w => {
     const pct = Math.max(0, S.walls[w].hp / S.walls[w].max) * 100;
     const bar = wallBars[w];
@@ -715,6 +745,11 @@ function endNightSuccess() {
     "Night " + S.day + " is over. Send your people out to work before the next one.";
   renderTaskAllocation();
   rewardOverlay.hidden = false;
+
+  // keep the HUD panel up (survivors/food/ammo/weapon/wall hp) while
+  // choosing tasks, rendered above the overlay's dim backdrop
+  hud.hidden = false;
+  updateHud();
 }
 
 function gameOver() {
@@ -773,6 +808,9 @@ function spawnZombie() {
   const target = jitterTarget(wall);
   const mesh = createZombieMesh(isBrute);
   mesh.position.set(x, 0, z);
+  // face the exact direction of approach toward the house, not a fixed
+  // cardinal angle — the jittered target means this varies naturally
+  mesh.rotation.y = Math.atan2(target.x - x, target.z - z);
   zombies.push({
     x, z, wall, target,
     hp: isBrute ? diff.zombieHp * 3 : diff.zombieHp,

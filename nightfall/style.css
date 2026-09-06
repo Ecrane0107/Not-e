@@ -64,7 +64,7 @@ body{
 .hud{
   position:fixed;
   inset:0;
-  z-index:10;
+  z-index:35; /* above .overlay (30) so it stays legible through the reward screen's dim backdrop */
   pointer-events:none;
   font-family:"Space Grotesk",sans-serif;
 }
