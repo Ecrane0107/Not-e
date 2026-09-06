@@ -32,6 +32,30 @@ const DEFENSE_POINT = {
 };
 const WALL_AXIS = { N: "x", S: "x", E: "z", W: "z" }; // which coordinate zombies spread along
 
+// each wall's fixed (perpendicular) coordinate: at the wall's outer face
+// (where windows sit and bullets originate) and just inside it (where a
+// stationed survivor actually stands)
+const STATION_INSET = 0.55;
+const WALL_OUTER = { N: -HOUSE_HALF_Z, S: HOUSE_HALF_Z, E: HOUSE_HALF_X, W: -HOUSE_HALF_X };
+const WALL_INNER = {
+  N: -(HOUSE_HALF_Z - STATION_INSET), S: HOUSE_HALF_Z - STATION_INSET,
+  E: HOUSE_HALF_X - STATION_INSET, W: -(HOUSE_HALF_X - STATION_INSET),
+};
+
+// two windows per wall, three shooting slots per window — six stations a wall
+const WINDOW_SLOT_SPACING = 0.55;
+function computeWindowSlots(wall) {
+  const axis = WALL_AXIS[wall];
+  const half = axis === "x" ? HOUSE_HALF_X : HOUSE_HALF_Z;
+  const windowCenters = [-half * 0.5, half * 0.5];
+  const slots = [];
+  windowCenters.forEach(c => { for (let i = -1; i <= 1; i++) slots.push(c + i * WINDOW_SLOT_SPACING); });
+  return slots;
+}
+const WINDOW_SLOTS = {};
+WALL_IDS.forEach(w => { WINDOW_SLOTS[w] = computeWindowSlots(w); });
+const STATION_CAP = 6; // 2 windows x 3 slots
+
 // ---------------------------------------------------------------
 // state
 // ---------------------------------------------------------------
@@ -64,6 +88,8 @@ let spawnTimer = 0;
 let nightClock = 0;
 let breached = false;
 let autoAssignTimer = 0;
+let zombiesSpawnedThisNight = 0;
+let zombiesTotalThisNight = 0;
 
 // ---------------------------------------------------------------
 // DOM
@@ -145,34 +171,58 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
+// no roof and no solid box — a pitched roof (or even a flat box top) just
+// hides everything from a steep top-down camera, so the house is an
+// open-top shell: a floor plus four thin perimeter walls, dollhouse-style,
+// so the survivors stationed inside stay visible
+const WALL_THICKNESS = 0.25;
+const WALL_OUTWARD = { N: -1, S: 1, E: 1, W: -1 }; // which way each wall faces away from the house
+
 function buildHouse() {
   const group = new THREE.Group();
 
-  const walls = new THREE.Mesh(
-    new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, HOUSE_HALF_Z * 2),
-    flatMaterial(0x8a7a5a),
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(HOUSE_HALF_X * 2, HOUSE_HALF_Z * 2),
+    flatMaterial(0x4a3f2c),
   );
-  walls.position.y = HOUSE_HEIGHT / 2;
-  group.add(walls);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0.01;
+  group.add(floor);
 
-  const roofHeight = 1.6;
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(Math.hypot(HOUSE_HALF_X, HOUSE_HALF_Z) * 1.05, roofHeight, 4),
-    flatMaterial(0x5a3a2a),
-  );
-  roof.rotation.y = Math.PI / 4;
-  roof.position.y = HOUSE_HEIGHT + roofHeight / 2 - 0.05;
-  group.add(roof);
+  const wallMat = flatMaterial(0x8a7a5a);
+  const wallMeshes = {
+    N: new THREE.Mesh(new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, WALL_THICKNESS), wallMat),
+    S: new THREE.Mesh(new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, WALL_THICKNESS), wallMat),
+    E: new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, HOUSE_HEIGHT, HOUSE_HALF_Z * 2), wallMat),
+    W: new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, HOUSE_HEIGHT, HOUSE_HALF_Z * 2), wallMat),
+  };
+  WALL_IDS.forEach(w => {
+    const axis = WALL_AXIS[w];
+    wallMeshes[w].position.set(axis === "z" ? WALL_OUTER[w] : 0, HOUSE_HEIGHT / 2, axis === "x" ? WALL_OUTER[w] : 0);
+    group.add(wallMeshes[w]);
+  });
 
-  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.15), flatMaterial(0x2c1d12));
-  door.position.set(0, 0.75, HOUSE_HALF_Z + 0.02);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.05), flatMaterial(0x2c1d12));
+  door.position.set(0, 0.75, HOUSE_HALF_Z + WALL_THICKNESS / 2 + 0.03);
   group.add(door);
 
+  // two windows per wall, six shooting slots total — these are the
+  // stations survivors actually fire from
   const windowMat = new THREE.MeshBasicMaterial({ color: 0xd8a24a });
-  [-1, 1].forEach(side => {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.1), windowMat);
-    win.position.set(side * 2.2, 1.5, HOUSE_HALF_Z + 0.02);
-    group.add(win);
+  const windowW = WINDOW_SLOT_SPACING * 3;
+  WALL_IDS.forEach(w => {
+    const axis = WALL_AXIS[w];
+    const outward = WALL_OUTWARD[w];
+    const faceCoord = WALL_OUTER[w] + outward * (WALL_THICKNESS / 2 + 0.03);
+    const centers = axis === "x" ? [-HOUSE_HALF_X * 0.5, HOUSE_HALF_X * 0.5] : [-HOUSE_HALF_Z * 0.5, HOUSE_HALF_Z * 0.5];
+    centers.forEach(c => {
+      const win = new THREE.Mesh(
+        new THREE.BoxGeometry(axis === "x" ? windowW : 0.06, 0.7, axis === "x" ? 0.06 : windowW),
+        windowMat,
+      );
+      win.position.set(axis === "x" ? c : faceCoord, 1.4, axis === "x" ? faceCoord : c);
+      group.add(win);
+    });
   });
 
   return group;
@@ -208,19 +258,31 @@ onResize();
 // ---------------------------------------------------------------
 // entity models (shared geometries/materials, built once)
 // ---------------------------------------------------------------
-const zombieBodyGeo = new THREE.CylinderGeometry(0.32, 0.4, 1.1, 6);
-const zombieHeadGeo = new THREE.SphereGeometry(0.28, 6, 5);
-const bruteBodyGeo = new THREE.CylinderGeometry(0.52, 0.64, 1.6, 6);
-const bruteHeadGeo = new THREE.SphereGeometry(0.42, 6, 5);
-const survivorBodyGeo = new THREE.CylinderGeometry(0.26, 0.32, 1.0, 6);
-const survivorHeadGeo = new THREE.SphereGeometry(0.22, 6, 5);
+const zombieLegsGeo = new THREE.BoxGeometry(0.5, 0.5, 0.3);
+const zombieTorsoGeo = new THREE.BoxGeometry(0.55, 0.6, 0.32);
+const zombieHeadGeo = new THREE.SphereGeometry(0.26, 8, 6);
+const zombieArmGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 5);
 
-const zombieBodyMat = flatMaterial(0x5f7a34);
+const bruteLegsGeo = new THREE.BoxGeometry(0.75, 0.7, 0.46);
+const bruteTorsoGeo = new THREE.BoxGeometry(0.85, 0.9, 0.5);
+const bruteHeadGeo = new THREE.SphereGeometry(0.38, 8, 6);
+const bruteArmGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.75, 5);
+
+const survivorLegsGeo = new THREE.BoxGeometry(0.46, 0.45, 0.28);
+const survivorTorsoGeo = new THREE.BoxGeometry(0.5, 0.55, 0.3);
+const survivorHeadGeo = new THREE.SphereGeometry(0.22, 8, 6);
+const survivorGunGeo = new THREE.BoxGeometry(0.12, 0.1, 0.55);
+
+const zombieLegsMat = flatMaterial(0x3a3a28);
+const zombieTorsoMat = flatMaterial(0x5f7a34);
 const zombieHeadMat = flatMaterial(0x6b5f3a);
-const bruteBodyMat = flatMaterial(0x3a4f22);
+const bruteLegsMat = flatMaterial(0x262619);
+const bruteTorsoMat = flatMaterial(0x3a4f22);
 const bruteHeadMat = flatMaterial(0x33301c);
-const survivorBodyMat = flatMaterial(0x3f6fa8);
+const survivorLegsMat = flatMaterial(0x24262b);
+const survivorTorsoMat = flatMaterial(0x3f6fa8);
 const survivorHeadMat = flatMaterial(0xd8a97a);
+const survivorGunMat = flatMaterial(0x1c1c1c);
 
 const hpBarBgGeo = new THREE.PlaneGeometry(0.8, 0.12);
 hpBarBgGeo.rotateX(-Math.PI / 2);
@@ -236,21 +298,39 @@ function disposeZombieMesh(group) {
 
 function createZombieMesh(isBrute) {
   const group = new THREE.Group();
-  const bodyGeo = isBrute ? bruteBodyGeo : zombieBodyGeo;
+  const legsGeo = isBrute ? bruteLegsGeo : zombieLegsGeo;
+  const torsoGeo = isBrute ? bruteTorsoGeo : zombieTorsoGeo;
   const headGeo = isBrute ? bruteHeadGeo : zombieHeadGeo;
-  const bodyMat = isBrute ? bruteBodyMat : zombieBodyMat;
+  const armGeo = isBrute ? bruteArmGeo : zombieArmGeo;
+  const legsMat = isBrute ? bruteLegsMat : zombieLegsMat;
+  const torsoMat = isBrute ? bruteTorsoMat : zombieTorsoMat;
   const headMat = isBrute ? bruteHeadMat : zombieHeadMat;
-  const bodyH = bodyGeo.parameters.height;
 
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = bodyH / 2;
-  group.add(body);
+  const legsH = legsGeo.parameters.height;
+  const torsoH = torsoGeo.parameters.height;
+
+  const legs = new THREE.Mesh(legsGeo, legsMat);
+  legs.position.y = legsH / 2;
+  group.add(legs);
+
+  const torso = new THREE.Mesh(torsoGeo, torsoMat);
+  torso.position.y = legsH + torsoH / 2;
+  group.add(torso);
 
   const head = new THREE.Mesh(headGeo, headMat);
-  head.position.y = bodyH + headGeo.parameters.radius * 0.9;
+  head.position.y = legsH + torsoH + headGeo.parameters.radius * 0.9;
   group.add(head);
 
-  const barY = bodyH + headGeo.parameters.radius * 2 + 0.35;
+  // arms reaching forward, toward whatever they're attacking
+  const armLen = armGeo.parameters.height;
+  [-1, 1].forEach(side => {
+    const arm = new THREE.Mesh(armGeo, torsoMat);
+    arm.position.set(side * (torsoGeo.parameters.width / 2 + 0.02), legsH + torsoH * 0.78, armLen * 0.32);
+    arm.rotation.x = Math.PI / 2.5;
+    group.add(arm);
+  });
+
+  const barY = legsH + torsoH + headGeo.parameters.radius * 2 + 0.3;
   const bg = new THREE.Mesh(hpBarBgGeo, hpBarBgMat);
   bg.position.set(0, barY, 0);
   group.add(bg);
@@ -265,36 +345,79 @@ function createZombieMesh(isBrute) {
 
 function createSurvivorMesh() {
   const group = new THREE.Group();
-  const bodyH = survivorBodyGeo.parameters.height;
-  const body = new THREE.Mesh(survivorBodyGeo, survivorBodyMat);
-  body.position.y = bodyH / 2;
-  group.add(body);
+  const legsH = survivorLegsGeo.parameters.height;
+  const torsoH = survivorTorsoGeo.parameters.height;
+
+  const legs = new THREE.Mesh(survivorLegsGeo, survivorLegsMat);
+  legs.position.y = legsH / 2;
+  group.add(legs);
+
+  const torso = new THREE.Mesh(survivorTorsoGeo, survivorTorsoMat);
+  torso.position.y = legsH + torsoH / 2;
+  group.add(torso);
+
   const head = new THREE.Mesh(survivorHeadGeo, survivorHeadMat);
-  head.position.y = bodyH + survivorHeadGeo.parameters.radius * 0.9;
+  head.position.y = legsH + torsoH + survivorHeadGeo.parameters.radius * 0.9;
   group.add(head);
+
+  const gun = new THREE.Mesh(survivorGunGeo, survivorGunMat);
+  gun.position.set(0.16, legsH + torsoH * 0.7, survivorGunGeo.parameters.depth / 2 + 0.1);
+  group.add(gun);
+
   group.visible = false;
   scene.add(group);
   return group;
 }
-const survivorPool = Array.from({ length: MAX_SURVIVORS }, createSurvivorMesh);
 
-function layoutSurvivors() {
+// each pool entry walks from wherever it is toward its assigned window
+// station instead of snapping there — real (if simple) movement
+const survivorPool = Array.from({ length: MAX_SURVIVORS }, () => ({
+  mesh: createSurvivorMesh(),
+  target: { x: 0, z: 0 },
+  facing: 0,
+}));
+const SURVIVOR_SPEED = 3.4; // units/sec walking inside the house
+
+function assignSurvivorStations() {
   let idx = 0;
   WALL_IDS.forEach(w => {
-    const crew = Math.min(S.assignment[w], 5);
+    const crew = Math.min(S.assignment[w], STATION_CAP);
     if (crew <= 0) return;
-    const p = DEFENSE_POINT[w];
+    const slots = WINDOW_SLOTS[w];
+    const fixedVal = WALL_INNER[w];
     const axis = WALL_AXIS[w];
-    const spacing = 0.85;
+    const faceAngle = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 }[w];
     for (let i = 0; i < crew; i++) {
-      const mesh = survivorPool[idx++];
-      if (!mesh) return;
-      const off = (i - (crew - 1) / 2) * spacing;
-      mesh.position.set(axis === "x" ? p.x + off : p.x, 0, axis === "z" ? p.z + off : p.z);
-      mesh.visible = true;
+      const p = survivorPool[idx++];
+      if (!p) return;
+      const off = slots[i];
+      p.target.x = axis === "x" ? off : fixedVal;
+      p.target.z = axis === "z" ? off : fixedVal;
+      p.facing = faceAngle;
+      if (!p.mesh.visible) {
+        p.mesh.visible = true;
+        p.mesh.position.set(0, 0, 0); // start from the house's center and walk out
+      }
     }
   });
-  for (; idx < survivorPool.length; idx++) survivorPool[idx].visible = false;
+  for (; idx < survivorPool.length; idx++) survivorPool[idx].mesh.visible = false;
+}
+
+function updateSurvivorMovement(dt) {
+  survivorPool.forEach(p => {
+    if (!p.mesh.visible) return;
+    const dx = p.target.x - p.mesh.position.x;
+    const dz = p.target.z - p.mesh.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 0.03) {
+      const step = Math.min(dist, SURVIVOR_SPEED * dt);
+      p.mesh.position.x += (dx / dist) * step;
+      p.mesh.position.z += (dz / dist) * step;
+      p.mesh.rotation.y = Math.atan2(dx, dz);
+    } else {
+      p.mesh.rotation.y = p.facing;
+    }
+  });
 }
 
 const bulletMaterial = new THREE.LineBasicMaterial({ color: 0xf4e6b8 });
@@ -381,6 +504,11 @@ function difficultyForDay(day) {
   };
 }
 
+// night 1 sends 3 zombies; each night after that sends 1.5x as many as the last
+function totalZombiesForNight(day) {
+  return Math.max(1, Math.round(3 * Math.pow(1.5, day - 1)));
+}
+
 // ---------------------------------------------------------------
 // UI: day screen
 // ---------------------------------------------------------------
@@ -416,7 +544,7 @@ function goToMenu() {
   S = freshState();
   clearZombies();
   clearBullets();
-  layoutSurvivors();
+  assignSurvivorStations();
   hud.hidden = true;
   menuOverlay.hidden = false;
   dayOverlay.hidden = true;
@@ -444,6 +572,8 @@ function startNight() {
   breached = false;
   fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
   autoAssignTimer = 0;
+  zombiesSpawnedThisNight = 0;
+  zombiesTotalThisNight = totalZombiesForNight(S.day);
   timerWrap.hidden = false;
   updateHud();
 }
@@ -515,11 +645,12 @@ function updateAutoAssignment(dt) {
 
   const activeWalls = WALL_IDS.filter(w => zombies.some(z => z.wall === w));
   WALL_IDS.forEach(w => { S.assignment[w] = 0; });
-  if (activeWalls.length === 0) return;
+  if (activeWalls.length === 0) { assignSurvivorStations(); return; }
 
   const per = Math.floor(S.survivors / activeWalls.length);
   const remainder = S.survivors - per * activeWalls.length;
   activeWalls.forEach((w, i) => { S.assignment[w] = per + (i < remainder ? 1 : 0); });
+  assignSurvivorStations();
 }
 
 // ---------------------------------------------------------------
@@ -534,6 +665,7 @@ function jitterTarget(wall) {
 }
 
 function spawnZombie() {
+  zombiesSpawnedThisNight += 1;
   const diff = difficultyForDay(S.day);
   const wall = WALL_IDS[Math.floor(Math.random() * 4)];
   const isBrute = Math.random() < diff.bruteChance;
@@ -623,7 +755,15 @@ function updateTurrets(dt) {
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
     S.ammo -= 1;
-    spawnBullet(DEFENSE_POINT[w], best);
+
+    // fire from whichever window slot sits closest to the target, along the wall
+    const axis = WALL_AXIS[w];
+    const targetOffset = axis === "x" ? best.x : best.z;
+    const slots = WINDOW_SLOTS[w].slice(0, Math.min(crew, STATION_CAP));
+    let nearestOff = slots[0], nearestD = Infinity;
+    slots.forEach(o => { const d = Math.abs(o - targetOffset); if (d < nearestD) { nearestD = d; nearestOff = o; } });
+    const from = axis === "x" ? { x: nearestOff, z: WALL_OUTER[w] } : { x: WALL_OUTER[w], z: nearestOff };
+    spawnBullet(from, best);
 
     const interval = Math.max(0.12, 0.85 / Math.min(crew, 6));
     fireCooldown[w] = interval;
@@ -646,14 +786,16 @@ function frame(now) {
 
   if (S.phase === "night") {
     const diff = difficultyForDay(S.day);
-    spawnTimer -= dt;
-    if (spawnTimer <= 0) { spawnZombie(); spawnTimer = diff.spawnInterval; }
+    if (zombiesSpawnedThisNight < zombiesTotalThisNight) {
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) { spawnZombie(); spawnTimer = diff.spawnInterval; }
+    }
 
     updateZombies(dt);
     updateAutoAssignment(dt);
     updateTurrets(dt);
     updateBullets(dt);
-    layoutSurvivors();
+    updateSurvivorMovement(dt);
     updateHud();
 
     nightClock -= dt;
