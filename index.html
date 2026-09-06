@@ -242,7 +242,11 @@
       function frame(now) {
         const dwell = Math.min(1, (now - enterTime) / RAMP_MS);
         const max = BASE_TILT_MAX + EXTRA_TILT_MAX * dwell;
-        const rx = -py * max;
+        // both axes tip the side under the cursor away/down (like it's
+        // being pressed), not toward the viewer -- rx used to be the
+        // opposite sign of ry, which read as the cursor "pulling" the
+        // near corner up on one axis while pushing it down on the other
+        const rx = py * max;
         const ry = px * max;
         tile.style.transform = `perspective(${PERSPECTIVE}px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
         rafId = requestAnimationFrame(frame);
