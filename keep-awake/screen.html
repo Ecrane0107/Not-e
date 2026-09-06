@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Keep awake</title>
+<title>Cig</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
@@ -20,17 +20,9 @@
   </a>
 
   <p class="eyebrow">Project</p>
-  <h1>Keep awake</h1>
-  <p class="blurb">Leave this tab open and your screen won't sleep. One cigarette burns for about 10 minutes &mdash; never exactly the same length twice &mdash; and lights the next the moment it's out.</p>
+  <h1>Cig</h1>
 
   <div class="app">
-    <div class="status-line" id="statusLine">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Not lit</span>
-    </div>
-
-    <div class="clock" id="clock">10<span class="unit">:00 left on this one</span></div>
-
     <div class="cig-stage" id="cigStage">
       <div class="cig" id="cig">
         <div class="cig-filter"></div>
@@ -44,14 +36,13 @@
     </div>
 
     <div class="controls">
-      <button class="primary-btn" id="toggleBtn">Light one</button>
+      <button class="primary-btn" id="toggleBtn">Light</button>
       <button class="ghost-btn" id="tapBtn" disabled>Tap ash off</button>
-      <button class="ghost-btn" id="skipBtn" disabled>Light a new one</button>
     </div>
 
     <div class="stats">
       <div><b id="statCount">0</b><span>Lit</span></div>
-      <div><b id="statTime">0:00</b><span>Time awake</span></div>
+      <div><b id="statTime">0:00</b><span>Time smoking</span></div>
     </div>
 
     <p class="note" id="supportNote"></p>
@@ -68,16 +59,12 @@
   const PAPER_FULL = 226;    // px, full unburnt paper length
   const MAX_ASH_W = 20;      // px, how far the ash clump grows before falling
 
-  const statusLine  = document.getElementById("statusLine");
-  const statusText  = document.getElementById("statusText");
-  const clockEl     = document.getElementById("clock");
   const cigEl       = document.getElementById("cig");
   const paperEl     = document.getElementById("cigPaper");
   const ashClumpEl  = document.getElementById("ashClump");
   const emberEl     = document.getElementById("ember");
   const toggleBtn   = document.getElementById("toggleBtn");
   const tapBtn      = document.getElementById("tapBtn");
-  const skipBtn     = document.getElementById("skipBtn");
   const statCount   = document.getElementById("statCount");
   const statTime    = document.getElementById("statTime");
   const supportNote = document.getElementById("supportNote");
@@ -101,12 +88,6 @@
   function randomDuration() {
     const offset = Math.round((Math.random() * 2 - 1) * VARIANCE);
     return BASE + offset;
-  }
-
-  function formatClock(s) {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return m + ":" + String(sec).padStart(2, "0");
   }
 
   function formatElapsed(s) {
@@ -134,22 +115,9 @@
     smokeEls.forEach(el => { el.style.left = tipLeft + "px"; });
   }
 
-  function renderClock() {
-    if (!active) {
-      clockEl.innerHTML = '10<span class="unit">:00 left on this one</span>';
-      return;
-    }
-    clockEl.innerHTML = formatClock(remaining) + '<span class="unit">left on this one</span>';
-  }
-
   function renderStats() {
     statCount.textContent = cigCount;
     statTime.textContent = formatElapsed(awakeSeconds);
-  }
-
-  function setStatus(text, on) {
-    statusText.textContent = text;
-    statusLine.classList.toggle("on", !!on);
   }
 
   async function requestWakeLock() {
@@ -204,7 +172,6 @@
     ashCycleLen = randomAshCycle();
     emberEl.classList.remove("out");
     renderCigarette();
-    renderClock();
     renderStats();
   }
 
@@ -219,7 +186,6 @@
     } else {
       if (ashProgress >= 1) tapAsh();
       renderCigarette();
-      renderClock();
     }
     renderStats();
   }
@@ -231,8 +197,6 @@
     tickHandle = setInterval(tick, 1000);
     toggleBtn.textContent = "Put it out";
     tapBtn.disabled = false;
-    skipBtn.disabled = false;
-    setStatus("Screen will stay awake", true);
     smokeEls.forEach(el => el.style.display = "block");
   }
 
@@ -241,12 +205,9 @@
     clearInterval(tickHandle);
     releaseWakeLock();
     emberEl.classList.add("out");
-    toggleBtn.textContent = "Light one";
+    toggleBtn.textContent = "Light";
     tapBtn.disabled = true;
-    skipBtn.disabled = true;
-    setStatus("Not lit", false);
     smokeEls.forEach(el => el.style.display = "none");
-    renderClock();
   }
 
   toggleBtn.addEventListener("click", () => {
@@ -254,10 +215,6 @@
   });
 
   tapBtn.addEventListener("click", tapAsh);
-
-  skipBtn.addEventListener("click", () => {
-    if (active) lightNew();
-  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && active && !wakeLock) {
@@ -270,7 +227,6 @@
   }
 
   smokeEls.forEach(el => el.style.display = "none");
-  renderClock();
   renderCigarette();
 </script>
 </body>
