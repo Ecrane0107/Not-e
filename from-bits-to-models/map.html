@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=1">
 </head>
 <body>
 <div class="shell">
@@ -21,36 +21,49 @@
         </svg>
         Menu
       </a>
+      <button class="browse-toggle" id="browseToggle" aria-expanded="false">
+        Search &amp; filter
+        <svg viewBox="0 0 12 12" width="9" height="9" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
-    <div class="rail-head">
-      <h1 class="wordmark">From bits<span>to models</span></h1>
-      <p class="blurb">Every concept sits below what it depends on. Begin at a marked entry point, or pick any concept to see the route there.</p>
-    </div>
-    <div class="search-wrap">
-      <input id="search" class="search" type="search" placeholder="Find a concept" aria-label="Find a concept">
-    </div>
-    <div class="rail-scroll">
-    <div class="goals" id="goals"></div>
-    <div class="starts" id="starts"></div>
-    <div class="lines" id="lines">
-      <p class="lines-title">Six lines run through the map</p>
-    </div>
-    </div>
-    <div class="rail-foot">
-      <div class="seg" role="group" aria-label="Flow direction">
-        <button class="ghost seg-btn" id="dirTB" aria-pressed="true">Top to bottom</button>
-        <button class="ghost seg-btn" id="dirLR" aria-pressed="false">Left to right</button>
+    <div class="rail-body" id="railBody">
+      <div class="rail-head">
+        <h1 class="wordmark">From bits<span>to models</span></h1>
+        <p class="blurb">Every concept sits below what it depends on. Begin at a marked entry point, or pick any concept to see the route there.</p>
       </div>
-      <button class="ghost" id="fit">Fit view</button>
-      <button class="ghost" id="relayout">Redraw layout</button>
-      <button class="ghost" id="copy">Copy data</button>
+      <div class="search-wrap">
+        <input id="search" class="search" type="search" placeholder="Find a concept" aria-label="Find a concept">
+      </div>
+      <div class="rail-scroll">
+      <div class="goals" id="goals"></div>
+      <div class="starts" id="starts"></div>
+      <div class="lines" id="lines">
+        <p class="lines-title">Six lines run through the map</p>
+      </div>
+      </div>
+      <div class="rail-foot">
+        <div class="seg" role="group" aria-label="Flow direction">
+          <button class="ghost seg-btn" id="dirTB" aria-pressed="true">Top to bottom</button>
+          <button class="ghost seg-btn" id="dirLR" aria-pressed="false">Left to right</button>
+        </div>
+        <button class="ghost" id="fit">Fit view</button>
+        <button class="ghost" id="relayout">Redraw layout</button>
+        <button class="ghost" id="copy">Copy data</button>
+      </div>
     </div>
   </aside>
 
   <main class="map">
     <canvas id="c" aria-label="Map of computer science concepts and their prerequisites"></canvas>
     <div class="grain" id="grain" aria-hidden="true"></div>
-    <p class="hint">Drag to pan · scroll to zoom · drag a concept to move it</p>
+    <p class="hint">Drag to pan · pinch or scroll to zoom · drag a concept to move it</p>
+    <div class="map-controls">
+      <button class="map-ctrl" id="zoomIn" aria-label="Zoom in">+</button>
+      <button class="map-ctrl" id="zoomOut" aria-label="Zoom out">&minus;</button>
+      <button class="map-ctrl map-ctrl--fit" id="zoomFit" aria-label="Fit to view">Fit</button>
+    </div>
   </main>
 
   <aside class="drawer" id="drawer" aria-live="polite"></aside>
@@ -82,6 +95,6 @@
 <script src="js/graph.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/render.js"></script>
-<script src="js/interaction.js"></script>
+<script src="js/interaction.js?v=1"></script>
 </body>
 </html>

@@ -14,8 +14,34 @@ function hitTest(sx, sy){
 
 let drag = null;
 
+// two-finger pinch to zoom -- touch has no wheel event, so without this
+// there was simply no way to zoom on a phone at all. Tracks every active
+// pointer by id; once a second one lands, drop any single-finger drag and
+// scale/pan from the pinch midpoint instead.
+const activePointers = new Map();
+let pinch = null;
+
+function pointerDistance(){
+  const [a, b] = activePointers.values();
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function pointerMidpoint(){
+  const [a, b] = activePointers.values();
+  return [(a.x + b.x) / 2, (a.y + b.y) / 2];
+}
+
 canvas.addEventListener("pointerdown", e => {
   canvas.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+
+  if (activePointers.size === 2) {
+    drag = null;
+    canvas.classList.remove("dragging");
+    pinch = { startDist: pointerDistance(), startK: cam.k, startCamX: cam.x, startCamY: cam.y, startMid: pointerMidpoint() };
+    return;
+  }
+  if (activePointers.size > 2) return; // ignore a third finger
+
   const n = hitTest(e.offsetX, e.offsetY);
   drag = n
     ? { kind:"node", node:n, sx:e.offsetX, sy:e.offsetY, ox:n.x, oy:n.y, moved:false }
@@ -24,6 +50,21 @@ canvas.addEventListener("pointerdown", e => {
 });
 
 canvas.addEventListener("pointermove", e => {
+  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+
+  if (pinch && activePointers.size === 2) {
+    const dist = pointerDistance();
+    const mid = pointerMidpoint();
+    const k = Math.min(2.2, Math.max(0.22, pinch.startK * (dist / pinch.startDist)));
+    const wx = (pinch.startMid[0] - pinch.startCamX) / pinch.startK;
+    const wy = (pinch.startMid[1] - pinch.startCamY) / pinch.startK;
+    cam.k = k;
+    cam.x = mid[0] - wx * k;
+    cam.y = mid[1] - wy * k;
+    dirty = true;
+    return;
+  }
+
   if (drag && e.buttons === 0) { endDrag(e); return; }
   if (drag) {
     const dx = e.offsetX - drag.sx, dy = e.offsetY - drag.sy;
@@ -46,9 +87,11 @@ function endDrag(e){
   }
   drag = null;
   canvas.classList.remove("dragging");
-  if (e && e.pointerId !== undefined && canvas.hasPointerCapture(e.pointerId)) {
-    canvas.releasePointerCapture(e.pointerId);
+  if (e && e.pointerId !== undefined) {
+    activePointers.delete(e.pointerId);
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   }
+  if (activePointers.size < 2) pinch = null;
 }
 
 canvas.addEventListener("pointerup", endDrag);
@@ -56,6 +99,41 @@ canvas.addEventListener("pointercancel", endDrag);
 canvas.addEventListener("lostpointercapture", () => { drag = null; canvas.classList.remove("dragging"); });
 // Backstop: if a pointerup was missed anywhere, the next move with no button ends it.
 window.addEventListener("pointerup", () => { if (drag) endDrag(); });
+
+// zoom +/- and fit-to-view buttons floating over the map -- a pinch gesture
+// isn't always discoverable, so this stays as a always-visible fallback
+function zoomBy(factor){
+  const k = Math.min(2.2, Math.max(0.22, cam.k * factor));
+  const cx = viewW / 2, cy = viewH / 2;
+  const [wx, wy] = toWorld(cx, cy);
+  cam.k = k;
+  cam.x = cx - wx * k;
+  cam.y = cy - wy * k;
+  dirty = true;
+}
+const zoomInBtn = document.getElementById("zoomIn");
+const zoomOutBtn = document.getElementById("zoomOut");
+const zoomFitBtn = document.getElementById("zoomFit");
+if (zoomInBtn) zoomInBtn.addEventListener("click", () => zoomBy(1.35));
+if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => zoomBy(1 / 1.35));
+if (zoomFitBtn) zoomFitBtn.addEventListener("click", () => fit());
+
+// mobile: the browse panel (search/filters) overlays the map instead of
+// pushing it down, so it starts collapsed and toggles open/closed
+const railEl = document.querySelector(".rail");
+const browseToggle = document.getElementById("browseToggle");
+if (browseToggle) {
+  browseToggle.addEventListener("click", () => {
+    const open = railEl.classList.toggle("open");
+    browseToggle.setAttribute("aria-expanded", String(open));
+  });
+}
+canvas.addEventListener("pointerdown", () => {
+  if (railEl.classList.contains("open")) {
+    railEl.classList.remove("open");
+    if (browseToggle) browseToggle.setAttribute("aria-expanded", "false");
+  }
+});
 
 canvas.addEventListener("pointerleave", () => {
   if (state.hover) { state.hover = null; dirty = true; }

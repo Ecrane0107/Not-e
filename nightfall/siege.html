@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
 
 <div class="hud" id="hud" hidden>
   <div class="hud-panel">
-    <div class="hud-row day"><span class="ic">&#127769;</span><span id="hudDay">Night 1</span></div>
+    <div class="hud-row day"><span class="ic">&#127769;</span><span id="hudDay">Night 1</span><button class="hud-toggle" id="hudToggle" aria-label="Show full stats" aria-expanded="false">&#9662;</button></div>
     <div class="hud-row"><span class="ic">&#128100;</span><span id="hudSurvivors">1</span><span class="lbl">/<span id="hudSurvivorsCap">24</span> survivors</span></div>
     <div class="hud-row"><span class="ic">&#127831;</span><span id="hudFood">10</span><span class="lbl">food</span></div>
     <div class="hud-row"><span class="ic">&#128299;</span><span id="hudAmmo">300</span><span class="lbl">ammo</span></div>
@@ -99,6 +99,6 @@
   </div>
 </div>
 
-<script type="module" src="game.js"></script>
+<script type="module" src="game.js?v=1"></script>
 </body>
 </html>

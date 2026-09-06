@@ -97,6 +97,22 @@ body{
 .hud-row .lbl{color:var(--ink-mid);font-weight:500;margin-left:2px}
 .hud-div{height:1px;background:var(--line);margin:1px 0}
 
+/* collapses the resource stats on mobile, where the panel otherwise sits
+   right over the 3d scene -- day + wall health stay visible either way
+   since those matter moment to moment during the fight */
+.hud-toggle{
+  display:none;
+  margin-left:auto;
+  background:none;
+  border:0;
+  color:var(--ink-mid);
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  padding:4px;
+  pointer-events:auto;
+}
+
 .wallbar{
   display:flex;
   align-items:center;
@@ -246,8 +262,14 @@ body{
   .back-btn{padding:6px 9px;font-size:0}
   .back-btn svg{width:11px;height:11px}
 
-  .hud-panel{top:52px;left:10px;min-width:148px;padding:9px 10px;gap:5px}
+  .hud-panel{top:52px;left:10px;min-width:132px;padding:9px 10px;gap:5px}
   .hud-row{font-size:11.5px}
   .wallbar{font-size:10px}
   .toast{top:60px;font-size:11.5px;padding:7px 13px}
+
+  /* collapsed by default: just the day counter + wall health, so the
+     panel stops covering the middle of the screen where the fight is */
+  .hud-toggle{display:inline-flex}
+  .hud-panel:not(.expanded) .hud-row:not(.day){display:none}
+  .hud-panel:not(.expanded) .hud-div{display:none}
 }

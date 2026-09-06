@@ -1257,4 +1257,16 @@ document.getElementById("btnConfirmTasks").addEventListener("click", () => {
   goToDay();
 });
 
+// on mobile the HUD starts collapsed to just the day counter + wall health
+// (see the CSS) so it doesn't sit over the middle of the 3d scene; this
+// just toggles the rest of the resource stats open on tap
+const hudToggle = document.getElementById("hudToggle");
+hudToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const panel = hudToggle.closest(".hud-panel");
+  const expanded = panel.classList.toggle("expanded");
+  hudToggle.setAttribute("aria-expanded", String(expanded));
+  hudToggle.innerHTML = expanded ? "&#9652;" : "&#9662;";
+});
+
 requestAnimationFrame(frame);
