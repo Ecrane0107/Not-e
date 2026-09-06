@@ -40,6 +40,19 @@ body{
   cursor:default;
 }
 
+/* the same ambient rig used on the main menu, layered over the 3d canvas
+   instead of behind page content -- sits above the game render but below
+   the HUD/overlays/buttons, and never eats a click */
+#skyFx{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:2;
+  pointer-events:none;
+  mix-blend-mode:screen;
+}
+
 .back-btn{
   position:fixed;
   top:14px;

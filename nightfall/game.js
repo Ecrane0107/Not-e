@@ -18,7 +18,13 @@ const WALL_IDS = ["N", "E", "S", "W"];
 const BASE_WALL_HP = 100;
 
 // world space: the house sits at the origin on a flat ground plane
-const GROUND_SIZE = 44;
+// bigger than the play field itself (SPAWN_EDGE below) -- the cinematic
+// camera's wide/overview shots roam out past the spawn ring, and a ground
+// plane that stopped right at the edge of play used to leave them staring
+// into the empty void past it; this gives the tree line something to
+// stand on and fog (see scene.fog below) fades the far edge out cleanly
+// well before it's reached
+const GROUND_SIZE = 90;
 const HOUSE_HALF_X = 4;
 const HOUSE_HALF_Z = 3;
 const HOUSE_HEIGHT = 2.6;
@@ -394,7 +400,10 @@ function makeGroundTexture() {
 
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(10, 10);
+  // scales with the ground plane's own size so the grass texel density
+  // stays put regardless of how big that plane is
+  const repeats = GROUND_SIZE / 4.4;
+  tex.repeat.set(repeats, repeats);
   return tex;
 }
 
@@ -491,7 +500,11 @@ scene.add(sun);
 // up top. Fog is disabled on both so they don't wash out with distance.
 function makeSkyDome() {
   const radius = 70;
-  const geo = new THREE.SphereGeometry(radius, 20, 14);
+  // enough segments to actually read as a round sky -- at only 20x14 the
+  // giant flat quads of a coarse sphere are big enough (each spans ~20+
+  // units at this radius) that one of them square-on to the camera reads
+  // as a huge flat panel floating in the sky instead of a smooth gradient
+  const geo = new THREE.SphereGeometry(radius, 40, 24);
   const top = new THREE.Color(0x03040a), bottom = new THREE.Color(0x1c2534);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
@@ -532,6 +545,48 @@ const ground = new THREE.Mesh(
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
+
+// a tree line scattered around the field beyond where zombies actually
+// spawn -- purely decoration (nothing here affects spawning or pathing),
+// but it gives the cinematic camera's wide/overview shots an actual
+// horizon to frame instead of empty grass fading into fog. Built once, at
+// startup, as a handful of shared geometries with per-instance tinted
+// materials (same trick as the zombies/survivors) so a whole forest ring
+// doesn't read as one tree copy-pasted.
+const treeTrunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 1.5, 6);
+const treeFoliageGeo = [0.95, 0.75, 0.55].map(r => new THREE.ConeGeometry(r, 1.3, 7));
+function makeTree() {
+  const group = new THREE.Group();
+  const trunk = new THREE.Mesh(treeTrunkGeo, tintedMaterial(0x4a3a26, 0.04, 0.1));
+  trunk.position.y = 0.75;
+  group.add(trunk);
+
+  const tierColor = 0x2e4b22;
+  let y = 1.4;
+  treeFoliageGeo.forEach((geo, i) => {
+    const cone = new THREE.Mesh(geo, tintedMaterial(tierColor, 0.05, 0.14));
+    cone.position.y = y + geo.parameters.height / 2 - 0.15;
+    group.add(cone);
+    y += geo.parameters.height * 0.62;
+  });
+
+  const scale = 0.75 + Math.random() * 0.7;
+  group.scale.setScalar(scale);
+  group.rotation.y = Math.random() * Math.PI * 2;
+  return group;
+}
+function scatterTrees(count) {
+  const outerEdge = GROUND_SIZE / 2 - 3;
+  const innerEdge = SPAWN_EDGE + 2.5; // stay clear of the spawn ring itself
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = innerEdge + Math.random() * (outerEdge - innerEdge);
+    const tree = makeTree();
+    tree.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    scene.add(tree);
+  }
+}
+scatterTrees(90);
 
 // no roof and no solid box — a pitched roof (or even a flat box top) just
 // hides everything from a steep top-down camera, so the house is an
