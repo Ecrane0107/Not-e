@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Standby</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="back-btn" href="../index.html">
+  <svg viewBox="0 0 12 12" width="10" height="10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  Menu
+</a>
+
+<div class="masthead">
+  <p class="eyebrow">System standby</p>
+</div>
+
+<div class="stage">
+  <canvas id="bg"></canvas>
+  <div class="vignette"></div>
+</div>
+
+<div class="clockface">
+  <div class="time" id="time" aria-live="off">
+    <span id="hm">00:00</span><span class="sec" id="sec">00</span>
+  </div>
+  <p class="date" id="date"></p>
+</div>
+
+<p class="hint">Press nothing. Just watch.</p>
+
+<script src="../assets/spiral-bg.js"></script>
+<script>
+  initSpiralBackground(document.getElementById("bg"), {
+    intensity: 1,
+    radiusScale: 0.26,
+    particleCount: 5,
+    cubeCount: 16,
+  });
+
+  const hmEl = document.getElementById("hm");
+  const secEl = document.getElementById("sec");
+  const dateEl = document.getElementById("date");
+  const dateFormat = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function tick() {
+    const now = new Date();
+    hmEl.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes());
+    secEl.textContent = pad(now.getSeconds());
+    dateEl.textContent = dateFormat.format(now);
+  }
+  tick();
+  setInterval(tick, 250);
+</script>
+</body>
+</html>

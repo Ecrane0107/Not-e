@@ -7,9 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
+<canvas id="bg"></canvas>
 <div class="page">
 
   <header>
@@ -93,19 +94,23 @@
       </span>
     </a>
 
-    <div class="tile placeholder" aria-disabled="true">
+    <a class="tile" href="ps2-clock/clock.html">
       <div class="icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
-          <path d="M4 15l4.5-4.5L12 14l3-3 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="9" cy="9" r="1.4" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <div>
-        <div class="label">Untitled project</div>
-        <div class="sub">Coming soon</div>
+        <div class="label">Standby</div>
+        <div class="sub">A PS2-style spiral clock</div>
       </div>
-    </div>
+      <span class="go" aria-hidden="true">
+        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+    </a>
 
     <div class="tile placeholder" aria-disabled="true">
       <div class="icon" aria-hidden="true">
@@ -138,5 +143,17 @@
   <footer>Created by Eastland Crane</footer>
 
 </div>
+
+<script src="assets/spiral-bg.js"></script>
+<script>
+  initSpiralBackground(document.getElementById("bg"), {
+    intensity: 0.32,
+    radiusScale: 0.1,
+    centerX: 0.88,
+    centerY: 0.16,
+    particleCount: 3,
+    cubeCount: 22,
+  });
+</script>
 </body>
 </html>
