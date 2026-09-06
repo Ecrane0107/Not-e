@@ -198,31 +198,68 @@
   // ease straight back to flat on mouseleave. The box's top/right faces
   // (built correctly now) are edge-on and invisible at rest by design;
   // hovering is what reveals the real depth.
-  const TILT_MAX = 14;
-  // below this width the CSS flattens tiles into a plain row list (see
-  // style.css) -- an inline transform here would fight that
+  //
+  // The cube is a true cube -- --depth is set to each tile's own
+  // measured width (equal to its height, since tiles are square), not a
+  // fixed fraction of it, so every face really is the same size. That
+  // means translateZ is now pushing the front face forward by a much
+  // bigger distance, which under perspective would visibly enlarge it
+  // even at rest (rotation 0) if the perspective distance stayed small
+  // -- PERSPECTIVE scales with depth too (a fixed ~40x multiple) so that
+  // magnification stays small and consistent regardless of tile size.
   const isMobileLayout = window.matchMedia("(max-width:560px)").matches;
-  function restTransform() {
-    return isMobileLayout ? "" : "perspective(2200px) rotateX(0deg) rotateY(0deg)";
-  }
-  const supportsHoverTilt = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const tiles = document.querySelectorAll("a.tile");
+  let PERSPECTIVE = 8000;
+  function syncTileDepth() {
+    tiles.forEach((tile) => {
+      const w = tile.offsetWidth;
+      if (w > 0) tile.style.setProperty("--depth", w + "px");
+    });
+    const first = tiles[0];
+    if (first && first.offsetWidth > 0) PERSPECTIVE = first.offsetWidth * 40;
+  }
+  syncTileDepth();
+  window.addEventListener("resize", syncTileDepth);
+
+  function restTransform() {
+    return isMobileLayout ? "" : `perspective(${PERSPECTIVE}px) rotateX(0deg) rotateY(0deg)`;
+  }
+
+  // holding the cursor near a corner/edge tilts the cube further the
+  // longer it stays there, instead of jumping straight to a fixed tilt
+  // for that position -- BASE is the immediate response, EXTRA ramps in
+  // over RAMP_MS of continuous hovering on top of it
+  const BASE_TILT_MAX = 8;
+  const EXTRA_TILT_MAX = 16;
+  const RAMP_MS = 900;
+  const supportsHoverTilt = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   tiles.forEach((tile) => {
     tile.style.transform = restTransform();
 
     if (supportsHoverTilt) {
+      let px = 0, py = 0, enterTime = 0, rafId = null;
+
+      function frame(now) {
+        const dwell = Math.min(1, (now - enterTime) / RAMP_MS);
+        const max = BASE_TILT_MAX + EXTRA_TILT_MAX * dwell;
+        const rx = -py * max;
+        const ry = px * max;
+        tile.style.transform = `perspective(${PERSPECTIVE}px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+        rafId = requestAnimationFrame(frame);
+      }
+
       tile.addEventListener("mouseenter", () => {
         tile.style.transition = "none";
+        enterTime = performance.now();
+        if (rafId == null) rafId = requestAnimationFrame(frame);
       });
       tile.addEventListener("mousemove", (e) => {
         const r = tile.getBoundingClientRect();
-        const px = (e.clientX - r.left) / r.width - 0.5;
-        const py = (e.clientY - r.top) / r.height - 0.5;
-        const rx = -py * TILT_MAX;
-        const ry = px * TILT_MAX;
-        tile.style.transform = `perspective(2200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+        px = (e.clientX - r.left) / r.width - 0.5;
+        py = (e.clientY - r.top) / r.height - 0.5;
       });
       tile.addEventListener("mouseleave", () => {
+        if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
         tile.style.transition = "transform .35s ease";
         tile.style.transform = restTransform();
       });
