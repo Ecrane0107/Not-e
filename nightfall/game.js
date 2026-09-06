@@ -589,18 +589,26 @@ function scatterTrees(count) {
 scatterTrees(90);
 
 // ---------------------------------------------------------------
-// a distant sky beacon -- an actual object sitting out in the world past
-// the tree line, not a 2d overlay glued to the screen. A ring of glowing
-// rods (random color per rod) that slowly spins, plus a few small lights
-// orbiting it that trail a short fading tracer. Because it's real
-// geometry at a fixed world position, the cinematic camera sees it the
-// way it sees everything else -- perspective, parallax, and the house or
-// tree line can pass in front of it -- instead of it always being
-// stapled flat over whatever's on screen. fog:false on every material
-// here so it stays a crisp, visible landmark out at the edge of the fog
+// a distant landmark out on the fighting field -- an actual object
+// sitting on the same ground level as the house and the zombies, just
+// far off past the tree line, not a 2d overlay glued to the screen and
+// not floating up in the sky. One solid color, rolled randomly per
+// load (not a rainbow of per-rod hues), for the whole ring plus its
+// orbiting lights and their tracers. Because it's real geometry at a
+// fixed world position, the cinematic camera sees it the way it sees
+// everything else -- perspective, parallax, the tree line can pass in
+// front of it -- and nothing in the shot-picking logic ever deliberately
+// aims at it; it only shows up when a shot happens to look that way,
+// same as any other piece of scenery. fog:false on every material here
+// so it stays a crisp, visible landmark out at the edge of the fog
 // instead of drowning in it the way the ground/trees do at that range.
 // ---------------------------------------------------------------
-const SPIRAL_POS = new THREE.Vector3(-38, 20, -38);
+const SPIRAL_HUE = Math.floor(Math.random() * 360);
+const SPIRAL_ROD_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 70%, 55%)`);
+const SPIRAL_CAP_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 80%, 72%)`);
+const SPIRAL_LIGHT_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 85%, 78%)`);
+
+const SPIRAL_POS = new THREE.Vector3(-38, 2, -38);
 const spiralGroup = new THREE.Group();
 spiralGroup.position.copy(SPIRAL_POS);
 scene.add(spiralGroup);
@@ -610,10 +618,9 @@ const SPIRAL_ROD_LEN = 5;
 const SPIRAL_ROD_INNER = 1.6;
 for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
   const angle = (i / SPIRAL_ROD_COUNT) * Math.PI * 2;
-  const hue = Math.floor(Math.random() * 360);
   const rod = new THREE.Mesh(
     new THREE.CylinderGeometry(0.16, 0.16, SPIRAL_ROD_LEN, 6),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 75%, 62%)`), fog: false }),
+    new THREE.MeshBasicMaterial({ color: SPIRAL_ROD_COLOR, fog: false }),
   );
   rod.rotation.z = Math.PI / 2; // lay it flat -- long axis now along local +x
   rod.rotation.y = -angle;      // swing that axis out to this rod's angle
@@ -621,11 +628,11 @@ for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
   rod.position.set(Math.cos(angle) * mid, 0, Math.sin(angle) * mid);
   spiralGroup.add(rod);
 
-  // small bright cap at the outer tip, echoing the rod's own hue but
-  // lighter -- reads as a lit tip rather than a bare cylinder end
+  // small bright cap at the outer tip, same hue but lighter -- reads as
+  // a lit tip rather than a bare cylinder end
   const cap = new THREE.Mesh(
     new THREE.SphereGeometry(0.24, 6, 5),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 80%, 80%)`), fog: false }),
+    new THREE.MeshBasicMaterial({ color: SPIRAL_CAP_COLOR, fog: false }),
   );
   cap.position.set(Math.cos(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN), 0, Math.sin(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN));
   spiralGroup.add(cap);
@@ -633,15 +640,13 @@ for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
 
 const SPIRAL_LIGHT_COUNT = 4;
 const spiralLights = Array.from({ length: SPIRAL_LIGHT_COUNT }, () => {
-  const hue = Math.floor(Math.random() * 360);
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.28, 8, 6),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 85%, 78%)`), fog: false }),
+    new THREE.MeshBasicMaterial({ color: SPIRAL_LIGHT_COLOR, fog: false }),
   );
   spiralGroup.add(mesh);
   return {
     mesh,
-    hue,
     radius: 3 + Math.random() * 4,
     speed: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.4),
     phase: Math.random() * Math.PI * 2,
@@ -671,7 +676,7 @@ function updateSpiralBeacon(now, dt) {
       l.trailTimer = 0.06;
       const geo = new THREE.BufferGeometry().setFromPoints([l.lastTrailPos, l.mesh.position.clone()]);
       const mat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(`hsl(${l.hue}, 85%, 75%)`),
+        color: SPIRAL_LIGHT_COLOR,
         transparent: true, opacity: 0.8, fog: false,
       });
       const line = new THREE.Line(geo, mat);
@@ -2174,12 +2179,6 @@ function pickBusyWall() {
 }
 const WALL_OUTWARD = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 
-// the sky beacon's compass direction from the house -- used to sometimes
-// aim the wide-angle establishing shot its way so it shows up as part of
-// the scenery (same as it would show the tree line or a busy wall),
-// rather than needing a dedicated shot type of its own
-const SPIRAL_ANGLE = Math.atan2(SPIRAL_POS.x, SPIRAL_POS.z);
-
 // tries each shot type in a shuffled order and commits to the first one
 // that actually has something to point at (overview never fails, so
 // there's always a fallback) -- deprioritizes, rather than forbids,
@@ -2218,18 +2217,12 @@ function startCinematicShot() {
       return;
     }
     if (type === "wideAngle") {
-      let baseAngle;
-      if (Math.random() < 0.3) {
-        baseAngle = SPIRAL_ANGLE + (Math.random() - 0.5) * 0.7;
-      } else {
-        const wall = pickBusyWall();
-        const [dx, dz] = WALL_OUTWARD[wall];
-        baseAngle = Math.atan2(dx, dz) + (Math.random() - 0.5) * 1.1;
-      }
+      const wall = pickBusyWall();
+      const [dx, dz] = WALL_OUTWARD[wall];
       shot = {
         type, start: performance.now(),
         duration: 6500 + Math.random() * 3000,
-        angle: baseAngle,
+        angle: Math.atan2(dx, dz) + (Math.random() - 0.5) * 1.1,
         angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.03 + Math.random() * 0.05),
         radius: 24 + Math.random() * 10,
         height: 11 + Math.random() * 7,
