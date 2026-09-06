@@ -13,7 +13,7 @@ import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
 // gameplay constants
 // ---------------------------------------------------------------
 const BASE_MAX_SURVIVORS = 24; // the house alone can shelter this many
-const TOWER_GARRISON_CAP = 5; // and each built tower can hold 5 more, both as a garrison limit and as extra population capacity
+const TRENCH_GARRISON_CAP = 10; // and each dug trench can hold 10 more, both as a garrison limit and as extra population capacity
 const WALL_IDS = ["N", "E", "S", "W"];
 const BASE_WALL_HP = 100;
 
@@ -57,20 +57,25 @@ const WINDOW_SLOTS = {};
 WALL_IDS.forEach(w => { WINDOW_SLOTS[w] = computeWindowSlots(w); });
 const STATION_CAP = 6; // 2 windows x 3 slots
 
-// corner towers — built with survivors+supplies, manually garrisoned each
-// dawn, positioned diagonally outside the house (N is -z, E is +x, per the
-// wall convention above)
-const TOWER_IDS = ["NE", "NW", "SE", "SW"];
-const TOWER_OFFSET = 2.2;
-const TOWER_POS = {
-  NE: { x: HOUSE_HALF_X + TOWER_OFFSET, z: -(HOUSE_HALF_Z + TOWER_OFFSET) },
-  NW: { x: -(HOUSE_HALF_X + TOWER_OFFSET), z: -(HOUSE_HALF_Z + TOWER_OFFSET) },
-  SE: { x: HOUSE_HALF_X + TOWER_OFFSET, z: HOUSE_HALF_Z + TOWER_OFFSET },
-  SW: { x: -(HOUSE_HALF_X + TOWER_OFFSET), z: HOUSE_HALF_Z + TOWER_OFFSET },
+// trenches — dug with survivors+supplies, manually garrisoned each dawn,
+// one per wall side (not corners): each is a straight line running the
+// full width of that side PLUS enough extra to reach past the house's
+// corners, so once all four are dug their ends exactly meet up into one
+// continuous perimeter ring around the house.
+const TRENCH_OFFSET = 3.2; // how far out from the house wall the trench line sits
+const TRENCH_HALF_X = HOUSE_HALF_X + TRENCH_OFFSET; // the ring's corner extents
+const TRENCH_HALF_Z = HOUSE_HALF_Z + TRENCH_OFFSET;
+const TRENCH_POS = {
+  N: { x: 0, z: -TRENCH_HALF_Z },
+  S: { x: 0, z: TRENCH_HALF_Z },
+  E: { x: TRENCH_HALF_X, z: 0 },
+  W: { x: -TRENCH_HALF_X, z: 0 },
 };
-const TOWER_LABEL = { NE: "Northeast tower", NW: "Northwest tower", SE: "Southeast tower", SW: "Southwest tower" };
-const TOWER_SUPPLY_COST = 50;
-const TOWER_SURVIVOR_COST = 4;
+const TRENCH_LEN = { N: TRENCH_HALF_X * 2, S: TRENCH_HALF_X * 2, E: TRENCH_HALF_Z * 2, W: TRENCH_HALF_Z * 2 };
+const TRENCH_LABEL = { N: "North trench", E: "East trench", S: "South trench", W: "West trench" };
+const TRENCH_SUPPLY_COST = 50;
+const TRENCH_SURVIVOR_COST = 4;
+const TRENCH_BASE_HP = 90; // its own pool, separate from the wall it's shielding -- losing it doesn't end the game
 
 // melee fallback: point-blank or out of ammo, defenders switch to spears
 const MELEE_DMG = 4;
@@ -85,18 +90,24 @@ function freshState() {
     day: 1,
     survivors: 3,
     assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night, house crew only
-    towerAssignment: { NE: 0, NW: 0, SE: 0, SW: 0 }, // set manually on the day screen
+    trenchAssignment: { N: 0, E: 0, S: 0, W: 0 }, // set manually on the day screen
     food: 30,
     ammo: 300,
     supplies: 0,
     reputation: 0, // resolves into recruits at the end of each successful night, then resets
     weaponTier: 1,
-    towers: [], // built tower ids, in build order
+    trenches: [], // dug trench ids (wall sides), in build order
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
       E: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
       S: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
       W: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
+    },
+    trenchHp: {
+      N: { hp: TRENCH_BASE_HP, max: TRENCH_BASE_HP },
+      E: { hp: TRENCH_BASE_HP, max: TRENCH_BASE_HP },
+      S: { hp: TRENCH_BASE_HP, max: TRENCH_BASE_HP },
+      W: { hp: TRENCH_BASE_HP, max: TRENCH_BASE_HP },
     },
     kills: 0,
     nightsSurvived: 0,
@@ -107,14 +118,17 @@ let S = freshState();
 // runtime-only (not persisted between nights)
 let zombies = [];
 let bullets = [];
-let fireCooldown = { N: 0, E: 0, S: 0, W: 0, NE: 0, NW: 0, SE: 0, SW: 0 };
+let fireCooldown = { N: 0, E: 0, S: 0, W: 0 }; // house window guns
+let trenchFireCooldown = { N: 0, E: 0, S: 0, W: 0 }; // trench garrisons, tracked separately from the house guns on the same side
 let spawnTimer = 0;
 let breached = false;
 let autoAssignTimer = 0;
 let zombiesSpawnedThisNight = 0;
 let zombiesTotalThisNight = 0;
-let currentTarget = { N: null, E: null, S: null, W: null, NE: null, NW: null, SE: null, SW: null }; // per-wall/tower target lock
-let wallMeleeMode = { N: false, E: false, S: false, W: false }; // is this wall currently spear-fighting?
+let currentTarget = { N: null, E: null, S: null, W: null }; // house window target lock, per wall
+let currentTrenchTarget = { N: null, E: null, S: null, W: null }; // trench garrison target lock, per wall
+let wallMeleeMode = { N: false, E: false, S: false, W: false }; // is this wall's house crew currently spear-fighting?
+let trenchMeleeMode = { N: false, E: false, S: false, W: false }; // is this trench's garrison currently spear-fighting?
 
 // ---------------------------------------------------------------
 // DOM
@@ -305,50 +319,123 @@ function updateWallGlow() {
 }
 
 // ---------------------------------------------------------------
-// corner towers
+// trenches — one straight dug line per wall side, built to meet its
+// neighbors at the house's corners once all four exist. A low earth
+// parapet with barbed wire runs along the outward edge; the garrison
+// stands in the recessed floor behind it, facing out.
 // ---------------------------------------------------------------
-function buildTowerMesh(pos) {
+const TRENCH_FLOOR_DEPTH = 1.3; // how wide the walkway is, across the wall's axis
+const TRENCH_PARAPET_OFFSET = 0.65; // how much further out the raised lip + wire sit, beyond the floor line
+const trenchFloorMat = flatMaterial(0x35301f);
+const trenchParapetMat = flatMaterial(0x5a4a30);
+const wireMat = new THREE.LineBasicMaterial({ color: 0x8a8a82 });
+const wirePostMat = flatMaterial(0x40382a);
+
+// the trench floor's own fixed (perpendicular) coordinate, and the
+// parapet's -- pushed the same direction, further from the house
+function trenchFixed(id) { return WALL_AXIS[id] === "x" ? TRENCH_POS[id].z : TRENCH_POS[id].x; }
+function trenchPoint(id, along) {
+  const fixed = trenchFixed(id);
+  return WALL_AXIS[id] === "x" ? { x: along, z: fixed } : { x: fixed, z: along };
+}
+
+function buildTrenchMesh(id) {
   const group = new THREE.Group();
-  const postH = 2.2;
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, postH, 6), flatMaterial(0x5a4a35));
-  post.position.y = postH / 2;
-  group.add(post);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 1.5), flatMaterial(0x6b5a3f));
-  deck.position.y = postH + 0.075;
-  group.add(deck);
-  const railMat = flatMaterial(0x4a3d2c);
-  [[-0.65, -0.65], [0.65, -0.65], [-0.65, 0.65], [0.65, 0.65]].forEach(([x, z]) => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), railMat);
-    rail.position.set(x, postH + 0.4, z);
-    group.add(rail);
+  const axis = WALL_AXIS[id];
+  const len = TRENCH_LEN[id];
+  const fixed = trenchFixed(id);
+  const parapetFixed = fixed + Math.sign(fixed) * TRENCH_PARAPET_OFFSET;
+
+  const floorGeo = axis === "x"
+    ? new THREE.BoxGeometry(len, 0.1, TRENCH_FLOOR_DEPTH)
+    : new THREE.BoxGeometry(TRENCH_FLOOR_DEPTH, 0.1, len);
+  const floor = new THREE.Mesh(floorGeo, trenchFloorMat);
+  floor.position.set(axis === "x" ? 0 : fixed, -0.08, axis === "x" ? fixed : 0);
+  group.add(floor);
+
+  const parapetH = 0.55;
+  const parapetGeo = axis === "x"
+    ? new THREE.BoxGeometry(len, parapetH, 0.35)
+    : new THREE.BoxGeometry(0.35, parapetH, len);
+  const parapet = new THREE.Mesh(parapetGeo, trenchParapetMat);
+  parapet.position.set(axis === "x" ? 0 : parapetFixed, parapetH / 2, axis === "x" ? parapetFixed : 0);
+  group.add(parapet);
+
+  // barbed wire: posts at intervals along the parapet, with two sagging
+  // strands (a jagged little zigzag) strung between each consecutive pair
+  const postGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4, 5);
+  const postSpacing = 1.5;
+  const postCount = Math.max(2, Math.round(len / postSpacing) + 1);
+  const posts = [];
+  for (let i = 0; i < postCount; i++) {
+    const t = postCount === 1 ? 0 : (i / (postCount - 1)) * len - len / 2;
+    const p = axis === "x" ? { x: t, z: parapetFixed } : { x: parapetFixed, z: t };
+    const post = new THREE.Mesh(postGeo, wirePostMat);
+    post.position.set(p.x, parapetH + 0.2, p.z);
+    group.add(post);
+    posts.push(p);
+  }
+  [0.18, 0.36].forEach(dy => {
+    for (let i = 0; i < posts.length - 1; i++) {
+      const a = posts[i], b = posts[i + 1];
+      const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+      const y = parapetH + 0.32 + dy;
+      const pts = [
+        new THREE.Vector3(a.x, y, a.z),
+        new THREE.Vector3(mid.x, y - 0.06, mid.z),
+        new THREE.Vector3(b.x, y, b.z),
+      ];
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat);
+      group.add(line);
+    }
   });
-  group.position.set(pos.x, 0, pos.z);
+
+  // a health bar hovering over the middle of the line, sized to the
+  // trench's own length and shrinking from the center as it takes damage
+  const barY = parapetH + 1.1;
+  const barW = len * 0.85;
+  const barH = 0.28;
+  const bgGeo = new THREE.PlaneGeometry(barW, barH);
+  bgGeo.rotateX(-Math.PI / 2);
+  if (axis === "z") bgGeo.rotateY(Math.PI / 2);
+  const bg = new THREE.Mesh(bgGeo, hpBarBgMat);
+  bg.position.set(axis === "x" ? 0 : fixed, barY, axis === "x" ? fixed : 0);
+  group.add(bg);
+
+  const fgGeo = new THREE.PlaneGeometry(barW, barH);
+  fgGeo.rotateX(-Math.PI / 2);
+  if (axis === "z") fgGeo.rotateY(Math.PI / 2);
+  const fg = new THREE.Mesh(fgGeo, new THREE.MeshBasicMaterial({ color: 0xd8a24a }));
+  fg.position.set(axis === "x" ? 0 : fixed, barY + 0.001, axis === "x" ? fixed : 0);
+  group.add(fg);
+  group.userData.hpFg = fg;
+
   return group;
 }
 
-const towerMeshes = {};
-function ensureTowerBuilt(id) {
-  if (towerMeshes[id]) return;
-  const mesh = buildTowerMesh(TOWER_POS[id]);
+const trenchMeshes = {};
+function ensureTrenchBuilt(id) {
+  if (trenchMeshes[id]) return;
+  const mesh = buildTrenchMesh(id);
   scene.add(mesh);
-  towerMeshes[id] = mesh;
+  trenchMeshes[id] = mesh;
+  S.trenchHp[id] = { hp: TRENCH_BASE_HP, max: TRENCH_BASE_HP };
+  addTrenchHudRow(id);
 }
-function clearTowerMeshes() {
-  Object.keys(towerMeshes).forEach(id => { scene.remove(towerMeshes[id]); delete towerMeshes[id]; });
+function clearTrenchMeshes() {
+  Object.keys(trenchMeshes).forEach(id => { scene.remove(trenchMeshes[id]); delete trenchMeshes[id]; });
+  removeAllTrenchHudRows();
 }
-
-// a tower can shoot in any direction except through the house itself —
-// sample along the line to the target and reject if any point falls
-// inside the house's footprint
-function hasLineOfSight(fromPos, toPos) {
-  const steps = 12;
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps;
-    const x = fromPos.x + (toPos.x - fromPos.x) * t;
-    const z = fromPos.z + (toPos.z - fromPos.z) * t;
-    if (Math.abs(x) < HOUSE_HALF_X && Math.abs(z) < HOUSE_HALF_Z) return false;
-  }
-  return true;
+function updateTrenchHpBars() {
+  WALL_IDS.forEach(id => {
+    const mesh = trenchMeshes[id];
+    if (!mesh) return;
+    const t = S.trenchHp[id];
+    const frac = Math.max(0, t.hp / t.max);
+    const fg = mesh.userData.hpFg;
+    fg.scale.x = frac;
+    fg.material.color.setHex(frac > 0.4 ? 0xd8a24a : 0xc0392b);
+  });
 }
 
 function onResize() {
@@ -500,7 +587,7 @@ const WALL_FACE_ANGLE = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 };
 // station instead of snapping there — real (if simple) movement. Sized to
 // the most that could ever be stationed at house windows at once (every
 // wall fully garrisoned), independent of the overall population cap —
-// most of the population beyond this is in towers, not at a window.
+// most of the population beyond this is in trenches, not at a window.
 const HOUSE_STATION_POOL_SIZE = WALL_IDS.length * STATION_CAP;
 const survivorPool = Array.from({ length: HOUSE_STATION_POOL_SIZE }, () => ({
   mesh: createSurvivorMesh(),
@@ -614,6 +701,127 @@ function updateSurvivorWeaponVisual() {
   });
 }
 
+// ---------------------------------------------------------------
+// trench garrisons — same pool/movement/aiming shape as the house window
+// crew above, just stationed along a dug trench line instead of at a
+// window, and visible: this is the actual point of "we want to see the
+// survivors in the trenches"
+// ---------------------------------------------------------------
+function trenchSlotOffsets(id) {
+  const axis = WALL_AXIS[id];
+  const half = (axis === "x" ? TRENCH_HALF_X : TRENCH_HALF_Z) - 1; // stay a bit inside the ends
+  const cap = TRENCH_GARRISON_CAP;
+  const offsets = [];
+  for (let i = 0; i < cap; i++) {
+    const t = cap === 1 ? 0 : (i / (cap - 1)) * 2 - 1; // -1..1
+    offsets.push(t * half);
+  }
+  return offsets;
+}
+const TRENCH_SLOTS = {};
+WALL_IDS.forEach(id => { TRENCH_SLOTS[id] = trenchSlotOffsets(id); });
+
+const TRENCH_STATION_POOL_SIZE = WALL_IDS.length * TRENCH_GARRISON_CAP;
+const trenchSurvivorPool = Array.from({ length: TRENCH_STATION_POOL_SIZE }, () => ({
+  mesh: createSurvivorMesh(),
+  target: { x: 0, z: 0 },
+  facing: 0,
+  trench: null,
+  slot: null,
+}));
+
+// manually set on the day screen (not auto-reshuffled during the fight),
+// so this only needs to run when that assignment changes or a night starts
+function assignTrenchStations() {
+  const needed = [];
+  WALL_IDS.forEach(id => {
+    if (!S.trenches.includes(id)) return;
+    const crew = Math.min(S.trenchAssignment[id] || 0, TRENCH_GARRISON_CAP);
+    for (let i = 0; i < crew; i++) needed.push({ trench: id, slot: i });
+  });
+
+  const stillNeeded = needed.slice();
+  const keep = new Set();
+  trenchSurvivorPool.forEach(p => {
+    if (!p.mesh.visible || p.trench == null) return;
+    const idx = stillNeeded.findIndex(n => n.trench === p.trench && n.slot === p.slot);
+    if (idx !== -1) { stillNeeded.splice(idx, 1); keep.add(p); }
+  });
+
+  const displaced = trenchSurvivorPool.filter(p => p.mesh.visible && !keep.has(p));
+  const idle = trenchSurvivorPool.filter(p => !p.mesh.visible);
+  const available = [...displaced, ...idle];
+
+  stillNeeded.forEach(station => {
+    const p = available.shift();
+    if (!p) return;
+    const slots = TRENCH_SLOTS[station.trench];
+    const fixedVal = trenchFixed(station.trench);
+    const axis = WALL_AXIS[station.trench];
+    const off = slots[station.slot];
+    p.target.x = axis === "x" ? off : fixedVal;
+    p.target.z = axis === "z" ? off : fixedVal;
+    p.trench = station.trench;
+    p.slot = station.slot;
+    if (!p.mesh.visible) {
+      p.mesh.visible = true;
+      p.mesh.position.set(0, 0, 0); // was truly idle — walk out from the house's center
+      p.facing = WALL_FACE_ANGLE[station.trench];
+    }
+  });
+
+  available.forEach(p => { p.mesh.visible = false; p.trench = null; p.slot = null; });
+}
+
+function updateTrenchSurvivorMovement(dt) {
+  trenchSurvivorPool.forEach(p => {
+    if (!p.mesh.visible) return;
+    const dx = p.target.x - p.mesh.position.x;
+    const dz = p.target.z - p.mesh.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 0.03) {
+      const step = Math.min(dist, SURVIVOR_SPEED * dt);
+      p.mesh.position.x += (dx / dist) * step;
+      p.mesh.position.z += (dz / dist) * step;
+      p.mesh.rotation.y = Math.atan2(dx, dz);
+    } else {
+      let delta = p.facing - p.mesh.rotation.y;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      const step = Math.max(-AIM_TURN_SPEED * dt, Math.min(AIM_TURN_SPEED * dt, delta));
+      p.mesh.rotation.y += step;
+    }
+  });
+}
+
+// tracks whatever's still actually fighting the trench itself; once a
+// zombie gets past it and on to the house wall, this garrison goes back
+// to facing outward rather than tracking it further
+function updateTrenchSurvivorAiming() {
+  trenchSurvivorPool.forEach(p => {
+    if (!p.mesh.visible || p.trench == null) return;
+    let best = null, bestDist = Infinity;
+    for (const z of zombies) {
+      if (z.wall !== p.trench || !z.stageTrench) continue;
+      const d = Math.hypot(z.x - p.mesh.position.x, z.z - p.mesh.position.z);
+      if (d < bestDist) { bestDist = d; best = z; }
+    }
+    if (best) {
+      p.facing = Math.atan2(best.x - p.mesh.position.x, best.z - p.mesh.position.z);
+    } else {
+      p.facing = WALL_FACE_ANGLE[p.trench];
+    }
+  });
+}
+
+function updateTrenchSurvivorWeaponVisual() {
+  trenchSurvivorPool.forEach(p => {
+    if (!p.mesh.visible || p.trench == null) return;
+    const melee = !!trenchMeleeMode[p.trench];
+    p.mesh.userData.gun.visible = !melee;
+    p.mesh.userData.spear.visible = melee;
+  });
+}
+
 const bulletMaterial = new THREE.LineBasicMaterial({ color: 0xf4e6b8 });
 function spawnBullet(from, target) {
   const geo = new THREE.BufferGeometry().setFromPoints([
@@ -682,11 +890,15 @@ const TASKS = [
     apply: (s, n) => { s.supplies += n * 5; },
   },
   {
-    id: "repair", icon: "\u{1F9F1}", title: "Repair walls", unit: "% hp, every wall",
+    id: "repair", icon: "\u{1F9F1}", title: "Repair walls & trenches", unit: "% hp, every wall + trench",
     gain: n => n * 5,
     // never a full heal in one go — each survivor assigned patches 5% of
-    // a wall's max hp, capped at that wall's own max
-    apply: (s, n) => { WALL_IDS.forEach(w => { const wl = s.walls[w]; wl.hp = Math.min(wl.max, wl.hp + wl.max * 0.05 * n); }); },
+    // max hp, capped at its own max. Covers every house wall plus any
+    // trenches already dug.
+    apply: (s, n) => {
+      WALL_IDS.forEach(w => { const wl = s.walls[w]; wl.hp = Math.min(wl.max, wl.hp + wl.max * 0.05 * n); });
+      s.trenches.forEach(id => { const t = s.trenchHp[id]; t.hp = Math.min(t.max, t.hp + t.max * 0.05 * n); });
+    },
   },
   {
     // flat cost of 2 survivors per tier, whatever tier you're currently at
@@ -695,24 +907,24 @@ const TASKS = [
     apply: (s, n) => { s.weaponTier += Math.floor(n / 2); },
   },
   {
-    // costs TOWER_SURVIVOR_COST survivors AND TOWER_SUPPLY_COST supplies
-    // per tower — supplies scavenged in this same batch of tasks (the
+    // costs TRENCH_SURVIVOR_COST survivors AND TRENCH_SUPPLY_COST supplies
+    // per trench — supplies scavenged in this same batch of tasks (the
     // "supplies" task above runs first) count toward it
-    id: "tower", icon: "\u{1F3F0}", title: "Build a tower", unit: "tower",
+    id: "trench", icon: "\u{1F6A7}", title: "Dig a trench", unit: "trench",
     preview: n => {
-      const wanted = Math.floor(n / TOWER_SURVIVOR_COST);
-      const slotsLeft = TOWER_IDS.length - S.towers.length;
-      if (slotsLeft <= 0) return "all 4 towers already built";
-      if (wanted <= 0) return "needs " + TOWER_SURVIVOR_COST + " survivors + " + TOWER_SUPPLY_COST + " supplies each";
-      return "+" + Math.min(wanted, slotsLeft) + " tower" + (wanted > 1 ? "s" : "") + " (supplies allowing)";
+      const wanted = Math.floor(n / TRENCH_SURVIVOR_COST);
+      const slotsLeft = WALL_IDS.length - S.trenches.length;
+      if (slotsLeft <= 0) return "all 4 trenches already dug";
+      if (wanted <= 0) return "needs " + TRENCH_SURVIVOR_COST + " survivors + " + TRENCH_SUPPLY_COST + " supplies each";
+      return "+" + Math.min(wanted, slotsLeft) + " trench" + (wanted > 1 ? "es" : "") + " (supplies allowing)";
     },
     apply: (s, n) => {
-      let toBuild = Math.floor(n / TOWER_SURVIVOR_COST);
-      while (toBuild > 0 && s.towers.length < TOWER_IDS.length && s.supplies >= TOWER_SUPPLY_COST) {
-        s.supplies -= TOWER_SUPPLY_COST;
-        const next = TOWER_IDS.find(id => !s.towers.includes(id));
-        s.towers.push(next);
-        ensureTowerBuilt(next);
+      let toBuild = Math.floor(n / TRENCH_SURVIVOR_COST);
+      while (toBuild > 0 && s.trenches.length < WALL_IDS.length && s.supplies >= TRENCH_SUPPLY_COST) {
+        s.supplies -= TRENCH_SUPPLY_COST;
+        const next = WALL_IDS.find(id => !s.trenches.includes(id));
+        s.trenches.push(next);
+        ensureTrenchBuilt(next);
         toBuild--;
       }
     },
@@ -773,10 +985,13 @@ function updateTaskUI() {
 // into world units; damage-over-time and hp values are unaffected
 // by the coordinate-space change)
 // ---------------------------------------------------------------
+// night 1's zombie hp is the baseline; every night after that they come in
+// 1.05x tougher than the last (compounding, same shape as the ammo curve)
+const ZOMBIE_HP_BASE = 9.6;
 function difficultyForDay(day) {
   return {
     spawnInterval: Math.max(0.35, 1.9 - day * 0.09),
-    zombieHp: 8 + day * 1.6,
+    zombieHp: ZOMBIE_HP_BASE * Math.pow(1.05, day - 1),
     zombieSpeed: (15 + day * 0.7) / 9.6,
     zombieDamage: 5 + day * 0.5,
     bruteChance: Math.min(0.35, Math.max(0, (day - 3) * 0.05)),
@@ -789,63 +1004,63 @@ function totalZombiesForNight(day) {
 }
 
 // ---------------------------------------------------------------
-// UI: day screen — includes manually garrisoning any built towers;
+// UI: day screen — includes manually garrisoning any dug trenches;
 // whatever's left over defends the house via the usual auto-assignment
 // ---------------------------------------------------------------
 function housePersonnel() {
-  return S.survivors - TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
+  return S.survivors - WALL_IDS.reduce((a, id) => a + (S.trenchAssignment[id] || 0), 0);
 }
 
-// total population capacity: the house's base capacity, plus 5 more for
-// every tower built (a tower can garrison up to 5 on its own)
+// total population capacity: the house's base capacity, plus 10 more for
+// every trench dug (a trench can garrison up to 10 on its own)
 function maxSurvivorCap() {
-  return BASE_MAX_SURVIVORS + TOWER_GARRISON_CAP * S.towers.length;
+  return BASE_MAX_SURVIVORS + TRENCH_GARRISON_CAP * S.trenches.length;
 }
 
-function clampTowerAssignment() {
-  // no single tower holds more than TOWER_GARRISON_CAP
-  TOWER_IDS.forEach(id => {
-    if (S.towerAssignment[id] > TOWER_GARRISON_CAP) S.towerAssignment[id] = TOWER_GARRISON_CAP;
+function clampTrenchAssignment() {
+  // no single trench holds more than TRENCH_GARRISON_CAP
+  WALL_IDS.forEach(id => {
+    if (S.trenchAssignment[id] > TRENCH_GARRISON_CAP) S.trenchAssignment[id] = TRENCH_GARRISON_CAP;
   });
-  let total = TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
-  const order = [...TOWER_IDS].reverse();
+  let total = WALL_IDS.reduce((a, id) => a + (S.trenchAssignment[id] || 0), 0);
+  const order = [...WALL_IDS].reverse();
   let i = 0;
   while (total > S.survivors && i < order.length) {
     const id = order[i];
-    const cut = Math.min(S.towerAssignment[id] || 0, total - S.survivors);
-    S.towerAssignment[id] -= cut;
+    const cut = Math.min(S.trenchAssignment[id] || 0, total - S.survivors);
+    S.trenchAssignment[id] -= cut;
     total -= cut;
     i++;
   }
 }
 
-function renderTowerAssignUI() {
-  clampTowerAssignment();
-  const section = document.getElementById("towerAssignSection");
-  if (S.towers.length === 0) { section.hidden = true; return; }
+function renderTrenchAssignUI() {
+  clampTrenchAssignment();
+  const section = document.getElementById("trenchAssignSection");
+  if (S.trenches.length === 0) { section.hidden = true; return; }
   section.hidden = false;
 
-  const listEl = document.getElementById("towerAssignList");
-  listEl.innerHTML = S.towers.map(id => `
+  const listEl = document.getElementById("trenchAssignList");
+  listEl.innerHTML = S.trenches.map(id => `
     <div class="task-row">
-      <span class="task-ico">&#127984;</span>
+      <span class="task-ico">&#128679;</span>
       <div class="task-info">
-        <div class="task-title">${TOWER_LABEL[id]}</div>
+        <div class="task-title">${TRENCH_LABEL[id]}</div>
       </div>
       <div class="task-stepper">
-        <button type="button" data-tower="${id}" data-d="-1" ${S.towerAssignment[id] <= 0 ? "disabled" : ""}>&minus;</button>
-        <span class="task-count" id="towerCount-${id}">${S.towerAssignment[id]}</span>
-        <button type="button" data-tower="${id}" data-d="1" ${(S.towerAssignment[id] >= TOWER_GARRISON_CAP || housePersonnel() <= 0) ? "disabled" : ""}>+</button>
+        <button type="button" data-trench="${id}" data-d="-1" ${S.trenchAssignment[id] <= 0 ? "disabled" : ""}>&minus;</button>
+        <span class="task-count" id="trenchCount-${id}">${S.trenchAssignment[id]}</span>
+        <button type="button" data-trench="${id}" data-d="1" ${(S.trenchAssignment[id] >= TRENCH_GARRISON_CAP || housePersonnel() <= 0) ? "disabled" : ""}>+</button>
       </div>
     </div>
   `).join("");
   listEl.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      const id = btn.dataset.tower, d = Number(btn.dataset.d);
-      if (d > 0 && (S.towerAssignment[id] >= TOWER_GARRISON_CAP || housePersonnel() <= 0)) return;
-      if (d < 0 && S.towerAssignment[id] <= 0) return;
-      S.towerAssignment[id] += d;
-      renderTowerAssignUI();
+      const id = btn.dataset.trench, d = Number(btn.dataset.d);
+      if (d > 0 && (S.trenchAssignment[id] >= TRENCH_GARRISON_CAP || housePersonnel() <= 0)) return;
+      if (d < 0 && S.trenchAssignment[id] <= 0) return;
+      S.trenchAssignment[id] += d;
+      renderTrenchAssignUI();
     });
   });
 
@@ -862,12 +1077,28 @@ function updateDayScreen() {
   document.getElementById("daySupplies").textContent = S.supplies;
   document.getElementById("dayReputation").textContent = S.reputation + "%";
   document.getElementById("dayWeapon").textContent = "Tier " + S.weaponTier;
-  renderTowerAssignUI();
+  renderTrenchAssignUI();
 }
 
 // ---------------------------------------------------------------
 // UI: HUD updates
 // ---------------------------------------------------------------
+const trenchBarsEl = document.getElementById("trenchBars");
+const trenchDivEl = document.getElementById("trenchDiv");
+function addTrenchHudRow(id) {
+  if (document.getElementById("trenchBar-" + id)) return;
+  const row = document.createElement("div");
+  row.className = "wallbar trenchbar";
+  row.id = "trenchBar-" + id;
+  row.innerHTML = `<span>${id}</span><div class="hp"><i style="width:100%"></i></div>`;
+  trenchBarsEl.appendChild(row);
+  trenchDivEl.hidden = false;
+}
+function removeAllTrenchHudRows() {
+  trenchBarsEl.innerHTML = "";
+  trenchDivEl.hidden = true;
+}
+
 function updateHud() {
   hudDay.textContent = "Night " + S.day;
   hudSurvivors.textContent = S.survivors;
@@ -883,7 +1114,17 @@ function updateHud() {
     bar.querySelector(".hp i").style.width = pct + "%";
     bar.classList.toggle("low", pct < 30);
   });
+  S.trenches.forEach(id => {
+    const t = S.trenchHp[id];
+    const pct = Math.max(0, t.hp / t.max) * 100;
+    const bar = document.getElementById("trenchBar-" + id);
+    if (bar) {
+      bar.querySelector(".hp i").style.width = pct + "%";
+      bar.classList.toggle("low", pct < 30);
+    }
+  });
   updateWallGlow();
+  updateTrenchHpBars();
 }
 
 // ---------------------------------------------------------------
@@ -893,8 +1134,9 @@ function goToMenu() {
   S = freshState();
   clearZombies();
   clearBullets();
-  clearTowerMeshes();
+  clearTrenchMeshes();
   assignSurvivorStations();
+  assignTrenchStations();
   hud.hidden = true;
   menuOverlay.hidden = false;
   dayOverlay.hidden = true;
@@ -919,12 +1161,16 @@ function startNight() {
   clearBullets();
   spawnTimer = 0.6;
   breached = false;
-  fireCooldown = { N: 0, E: 0, S: 0, W: 0, NE: 0, NW: 0, SE: 0, SW: 0 };
-  currentTarget = { N: null, E: null, S: null, W: null, NE: null, NW: null, SE: null, SW: null };
+  fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
+  trenchFireCooldown = { N: 0, E: 0, S: 0, W: 0 };
+  currentTarget = { N: null, E: null, S: null, W: null };
+  currentTrenchTarget = { N: null, E: null, S: null, W: null };
   wallMeleeMode = { N: false, E: false, S: false, W: false };
+  trenchMeleeMode = { N: false, E: false, S: false, W: false };
   autoAssignTimer = 0;
   zombiesSpawnedThisNight = 0;
   zombiesTotalThisNight = totalZombiesForNight(S.day);
+  assignTrenchStations();
   updateHud();
 }
 
@@ -1023,6 +1269,19 @@ function jitterTarget(wall) {
   return axis === "x" ? { x: p.x + j, z: p.z } : { x: p.x, z: p.z + j };
 }
 
+// a dug, still-standing trench blocks the direct path to the wall — an
+// attacker has to fight through it first, anywhere along its line
+function jitterTrenchTarget(wall) {
+  const p = TRENCH_POS[wall];
+  const axis = WALL_AXIS[wall];
+  const half = (axis === "x" ? TRENCH_HALF_X : TRENCH_HALF_Z) - 1;
+  const j = (Math.random() * 2 - 1) * half;
+  return axis === "x" ? { x: p.x + j, z: p.z } : { x: p.x, z: p.z + j };
+}
+function trenchStillStanding(wall) {
+  return S.trenches.includes(wall) && S.trenchHp[wall].hp > 0;
+}
+
 function spawnZombie() {
   zombiesSpawnedThisNight += 1;
   const diff = difficultyForDay(S.day);
@@ -1035,14 +1294,15 @@ function spawnZombie() {
   else if (wall === "E") { x = SPAWN_EDGE; z = along * 0.6; }
   else { x = -SPAWN_EDGE; z = along * 0.6; }
 
-  const target = jitterTarget(wall);
+  const stageTrench = trenchStillStanding(wall);
+  const target = stageTrench ? jitterTrenchTarget(wall) : jitterTarget(wall);
   const mesh = createZombieMesh(isBrute);
   mesh.position.set(x, 0, z);
   // face the exact direction of approach toward the house, not a fixed
   // cardinal angle — the jittered target means this varies naturally
   mesh.rotation.y = Math.atan2(target.x - x, target.z - z);
   zombies.push({
-    x, z, wall, target,
+    x, z, wall, target, stageTrench,
     hp: isBrute ? diff.zombieHp * 3 : diff.zombieHp,
     maxHp: isBrute ? diff.zombieHp * 3 : diff.zombieHp,
     speed: isBrute ? diff.zombieSpeed * 0.6 : diff.zombieSpeed,
@@ -1056,6 +1316,15 @@ function spawnZombie() {
 function updateZombies(dt) {
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i];
+
+    // a trench this zombie was still fighting can fall mid-fight (someone
+    // else finished it off) -- push on to the house wall instead
+    if (z.stageTrench && !trenchStillStanding(z.wall)) {
+      z.stageTrench = false;
+      z.target = jitterTarget(z.wall);
+      z.arrived = false;
+    }
+
     const dx = z.target.x - z.x, dz = z.target.z - z.z;
     const dist = Math.hypot(dx, dz);
     if (dist > 0.15) {
@@ -1064,9 +1333,14 @@ function updateZombies(dt) {
       z.z += (dz / dist) * z.speed * dt;
     } else {
       z.arrived = true;
-      const wallHp = S.walls[z.wall];
-      wallHp.hp -= z.dmg * dt;
-      if (wallHp.hp <= 0) { wallHp.hp = 0; breached = true; }
+      if (z.stageTrench) {
+        const trenchHp = S.trenchHp[z.wall];
+        trenchHp.hp = Math.max(0, trenchHp.hp - z.dmg * dt);
+      } else {
+        const wallHp = S.walls[z.wall];
+        wallHp.hp -= z.dmg * dt;
+        if (wallHp.hp <= 0) { wallHp.hp = 0; breached = true; }
+      }
     }
     z.bob += dt * 6;
     const bobY = z.arrived ? Math.sin(z.bob) * 0.08 : 0;
@@ -1167,36 +1441,62 @@ function updateTurrets(dt) {
   });
 }
 
-// corner towers: manually garrisoned, shoot anything they have line of
-// sight to (any wall's zombies, not just "their" side), never melee since
-// nothing ever reaches a tower to fight point-blank
-function updateTowers(dt) {
-  S.towers.forEach(id => {
-    fireCooldown[id] = Math.max(0, (fireCooldown[id] || 0) - dt);
-    const crew = S.towerAssignment[id] || 0;
-    if (crew <= 0 || S.ammo <= 0) return;
-    if (fireCooldown[id] > 0) return;
+// how many of a trench's garrison have actually reached their spot
+function arrivedTrenchCrewCount(id) {
+  let n = 0;
+  for (const p of trenchSurvivorPool) {
+    if (p.trench !== id || !p.mesh.visible) continue;
+    const dx = p.target.x - p.mesh.position.x, dz = p.target.z - p.mesh.position.z;
+    if (Math.hypot(dx, dz) < 0.05) n++;
+  }
+  return n;
+}
 
-    let best = currentTarget[id];
-    if (!best || !zombies.includes(best) || !hasLineOfSight(TOWER_POS[id], best)) {
+// trench garrisons: manually garrisoned like the old towers were, but only
+// engage zombies on their own side (a trench sits directly in front of
+// its wall, not at a corner with a wide view) -- and unlike a tower, a
+// trench's garrison is fighting at ground level, so an arrived zombie gets
+// met with spears just like a house window does
+function updateTrenches(dt) {
+  WALL_IDS.forEach(id => {
+    trenchFireCooldown[id] = Math.max(0, trenchFireCooldown[id] - dt);
+    if (!trenchStillStanding(id)) { trenchMeleeMode[id] = false; return; }
+    const crew = arrivedTrenchCrewCount(id);
+    if (crew <= 0) { trenchMeleeMode[id] = false; return; }
+    if (trenchFireCooldown[id] > 0) return;
+
+    let best = currentTrenchTarget[id];
+    if (!best || !zombies.includes(best) || best.wall !== id) {
       best = null;
       let bestDist = Infinity;
       for (const z of zombies) {
-        if (!hasLineOfSight(TOWER_POS[id], z)) continue;
-        const d = Math.hypot(z.x - TOWER_POS[id].x, z.z - TOWER_POS[id].z);
+        if (z.wall !== id) continue;
+        const d = Math.hypot(z.x - TRENCH_POS[id].x, z.z - TRENCH_POS[id].z);
         if (d < bestDist) { bestDist = d; best = z; }
       }
-      currentTarget[id] = best;
+      currentTrenchTarget[id] = best;
     }
-    if (!best) return;
+    if (!best) { trenchMeleeMode[id] = false; return; }
+
+    if (best.arrived && best.stageTrench) {
+      trenchMeleeMode[id] = true;
+      best.hp -= MELEE_DMG;
+      if (best.hp <= 0) currentTrenchTarget[id] = null;
+      spawnMeleeStab(TRENCH_POS[id], best);
+      trenchFireCooldown[id] = Math.max(0.15, MELEE_INTERVAL_BASE / Math.min(crew, TRENCH_GARRISON_CAP));
+      return;
+    }
+
+    trenchMeleeMode[id] = false;
+    if (S.ammo <= 0) return;
 
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
     S.ammo -= 1;
-    if (best.hp <= 0) currentTarget[id] = null;
+    if (best.hp <= 0) currentTrenchTarget[id] = null;
 
-    spawnBullet(TOWER_POS[id], best);
-    fireCooldown[id] = Math.max(0.12, 0.85 / Math.min(crew, 6));
+    spawnBullet(TRENCH_POS[id], best);
+    trenchFireCooldown[id] = Math.max(0.1, 0.85 / Math.min(crew, TRENCH_GARRISON_CAP));
   });
 }
 
@@ -1224,11 +1524,14 @@ function frame(now) {
     updateZombies(dt);
     updateAutoAssignment(dt);
     updateTurrets(dt);
-    updateTowers(dt);
+    updateTrenches(dt);
     updateBullets(dt);
     updateSurvivorAiming();
     updateSurvivorMovement(dt);
     updateSurvivorWeaponVisual();
+    updateTrenchSurvivorAiming();
+    updateTrenchSurvivorMovement(dt);
+    updateTrenchSurvivorWeaponVisual();
     updateHud();
 
     const allSpawned = zombiesSpawnedThisNight >= zombiesTotalThisNight;

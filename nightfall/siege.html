@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -36,6 +36,8 @@
     <div class="wallbar" id="wallE"><span>E</span><div class="hp"><i style="width:100%"></i></div></div>
     <div class="wallbar" id="wallS"><span>S</span><div class="hp"><i style="width:100%"></i></div></div>
     <div class="wallbar" id="wallW"><span>W</span><div class="hp"><i style="width:100%"></i></div></div>
+    <div class="hud-div" id="trenchDiv" hidden></div>
+    <div id="trenchBars"></div>
   </div>
 </div>
 
@@ -67,9 +69,9 @@
       <div class="s"><b id="dayReputation">0%</b>reputation</div>
     </div>
 
-    <div class="tower-section" id="towerAssignSection" hidden>
-      <p class="alloc-remaining">Garrison your towers</p>
-      <div class="tasks" id="towerAssignList"></div>
+    <div class="trench-section" id="trenchAssignSection" hidden>
+      <p class="alloc-remaining">Garrison your trenches</p>
+      <div class="tasks" id="trenchAssignList"></div>
       <p class="alloc-remaining" id="houseRemaining"></p>
     </div>
 
@@ -99,6 +101,6 @@
   </div>
 </div>
 
-<script type="module" src="game.js?v=1"></script>
+<script type="module" src="game.js?v=5"></script>
 </body>
 </html>

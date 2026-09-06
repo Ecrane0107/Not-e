@@ -125,6 +125,9 @@ body{
 .wallbar .hp{flex:1;height:6px;background:#241f14;border-radius:3px;overflow:hidden;border:1px solid var(--line)}
 .wallbar .hp i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
 .wallbar.low .hp i{background:var(--blood)}
+.wallbar.trenchbar{margin-bottom:4px}
+.trenchbar .hp i{background:var(--amber)}
+.trenchbar.low .hp i{background:var(--blood)}
 
 /* ---------- overlays (day / reward / menu / gameover) ---------- */
 .overlay{
@@ -208,7 +211,7 @@ body{
 .stat-row .s{font-size:12px;color:var(--ink-dim)}
 .stat-row .s b{display:block;font-size:17px;color:var(--ink);font-weight:700}
 
-.tower-section{margin:0 0 18px}
+.trench-section{margin:0 0 18px}
 
 /* post-night task allocation */
 .alloc-remaining{margin:0 0 10px;font-size:12.5px;font-weight:700;color:var(--ink-mid)}
