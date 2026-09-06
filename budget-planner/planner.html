@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="page">
+
+  <a class="back-btn" href="../index.html">
+    <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Menu
+  </a>
+
+  <p class="eyebrow">Project</p>
+  <h1>Budget Planner</h1>
+  <p class="blurb">Add what comes in and what goes out, in whatever frequency each one actually happens on. Everything below updates live, saves in this browser automatically, and can be exported when you want a copy.</p>
+
+  <div id="root"></div>
+
+  <footer class="foot-note">Nothing here leaves your browser — no account, no server, just <code>localStorage</code>.</footer>
+
+</div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+// ---------------------------------------------------------------
+// model
+// ---------------------------------------------------------------
+const FREQS = [
+  { id: "weekly", label: "Weekly", perYear: 52 },
+  { id: "biweekly", label: "Biweekly", perYear: 26 },
+  { id: "monthly", label: "Monthly", perYear: 12 },
+  { id: "annual", label: "Annual", perYear: 1 },
+  { id: "onetime", label: "One-time", perYear: 1 },
+];
+const FREQ_BY_ID = Object.fromEntries(FREQS.map(f => [f.id, f]));
+
+const STORAGE_KEY = "budget-planner:v1";
+
+let idCounter = 1;
+function makeId() { return "r" + (idCounter++) + "-" + Math.random().toString(36).slice(2, 7); }
+
+function emptyRow(kind) {
+  return { id: makeId(), label: "", amount: "", freq: kind === "income" ? "biweekly" : "monthly", savings: false };
+}
+function defaultState() {
+  return { income: [emptyRow("income")], bills: [emptyRow("bills")] };
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.income) || !Array.isArray(parsed.bills)) return defaultState();
+    // re-stamp ids through makeId so the counter can't collide with a
+    // freshly-created row later in this session
+    const fix = rows => rows.map(r => ({ ...r, id: makeId() }));
+    return { income: fix(parsed.income), bills: fix(parsed.bills) };
+  } catch {
+    return defaultState();
+  }
+}
+
+function annualOf(row) {
+  const amt = parseFloat(row.amount);
+  if (!Number.isFinite(amt)) return 0;
+  const f = FREQ_BY_ID[row.freq] || FREQ_BY_ID.monthly;
+  return amt * f.perYear;
+}
+function fmtMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  const sign = v < 0 ? "-" : "";
+  return sign + "$" + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function clampPct(p) { return Math.max(0, Math.min(100, Number.isFinite(p) ? p : 0)); }
+
+function computeTotals(income, bills) {
+  const totalIncome = income.reduce((s, r) => s + annualOf(r), 0);
+  const billsExSavings = bills.filter(r => !r.savings).reduce((s, r) => s + annualOf(r), 0);
+  const autoSavings = bills.filter(r => r.savings).reduce((s, r) => s + annualOf(r), 0);
+  const disposable = totalIncome - billsExSavings - autoSavings;
+  return { totalIncome, billsExSavings, autoSavings, disposable };
+}
+
+// ---------------------------------------------------------------
+// export helpers -- everything client-side, no server involved
+// ---------------------------------------------------------------
+function fileNameFor(ext) {
+  return "budget-" + new Date().toISOString().slice(0, 10) + "." + ext;
+}
+function triggerDownload(filename, mime, content) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function csvCell(v) {
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function padLabel(s, len) {
+  const t = s.length > len ? s.slice(0, len - 1) + "…" : s;
+  return t + " ".repeat(Math.max(0, len - t.length));
+}
+
+function exportCsv(income, bills) {
+  const t = computeTotals(income, bills);
+  const rows = [["Section", "Label", "Amount", "Frequency", "Auto Savings", "Annual Amount"]];
+  income.forEach(r => rows.push(["Income", r.label || "(unlabeled)", r.amount || 0, (FREQ_BY_ID[r.freq] || {}).label || r.freq, "", annualOf(r).toFixed(2)]));
+  bills.forEach(r => rows.push(["Bill", r.label || "(unlabeled)", r.amount || 0, (FREQ_BY_ID[r.freq] || {}).label || r.freq, r.savings ? "Yes" : "No", annualOf(r).toFixed(2)]));
+  rows.push([]);
+  rows.push(["Summary"]);
+  rows.push(["Annual income", "", "", "", "", t.totalIncome.toFixed(2)]);
+  rows.push(["Annual bills (excl. savings)", "", "", "", "", t.billsExSavings.toFixed(2)]);
+  rows.push(["Annual automatic savings", "", "", "", "", t.autoSavings.toFixed(2)]);
+  rows.push(["Annual disposable income", "", "", "", "", t.disposable.toFixed(2)]);
+  const csv = rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  triggerDownload(fileNameFor("csv"), "text/csv", csv);
+}
+
+function exportTxt(income, bills) {
+  const t = computeTotals(income, bills);
+  const lines = [];
+  lines.push("BUDGET PLANNER");
+  lines.push("Generated " + new Date().toLocaleString());
+  lines.push("");
+  lines.push("INCOME");
+  if (income.length === 0) lines.push("  (none)");
+  income.forEach(r => lines.push(
+    "  " + padLabel(r.label || "(unlabeled)", 24) +
+    fmtMoney(parseFloat(r.amount) || 0).padStart(12) + "  " +
+    padLabel((FREQ_BY_ID[r.freq] || {}).label || r.freq, 10) +
+    "annual " + fmtMoney(annualOf(r))
+  ));
+  lines.push("");
+  lines.push("BILLS");
+  if (bills.length === 0) lines.push("  (none)");
+  bills.forEach(r => lines.push(
+    "  " + padLabel(r.label || "(unlabeled)", 24) +
+    fmtMoney(parseFloat(r.amount) || 0).padStart(12) + "  " +
+    padLabel((FREQ_BY_ID[r.freq] || {}).label || r.freq, 10) +
+    "annual " + fmtMoney(annualOf(r)) + (r.savings ? "  [auto savings]" : "")
+  ));
+  lines.push("");
+  lines.push("SUMMARY");
+  lines.push("  Annual income                " + fmtMoney(t.totalIncome));
+  lines.push("  Annual bills (excl. savings)  " + fmtMoney(t.billsExSavings));
+  lines.push("  Annual automatic savings      " + fmtMoney(t.autoSavings));
+  lines.push("  Annual disposable income      " + fmtMoney(t.disposable));
+  lines.push("  Monthly disposable income     " + fmtMoney(t.disposable / 12));
+  lines.push("  Biweekly disposable income    " + fmtMoney(t.disposable / 26));
+  triggerDownload(fileNameFor("txt"), "text/plain", lines.join("\r\n"));
+}
+
+function exportDoc(income, bills) {
+  const t = computeTotals(income, bills);
+  const rowHtml = (r, isBills) => (
+    "<tr><td>" + escapeHtml(r.label || "(unlabeled)") + "</td>" +
+    "<td style=\"text-align:right\">" + fmtMoney(parseFloat(r.amount) || 0) + "</td>" +
+    "<td>" + escapeHtml((FREQ_BY_ID[r.freq] || {}).label || r.freq) + "</td>" +
+    (isBills ? "<td>" + (r.savings ? "Yes" : "") + "</td>" : "") +
+    "<td style=\"text-align:right\">" + fmtMoney(annualOf(r)) + "</td></tr>"
+  );
+  const html = "<!doctype html><html><head><meta charset=\"utf-8\"><style>" +
+    "body{font-family:Calibri,Arial,sans-serif;color:#1a1a1a;padding:24px}" +
+    "h1{font-size:22px;margin-bottom:2px}h2{font-size:16px;margin-top:26px}" +
+    ".muted{color:#666;font-size:12px;margin-top:0}" +
+    "table{border-collapse:collapse;width:100%;margin:10px 0}" +
+    "th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px}" +
+    "th{background:#f0f0f0;text-align:left}" +
+    ".summary td{font-weight:bold}" +
+    "</style></head><body>" +
+    "<h1>Budget Planner</h1><p class=\"muted\">Generated " + escapeHtml(new Date().toLocaleString()) + "</p>" +
+    "<h2>Income</h2><table><tr><th>Label</th><th>Amount</th><th>Frequency</th><th>Annual</th></tr>" +
+    income.map(r => rowHtml(r, false)).join("") + "</table>" +
+    "<h2>Bills</h2><table><tr><th>Label</th><th>Amount</th><th>Frequency</th><th>Auto Savings</th><th>Annual</th></tr>" +
+    bills.map(r => rowHtml(r, true)).join("") + "</table>" +
+    "<h2>Summary</h2><table class=\"summary\">" +
+    "<tr><td>Annual income</td><td>" + fmtMoney(t.totalIncome) + "</td></tr>" +
+    "<tr><td>Annual bills (excl. savings)</td><td>" + fmtMoney(t.billsExSavings) + "</td></tr>" +
+    "<tr><td>Annual automatic savings</td><td>" + fmtMoney(t.autoSavings) + "</td></tr>" +
+    "<tr><td>Annual disposable income</td><td>" + fmtMoney(t.disposable) + "</td></tr>" +
+    "<tr><td>Monthly disposable income</td><td>" + fmtMoney(t.disposable / 12) + "</td></tr>" +
+    "<tr><td>Biweekly disposable income</td><td>" + fmtMoney(t.disposable / 26) + "</td></tr>" +
+    "</table></body></html>";
+  triggerDownload(fileNameFor("doc"), "application/msword", html);
+}
+
+// ---------------------------------------------------------------
+// components
+// ---------------------------------------------------------------
+function RowEditor({ row, kind, onChange, onRemove }) {
+  return (
+    <div className={"row row-" + kind}>
+      <input
+        className="row-label"
+        type="text"
+        placeholder={kind === "income" ? "e.g. Paycheck" : "e.g. Rent"}
+        value={row.label}
+        onChange={e => onChange({ ...row, label: e.target.value })}
+      />
+      <input
+        className="row-amount"
+        type="number"
+        inputMode="decimal"
+        step="0.01"
+        placeholder="0.00"
+        value={row.amount}
+        onChange={e => onChange({ ...row, amount: e.target.value })}
+      />
+      <select className="row-freq" value={row.freq} onChange={e => onChange({ ...row, freq: e.target.value })}>
+        {FREQS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+      </select>
+      {kind === "bills" && (
+        <label className="row-savings" title="Money moved to savings, not spent -- kept separate from disposable income">
+          <input type="checkbox" checked={!!row.savings} onChange={e => onChange({ ...row, savings: e.target.checked })} />
+          <span className="row-savings-text">Savings</span>
+        </label>
+      )}
+      <button type="button" className="row-remove" aria-label="Remove row" onClick={onRemove}>&times;</button>
+    </div>
+  );
+}
+
+function Table({ title, subtitle, kind, rows, onRowsChange, accent }) {
+  const total = rows.reduce((sum, r) => sum + annualOf(r), 0);
+  const updateRow = (id, next) => onRowsChange(rows.map(r => (r.id === id ? next : r)));
+  const removeRow = id => onRowsChange(rows.filter(r => r.id !== id));
+  const addRow = () => onRowsChange([...rows, emptyRow(kind)]);
+
+  return (
+    <section className={"panel accent-" + accent}>
+      <header className="panel-head">
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </header>
+      <div className={"rows-head row-" + kind}>
+        <span>Label</span><span>Amount</span><span>Frequency</span>
+        {kind === "bills" && <span>Savings</span>}
+        <span></span>
+      </div>
+      <div className="rows">
+        {rows.map(r => (
+          <RowEditor key={r.id} row={r} kind={kind} onChange={next => updateRow(r.id, next)} onRemove={() => removeRow(r.id)} />
+        ))}
+        {rows.length === 0 && <p className="rows-empty">Nothing here yet.</p>}
+      </div>
+      <div className="panel-foot">
+        <button type="button" className="ghost-btn" onClick={addRow}>+ Add row</button>
+        <div className="panel-total">Annual total <b>{fmtMoney(total)}</b></div>
+      </div>
+    </section>
+  );
+}
+
+function FreqRow({ label, annual, strong }) {
+  return (
+    <div className={"freq-row" + (strong ? " strong" : "")}>
+      <span>{label}</span>
+      <span>{fmtMoney(annual)}</span>
+      <span>{fmtMoney(annual / 12)}</span>
+      <span>{fmtMoney(annual / 26)}</span>
+    </div>
+  );
+}
+
+function Summary({ income, bills }) {
+  const t = computeTotals(income, bills);
+  const billsPct = t.totalIncome > 0 ? (t.billsExSavings / t.totalIncome) * 100 : 0;
+  const savingsPct = t.totalIncome > 0 ? (t.autoSavings / t.totalIncome) * 100 : 0;
+  const disposablePct = t.totalIncome > 0 ? (t.disposable / t.totalIncome) * 100 : 0;
+
+  return (
+    <section className="panel accent-summary summary">
+      <header className="panel-head"><h2>Your numbers</h2></header>
+
+      <div className="summary-grid">
+        <div className="summary-figure">
+          <span>Annual income</span><b>{fmtMoney(t.totalIncome)}</b>
+        </div>
+        <div className="summary-figure">
+          <span>Annual bills</span><b>{fmtMoney(t.billsExSavings)}</b>
+        </div>
+        <div className="summary-figure">
+          <span>Automatic savings</span><b>{fmtMoney(t.autoSavings)}</b>
+        </div>
+        <div className={"summary-figure highlight " + (t.disposable >= 0 ? "good" : "bad")}>
+          <span>Disposable income</span><b>{fmtMoney(t.disposable)}</b>
+        </div>
+      </div>
+
+      <div className="freq-table">
+        <div className="freq-head"><span></span><span>Annual</span><span>Monthly</span><span>Biweekly</span></div>
+        <FreqRow label="Income" annual={t.totalIncome} />
+        <FreqRow label="Bills" annual={t.billsExSavings} />
+        <FreqRow label="Automatic savings" annual={t.autoSavings} />
+        <FreqRow label="Disposable income" annual={t.disposable} strong />
+      </div>
+
+      {t.totalIncome > 0 && (
+        <React.Fragment>
+          <div className="bar" role="img" aria-label="Share of income going to bills, savings, and disposable income">
+            <div className="bar-seg bills" style={{ width: clampPct(billsPct) + "%" }} />
+            <div className="bar-seg savings" style={{ width: clampPct(savingsPct) + "%" }} />
+            <div className="bar-seg disposable" style={{ width: clampPct(disposablePct) + "%" }} />
+          </div>
+          <div className="bar-legend">
+            <span><i className="dot bills" />Bills {billsPct.toFixed(0)}%</span>
+            <span><i className="dot savings" />Savings {savingsPct.toFixed(0)}%</span>
+            <span><i className="dot disposable" />Disposable {disposablePct.toFixed(0)}%</span>
+          </div>
+        </React.Fragment>
+      )}
+    </section>
+  );
+}
+
+function App() {
+  const [state, setState] = useState(loadState);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* private browsing etc -- fine, just won't persist */ }
+  }, [state]);
+
+  const setIncome = rows => setState(s => ({ ...s, income: rows }));
+  const setBills = rows => setState(s => ({ ...s, bills: rows }));
+
+  function clearAll() {
+    if (!window.confirm("Clear all income and bills? This can't be undone.")) return;
+    setState(defaultState());
+  }
+
+  return (
+    <React.Fragment>
+      <div className="grid">
+        <Table
+          title="Income" subtitle="Paychecks, side income, anything coming in"
+          kind="income" rows={state.income} onRowsChange={setIncome} accent="income"
+        />
+        <Table
+          title="Bills" subtitle="Rent, subscriptions, debt — check “Savings” for automatic transfers"
+          kind="bills" rows={state.bills} onRowsChange={setBills} accent="bills"
+        />
+      </div>
+
+      <Summary income={state.income} bills={state.bills} />
+
+      <div className="export-row">
+        <span className="export-label">Export</span>
+        <button type="button" className="ghost-btn" onClick={() => exportCsv(state.income, state.bills)}>Excel (.csv)</button>
+        <button type="button" className="ghost-btn" onClick={() => exportDoc(state.income, state.bills)}>Doc (.doc)</button>
+        <button type="button" className="ghost-btn" onClick={() => exportTxt(state.income, state.bills)}>Text (.txt)</button>
+        <button type="button" className="ghost-btn danger" onClick={clearAll}>Clear all</button>
+      </div>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
