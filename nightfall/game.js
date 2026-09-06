@@ -150,6 +150,7 @@ const toast = document.getElementById("toast");
 const menuOverlay = document.getElementById("menuOverlay");
 const dayOverlay = document.getElementById("dayOverlay");
 const rewardOverlay = document.getElementById("rewardOverlay");
+const trenchPickOverlay = document.getElementById("trenchPickOverlay");
 const overOverlay = document.getElementById("overOverlay");
 
 let toastTimer = 0;
@@ -907,12 +908,13 @@ const TASKS = [
     apply: (s, n) => { s.weaponTier += Math.floor(n / 2); },
   },
   {
-    // a single "dig a trench" slot, not tied to any side up front — the
-    // side picker only appears once the player actually commits to
-    // digging (see trenchRowHTML/wireTrenchRow below). Costs
-    // TRENCH_SURVIVOR_COST survivors AND TRENCH_SUPPLY_COST supplies;
-    // putting more survivors than that on it doesn't do anything
-    // further, so its stepper caps there.
+    // a plain labor task like any other -- requirements listed up front,
+    // same stepper pattern. Costs TRENCH_SURVIVOR_COST survivors AND
+    // TRENCH_SUPPLY_COST supplies; putting more survivors than that on
+    // it doesn't do anything further, so its stepper caps there. Which
+    // *side* gets dug isn't decided here -- confirming with this funded
+    // opens a follow-up "which side?" step (see btnConfirmTasks below),
+    // since the game doesn't know where to dig until the player says.
     id: "trench", icon: "\u{1F6A7}", title: "Dig a trench", unit: "trench",
     max: TRENCH_SURVIVOR_COST,
     visible: () => S.trenches.length < WALL_IDS.length,
@@ -920,24 +922,16 @@ const TASKS = [
       if (n <= 0) return "needs " + TRENCH_SURVIVOR_COST + " survivors + " + TRENCH_SUPPLY_COST + " supplies";
       if (n < TRENCH_SURVIVOR_COST) return n + "/" + TRENCH_SURVIVOR_COST + " survivors committed";
       return S.supplies >= TRENCH_SUPPLY_COST
-        ? "dug by dawn"
+        ? "ready to dig — pick a side after confirming"
         : "short " + (TRENCH_SUPPLY_COST - S.supplies) + " supplies";
     },
-    apply: (s, n) => {
-      if (n >= TRENCH_SURVIVOR_COST && selectedTrenchSide && !s.trenches.includes(selectedTrenchSide) && s.supplies >= TRENCH_SUPPLY_COST) {
-        s.supplies -= TRENCH_SUPPLY_COST;
-        s.trenches.push(selectedTrenchSide);
-        ensureTrenchBuilt(selectedTrenchSide);
-      }
-    },
+    // the actual dig happens in btnConfirmTasks once a side is chosen,
+    // not here -- this task's own apply has nothing to do
+    apply: () => {},
   },
 ];
 
 let taskAlloc = {};
-// which side "Dig a trench" is currently aimed at -- null until the
-// player picks one from the side menu; reset every time the reward
-// screen opens back up
-let selectedTrenchSide = null;
 
 // which tasks actually show up tonight -- e.g. "Dig a trench" drops off
 // once every side is already dug
@@ -945,7 +939,7 @@ function visibleTasks() {
   return TASKS.filter(t => !t.visible || t.visible());
 }
 
-function normalRowHTML(t) {
+function taskRowHTML(t) {
   return `
     <div class="task-row">
       <span class="task-ico">${t.icon}</span>
@@ -962,42 +956,6 @@ function normalRowHTML(t) {
   `;
 }
 
-// the trench row has two states: no side chosen yet (show a menu of
-// whichever sides aren't already dug), or a side chosen (show the usual
-// title + stepper, now aimed at that specific side, with a way to
-// change the pick before any survivors have actually gone out)
-function trenchRowHTML() {
-  const sidesLeft = WALL_IDS.filter(id => !S.trenches.includes(id));
-  if (!selectedTrenchSide || !sidesLeft.includes(selectedTrenchSide)) {
-    return `
-      <div class="task-row trench-row" id="trenchTaskRow">
-        <span class="task-ico">\u{1F6A7}</span>
-        <div class="task-info">
-          <div class="task-title">Dig a trench</div>
-          <div class="task-gain">Pick a side to start</div>
-        </div>
-        <div class="side-menu">
-          ${sidesLeft.map(id => `<button type="button" class="side-btn" data-side="${id}">${id}</button>`).join("")}
-        </div>
-      </div>
-    `;
-  }
-  return `
-    <div class="task-row trench-row" id="trenchTaskRow">
-      <span class="task-ico">\u{1F6A7}</span>
-      <div class="task-info">
-        <div class="task-title">Dig the ${TRENCH_LABEL[selectedTrenchSide].toLowerCase()} <button type="button" class="side-change" id="trenchChangeSide">change</button></div>
-        <div class="task-gain" id="taskGain-trench">+0 trench</div>
-      </div>
-      <div class="task-stepper">
-        <button type="button" data-task="trench" data-d="-1">&minus;</button>
-        <span class="task-count" id="taskCount-trench">0</span>
-        <button type="button" data-task="trench" data-d="1">+</button>
-      </div>
-    </div>
-  `;
-}
-
 function stepTask(id, d) {
   const t = TASKS.find(task => task.id === id);
   const total = Object.values(taskAlloc).reduce((a, b) => a + b, 0);
@@ -1008,47 +966,14 @@ function stepTask(id, d) {
   updateTaskUI();
 }
 
-function wireTrenchRow() {
-  const row = document.getElementById("trenchTaskRow");
-  if (!row) return; // every side already dug -- the task is hidden entirely
-  if (!selectedTrenchSide) {
-    row.querySelectorAll(".side-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        selectedTrenchSide = btn.dataset.side;
-        rerenderTrenchRow();
-      });
-    });
-  } else {
-    const changeBtn = document.getElementById("trenchChangeSide");
-    if (changeBtn) changeBtn.addEventListener("click", () => {
-      selectedTrenchSide = null;
-      taskAlloc.trench = 0; // no survivors committed to a side that's no longer picked
-      rerenderTrenchRow();
-    });
-    row.querySelectorAll('button[data-task="trench"]').forEach(btn => {
-      btn.addEventListener("click", () => stepTask("trench", Number(btn.dataset.d)));
-    });
-  }
-}
-
-function rerenderTrenchRow() {
-  const row = document.getElementById("trenchTaskRow");
-  if (!row) return;
-  row.outerHTML = trenchRowHTML();
-  wireTrenchRow();
-  updateTaskUI();
-}
-
 function renderTaskAllocation() {
   TASKS.forEach(t => { taskAlloc[t.id] = 0; });
-  selectedTrenchSide = null;
   const tasks = visibleTasks();
   const listEl = document.getElementById("taskList");
-  listEl.innerHTML = tasks.map(t => t.id === "trench" ? trenchRowHTML() : normalRowHTML(t)).join("");
-  listEl.querySelectorAll(".task-row:not(.trench-row) button").forEach(btn => {
+  listEl.innerHTML = tasks.map(taskRowHTML).join("");
+  listEl.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => stepTask(btn.dataset.task, Number(btn.dataset.d)));
   });
-  wireTrenchRow();
   updateTaskUI();
 }
 
@@ -1060,9 +985,6 @@ function updateTaskUI() {
     : "Everyone has a job tonight.";
   visibleTasks().forEach(t => {
     const n = taskAlloc[t.id];
-    // the trench task has no count/gain elements to update until a side
-    // is actually picked (it's showing the side menu instead)
-    if (t.id === "trench" && !document.getElementById("taskCount-trench")) return;
     document.getElementById(`taskCount-${t.id}`).textContent = n;
     document.getElementById(`taskGain-${t.id}`).textContent = t.preview ? t.preview(n) : "+" + t.gain(n) + " " + t.unit;
     const row = document.getElementById(`taskCount-${t.id}`).closest(".task-row");
@@ -1233,6 +1155,7 @@ function goToMenu() {
   menuOverlay.hidden = false;
   dayOverlay.hidden = true;
   rewardOverlay.hidden = true;
+  trenchPickOverlay.hidden = true;
   overOverlay.hidden = true;
 }
 
@@ -1241,8 +1164,32 @@ function goToDay() {
   hud.hidden = true;
   dayOverlay.hidden = false;
   rewardOverlay.hidden = true;
+  trenchPickOverlay.hidden = true;
   overOverlay.hidden = true;
   updateDayScreen();
+}
+
+// shown after confirming tasks, only when "Dig a trench" was funded --
+// the player picks exactly which side gets it here, then the dig
+// actually happens and the day advances
+function showTrenchPick() {
+  rewardOverlay.hidden = true;
+  const sidesLeft = WALL_IDS.filter(id => !S.trenches.includes(id));
+  const btnsEl = document.getElementById("trenchPickButtons");
+  btnsEl.innerHTML = sidesLeft.map(id => `
+    <button type="button" class="side-pick-btn" data-side="${id}">${TRENCH_LABEL[id]}</button>
+  `).join("");
+  btnsEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.side;
+      S.supplies -= TRENCH_SUPPLY_COST;
+      S.trenches.push(id);
+      ensureTrenchBuilt(id);
+      S.day += 1;
+      goToDay();
+    });
+  });
+  trenchPickOverlay.hidden = false;
 }
 
 function startNight() {
@@ -1647,9 +1594,14 @@ document.getElementById("btnStart").addEventListener("click", () => {
 document.getElementById("btnStartNight").addEventListener("click", startNight);
 document.getElementById("btnRetry").addEventListener("click", goToMenu);
 document.getElementById("btnConfirmTasks").addEventListener("click", () => {
-  TASKS.forEach(t => t.apply(S, taskAlloc[t.id]));
-  S.day += 1;
-  goToDay();
+  const trenchFunded = taskAlloc.trench >= TRENCH_SURVIVOR_COST;
+  TASKS.forEach(t => t.apply(S, taskAlloc[t.id])); // "trench" itself is a no-op here -- see showTrenchPick
+  if (trenchFunded && S.supplies >= TRENCH_SUPPLY_COST && S.trenches.length < WALL_IDS.length) {
+    showTrenchPick();
+  } else {
+    S.day += 1;
+    goToDay();
+  }
 });
 
 // on mobile the HUD starts collapsed to just the day counter + wall health

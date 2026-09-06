@@ -243,30 +243,22 @@ body{
 .task-stepper button:disabled{opacity:.3;cursor:default}
 .task-stepper .task-count{min-width:20px;text-align:center;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 
-/* the "dig a trench" task's side picker -- shown instead of a stepper
-   until a side is actually chosen */
-.side-menu{display:flex;gap:6px;flex:0 0 auto}
-.side-btn{
-  width:30px;height:30px;
-  border-radius:6px;
+/* the "which side?" step shown after confirming a funded "Dig a trench" */
+.side-pick-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.side-pick-btn{
+  display:block;
+  width:100%;
+  padding:13px 16px;
+  background:var(--ground);
   border:1px solid var(--line);
-  background:var(--panel-hi);
+  border-radius:9px;
   color:var(--ink);
-  font:700 12px "Space Grotesk",sans-serif;
+  font:600 14.5px "Space Grotesk",sans-serif;
+  text-align:left;
   cursor:pointer;
 }
-.side-btn:hover{border-color:var(--accent-dim)}
-.side-change{
-  margin-left:6px;
-  padding:0;
-  background:none;
-  border:0;
-  color:var(--ink-dim);
-  font:500 11px "Space Grotesk",sans-serif;
-  text-decoration:underline;
-  cursor:pointer;
-}
-.side-change:hover{color:var(--ink-mid)}
+.side-pick-btn:hover{border-color:var(--accent-dim);background:var(--panel-hi)}
+.side-pick-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 .toast{
   position:fixed;

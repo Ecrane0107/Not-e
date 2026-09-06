@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -91,6 +91,17 @@
   </div>
 </div>
 
+<!-- trench side pick: shown after confirming tasks, only when "Dig a
+     trench" was actually funded -- the dig itself waits on this choice -->
+<div class="overlay" id="trenchPickOverlay" hidden>
+  <div class="panel">
+    <p class="eyebrow">Dig site</p>
+    <h1>Which side?</h1>
+    <p class="lead">Your crew is ready to break ground. Pick where the trench goes.</p>
+    <div class="side-pick-list" id="trenchPickButtons"></div>
+  </div>
+</div>
+
 <!-- game over -->
 <div class="overlay" id="overOverlay" hidden>
   <div class="panel">
@@ -101,6 +112,6 @@
   </div>
 </div>
 
-<script type="module" src="game.js?v=9"></script>
+<script type="module" src="game.js?v=11"></script>
 </body>
 </html>
