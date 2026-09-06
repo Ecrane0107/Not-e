@@ -193,21 +193,17 @@
     fps: 24,
   });
 
-  // tiles are real 3d boxes that face the user -- the front face stays
-  // the dominant, forward-facing surface, tilted just enough to reveal
-  // real top/right depth alongside it (a full isometric corner-on view
-  // has nothing actually facing the viewer, which reads as "not pointed
-  // at me" even though it's geometrically a cleaner cube) — hovering
-  // adds a small further nudge toward the cursor on top of that resting
-  // pose, like the cube is turning to face it
-  const REST_X = -18, REST_Y = 8;
-  const HOVER_RANGE = 6;
+  // tiles sit perfectly flat, facing the user -- they only tilt while
+  // the mouse is actually over them, turning toward the cursor, then
+  // ease straight back to flat on mouseleave. The box's top/right faces
+  // (built correctly now) are edge-on and invisible at rest by design;
+  // hovering is what reveals the real depth.
+  const TILT_MAX = 14;
   // below this width the CSS flattens tiles into a plain row list (see
-  // style.css) -- an inline transform here would fight that and force
-  // the isometric tilt back on, so hand back nothing on mobile instead
+  // style.css) -- an inline transform here would fight that
   const isMobileLayout = window.matchMedia("(max-width:560px)").matches;
   function restTransform() {
-    return isMobileLayout ? "" : `perspective(2200px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
+    return isMobileLayout ? "" : "perspective(2200px) rotateX(0deg) rotateY(0deg)";
   }
   const supportsHoverTilt = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const tiles = document.querySelectorAll("a.tile");
@@ -222,8 +218,8 @@
         const r = tile.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        const rx = REST_X - py * HOVER_RANGE;
-        const ry = REST_Y + px * HOVER_RANGE;
+        const rx = -py * TILT_MAX;
+        const ry = px * TILT_MAX;
         tile.style.transform = `perspective(2200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
       });
       tile.addEventListener("mouseleave", () => {
