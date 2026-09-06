@@ -208,8 +208,10 @@ body{
   background:var(--ground);
   border:1px solid var(--line);
   border-radius:10px;
+  color:var(--ink);
   cursor:pointer;
   text-align:left;
+  font-family:inherit;
 }
 .card:hover{border-color:var(--accent);background:var(--panel-hi)}
 .card:focus-visible{outline:2px solid var(--focus)}
