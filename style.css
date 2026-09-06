@@ -148,91 +148,32 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   gap:16px;
 }
 
-/* each tile is a real 3D box — front, right, and top faces, like an
-   actual cube viewed from above-and-to-the-side (not a flat card faking
-   rotation). Rests at a bold isometric-style angle so all three faces
-   are clearly visible at all times, and tilts a little further (as if
-   turning to face the cursor) on hover; JS sets the initial resting
-   transform and eases back to it on mouseleave */
 .tile{
-  --depth:56px;
   position:relative;
   z-index:1;
-  aspect-ratio:1/1;
-  text-decoration:none;
-  color:var(--ink);
-  cursor:pointer;
-  transform-style:preserve-3d;
-  /* JS drives this: no transition while actively tracking the cursor,
-     an eased one when settling back to the resting angle on mouseleave */
-  transition:none;
-}
-.tile:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
-
-.tile-face{
-  position:absolute;
-  inset:0;
-  border-radius:6px;
-  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.16);
-  backdrop-filter:blur(8px) saturate(1.05);
-  -webkit-backdrop-filter:blur(8px) saturate(1.05);
-  transition:background .18s ease, border-color .18s ease, opacity .16s ease,
-             transform .5s cubic-bezier(.2,.8,.2,1);
-}
-.tile-face--front{
   display:flex;
   flex-direction:column;
   justify-content:space-between;
+  aspect-ratio:1/1;
   padding:20px;
-  transform:translateZ(var(--depth));
+  border-radius:6px;
+  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.16);
   box-shadow:
     inset 1px 1px 0 rgba(255,255,255,.25),
     inset -1px -1px 0 rgba(0,0,0,.45);
+  backdrop-filter:blur(8px) saturate(1.05);
+  -webkit-backdrop-filter:blur(8px) saturate(1.05);
+  text-decoration:none;
+  color:var(--ink);
+  cursor:pointer;
+  transition:transform .18s ease, border-color .18s ease, background .18s ease;
 }
-.tile:hover .tile-face--front{
+.tile:hover{
   background:linear-gradient(135deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
   border-color:rgba(255,255,255,.32);
 }
-/* the top and right faces are solid slabs of the same glass, shaded
-   like a lit cube (top brightest, right darkest) so the depth reads
-   immediately instead of needing to be discovered */
-.tile-face--right{
-  width:var(--depth);
-  left:auto;
-  transform-origin:100% 50%;
-  transform:rotateY(90deg);
-  background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.35));
-}
-.tile-face--top{
-  height:var(--depth);
-  bottom:auto;
-  transform-origin:50% 0%;
-  transform:rotateX(90deg);
-  background:linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.1));
-}
-
-/* shattering into glass shards on click, before the real navigation —
-   the whole cube breaks apart: the front pane's own glass disappears
-   behind its flung shards, and JS sends the top/right faces flying
-   off along their own plane so all three faces come apart together */
-.tile--breaking{pointer-events:none}
-.tile--breaking .tile-face--front{
-  background:transparent;
-  border-color:transparent;
-  box-shadow:none;
-}
-.tile--breaking .tile-face--front > *:not(.tile-shard){
-  opacity:0;
-}
-.tile-shard{
-  position:absolute;
-  background:linear-gradient(135deg, rgba(255,255,255,.55), rgba(255,255,255,.1));
-  border:1px solid rgba(255,255,255,.5);
-  pointer-events:none;
-  transition:transform .5s cubic-bezier(.2,.8,.2,1), opacity .5s ease;
-  will-change:transform,opacity;
-}
+.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 .tile .icon{
   width:38px;height:38px;
@@ -267,9 +208,16 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile .go svg{width:11px;height:11px}
 
 /* placeholder / coming-soon tiles */
-.tile.placeholder{cursor:default; color:var(--ink-dim)}
-.tile.placeholder .tile-face{border-style:dashed}
-.tile.placeholder:hover .tile-face--front{background:var(--panel);border-color:var(--line)}
+.tile.placeholder{
+  cursor:default;
+  border-style:dashed;
+  color:var(--ink-dim);
+}
+.tile.placeholder:hover{
+  background:var(--panel);
+  border-color:var(--line);
+  transform:none;
+}
 .tile.placeholder .icon{color:var(--ink-dim)}
 .tile.placeholder .go{display:none}
 .tile.placeholder .label{color:var(--ink-mid)}
@@ -289,23 +237,13 @@ footer{
 
   .grid{grid-template-columns:1fr;gap:10px}
 
-  /* the 3d cube's tilt doesn't read well in a single-column list on a
-     small screen -- tiles fall back to a plain flat row (front face only) */
   .tile{
-    aspect-ratio:auto;
-    transform:none;
-  }
-  .tile-face--right,
-  .tile-face--top{display:none}
-  .tile-face--front{
-    position:relative;
-    inset:auto;
     flex-direction:row;
     align-items:center;
     justify-content:flex-start;
+    aspect-ratio:auto;
     gap:14px;
     padding:14px 46px 14px 14px;
-    transform:none;
   }
   .tile .icon{width:30px;height:30px;flex:0 0 auto}
   .tile .icon + div{flex:1;min-width:0}
