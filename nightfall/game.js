@@ -2174,32 +2174,37 @@ function pickBusyWall() {
 }
 const WALL_OUTWARD = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 
+// the sky beacon's compass direction from the house -- used to sometimes
+// aim the wide-angle establishing shot its way so it shows up as part of
+// the scenery (same as it would show the tree line or a busy wall),
+// rather than needing a dedicated shot type of its own
+const SPIRAL_ANGLE = Math.atan2(SPIRAL_POS.x, SPIRAL_POS.z);
+
 // tries each shot type in a shuffled order and commits to the first one
 // that actually has something to point at (overview never fails, so
 // there's always a fallback) -- deprioritizes, rather than forbids,
-// immediately repeating whatever shot is just ending
+// immediately repeating whatever shot is just ending. A real Fisher-Yates
+// shuffle here, not the classic `.sort(() => Math.random() - 0.5)` --
+// that trick is well-known to produce a biased, non-uniform order (it
+// skews toward whatever the underlying sort algorithm happens to compare
+// first), which is exactly why one shot type was showing up far more
+// often than the other three.
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 function startCinematicShot() {
   const prevType = shot && shot.type;
-  const order = ["survivorPov", "zombieApproach", "wideAngle", "beacon", "overview"]
-    .sort(() => Math.random() - 0.5)
-    .sort((a, b) => (a === prevType ? 1 : 0) - (b === prevType ? 1 : 0));
+  const order = shuffled(["survivorPov", "zombieApproach", "wideAngle", "overview"]);
+  // deprioritize (not forbid) immediately repeating the shot that's just
+  // ending, by moving it to the back of this cut's order
+  if (order[0] === prevType) order.push(order.shift());
 
   for (const type of order) {
-    if (type === "beacon") {
-      // a slow orbit around the sky beacon itself -- always available
-      // (it's a fixed landmark, not tied to any in-progress fight) so
-      // this is guaranteed a regular turn in the rotation instead of
-      // only ever showing up if some other shot happens to glance past it
-      shot = {
-        type, start: performance.now(),
-        duration: 6000 + Math.random() * 2500,
-        angle: Math.random() * Math.PI * 2,
-        angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.06),
-        radius: 12 + Math.random() * 8,
-        heightOff: 2 + Math.random() * 5,
-      };
-      return;
-    }
     if (type === "survivorPov") {
       const t = pickSurvivorPovTarget();
       if (!t) continue;
@@ -2213,12 +2218,18 @@ function startCinematicShot() {
       return;
     }
     if (type === "wideAngle") {
-      const wall = pickBusyWall();
-      const [dx, dz] = WALL_OUTWARD[wall];
+      let baseAngle;
+      if (Math.random() < 0.3) {
+        baseAngle = SPIRAL_ANGLE + (Math.random() - 0.5) * 0.7;
+      } else {
+        const wall = pickBusyWall();
+        const [dx, dz] = WALL_OUTWARD[wall];
+        baseAngle = Math.atan2(dx, dz) + (Math.random() - 0.5) * 1.1;
+      }
       shot = {
         type, start: performance.now(),
         duration: 6500 + Math.random() * 3000,
-        angle: Math.atan2(dx, dz) + (Math.random() - 0.5) * 1.1,
+        angle: baseAngle,
         angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.03 + Math.random() * 0.05),
         radius: 24 + Math.random() * 10,
         height: 11 + Math.random() * 7,
@@ -2289,16 +2300,6 @@ function updateCinematicCamera(now) {
       z.z - _camFwd.z * 3.6 + Math.cos(now * 0.0005) * 0.4,
     );
     _camLook.set(z.x + _camFwd.x * 3, 0.9, z.z + _camFwd.z * 3);
-    camera.lookAt(_camLook);
-    camera.fov = 46;
-  } else if (shot.type === "beacon") {
-    const angle = shot.angle + shot.angleDrift * t;
-    camera.position.set(
-      SPIRAL_POS.x + Math.sin(angle) * shot.radius,
-      SPIRAL_POS.y + shot.heightOff,
-      SPIRAL_POS.z + Math.cos(angle) * shot.radius,
-    );
-    _camLook.copy(SPIRAL_POS);
     camera.lookAt(_camLook);
     camera.fov = 46;
   }
