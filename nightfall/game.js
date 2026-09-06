@@ -56,6 +56,25 @@ const WINDOW_SLOTS = {};
 WALL_IDS.forEach(w => { WINDOW_SLOTS[w] = computeWindowSlots(w); });
 const STATION_CAP = 6; // 2 windows x 3 slots
 
+// corner towers — built with survivors+supplies, manually garrisoned each
+// dawn, positioned diagonally outside the house (N is -z, E is +x, per the
+// wall convention above)
+const TOWER_IDS = ["NE", "NW", "SE", "SW"];
+const TOWER_OFFSET = 2.2;
+const TOWER_POS = {
+  NE: { x: HOUSE_HALF_X + TOWER_OFFSET, z: -(HOUSE_HALF_Z + TOWER_OFFSET) },
+  NW: { x: -(HOUSE_HALF_X + TOWER_OFFSET), z: -(HOUSE_HALF_Z + TOWER_OFFSET) },
+  SE: { x: HOUSE_HALF_X + TOWER_OFFSET, z: HOUSE_HALF_Z + TOWER_OFFSET },
+  SW: { x: -(HOUSE_HALF_X + TOWER_OFFSET), z: HOUSE_HALF_Z + TOWER_OFFSET },
+};
+const TOWER_LABEL = { NE: "Northeast tower", NW: "Northwest tower", SE: "Southeast tower", SW: "Southwest tower" };
+const TOWER_SUPPLY_COST = 50;
+const TOWER_SURVIVOR_COST = 4;
+
+// melee fallback: point-blank or out of ammo, defenders switch to spears
+const MELEE_DMG = 4;
+const MELEE_INTERVAL_BASE = 0.5;
+
 // ---------------------------------------------------------------
 // state
 // ---------------------------------------------------------------
@@ -64,10 +83,14 @@ function freshState() {
     phase: "menu", // menu | day | night | reward | gameover
     day: 1,
     survivors: 3,
-    assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
+    assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night, house crew only
+    towerAssignment: { NE: 0, NW: 0, SE: 0, SW: 0 }, // set manually on the day screen
     food: 30,
     ammo: 300,
+    supplies: 0,
+    reputation: 0, // resolves into recruits at the end of each successful night, then resets
     weaponTier: 1,
+    towers: [], // built tower ids, in build order
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
       E: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
@@ -83,13 +106,14 @@ let S = freshState();
 // runtime-only (not persisted between nights)
 let zombies = [];
 let bullets = [];
-let fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
+let fireCooldown = { N: 0, E: 0, S: 0, W: 0, NE: 0, NW: 0, SE: 0, SW: 0 };
 let spawnTimer = 0;
 let breached = false;
 let autoAssignTimer = 0;
 let zombiesSpawnedThisNight = 0;
 let zombiesTotalThisNight = 0;
-let currentTarget = { N: null, E: null, S: null, W: null }; // per-wall target lock
+let currentTarget = { N: null, E: null, S: null, W: null, NE: null, NW: null, SE: null, SW: null }; // per-wall/tower target lock
+let wallMeleeMode = { N: false, E: false, S: false, W: false }; // is this wall currently spear-fighting?
 
 // ---------------------------------------------------------------
 // DOM
@@ -101,6 +125,8 @@ const hudDay = document.getElementById("hudDay");
 const hudSurvivors = document.getElementById("hudSurvivors");
 const hudFood = document.getElementById("hudFood");
 const hudAmmo = document.getElementById("hudAmmo");
+const hudSupplies = document.getElementById("hudSupplies");
+const hudReputation = document.getElementById("hudReputation");
 const hudWeapon = document.getElementById("hudWeapon");
 const wallBars = { N: document.getElementById("wallN"), E: document.getElementById("wallE"), S: document.getElementById("wallS"), W: document.getElementById("wallW") };
 const toast = document.getElementById("toast");
@@ -276,6 +302,53 @@ function updateWallGlow() {
   });
 }
 
+// ---------------------------------------------------------------
+// corner towers
+// ---------------------------------------------------------------
+function buildTowerMesh(pos) {
+  const group = new THREE.Group();
+  const postH = 2.2;
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, postH, 6), flatMaterial(0x5a4a35));
+  post.position.y = postH / 2;
+  group.add(post);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 1.5), flatMaterial(0x6b5a3f));
+  deck.position.y = postH + 0.075;
+  group.add(deck);
+  const railMat = flatMaterial(0x4a3d2c);
+  [[-0.65, -0.65], [0.65, -0.65], [-0.65, 0.65], [0.65, 0.65]].forEach(([x, z]) => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), railMat);
+    rail.position.set(x, postH + 0.4, z);
+    group.add(rail);
+  });
+  group.position.set(pos.x, 0, pos.z);
+  return group;
+}
+
+const towerMeshes = {};
+function ensureTowerBuilt(id) {
+  if (towerMeshes[id]) return;
+  const mesh = buildTowerMesh(TOWER_POS[id]);
+  scene.add(mesh);
+  towerMeshes[id] = mesh;
+}
+function clearTowerMeshes() {
+  Object.keys(towerMeshes).forEach(id => { scene.remove(towerMeshes[id]); delete towerMeshes[id]; });
+}
+
+// a tower can shoot in any direction except through the house itself —
+// sample along the line to the target and reject if any point falls
+// inside the house's footprint
+function hasLineOfSight(fromPos, toPos) {
+  const steps = 12;
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = fromPos.x + (toPos.x - fromPos.x) * t;
+    const z = fromPos.z + (toPos.z - fromPos.z) * t;
+    if (Math.abs(x) < HOUSE_HALF_X && Math.abs(z) < HOUSE_HALF_Z) return false;
+  }
+  return true;
+}
+
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
@@ -302,6 +375,8 @@ const survivorLegsGeo = new THREE.BoxGeometry(0.46, 0.45, 0.28);
 const survivorTorsoGeo = new THREE.BoxGeometry(0.5, 0.55, 0.3);
 const survivorHeadGeo = new THREE.SphereGeometry(0.22, 8, 6);
 const survivorGunGeo = new THREE.BoxGeometry(0.12, 0.1, 0.55);
+const survivorSpearShaftGeo = new THREE.CylinderGeometry(0.025, 0.03, 0.9, 5);
+const survivorSpearTipGeo = new THREE.ConeGeometry(0.05, 0.14, 5);
 
 const zombieLegsMat = flatMaterial(0x3a3a28);
 const zombieTorsoMat = flatMaterial(0x5f7a34);
@@ -313,6 +388,8 @@ const survivorLegsMat = flatMaterial(0x24262b);
 const survivorTorsoMat = flatMaterial(0x3f6fa8);
 const survivorHeadMat = flatMaterial(0xd8a97a);
 const survivorGunMat = flatMaterial(0x1c1c1c);
+const survivorSpearShaftMat = flatMaterial(0x5a4632);
+const survivorSpearTipMat = flatMaterial(0xb9bec2);
 
 const hpBarBgGeo = new THREE.PlaneGeometry(0.8, 0.12);
 hpBarBgGeo.rotateX(-Math.PI / 2);
@@ -394,7 +471,22 @@ function createSurvivorMesh() {
   gun.position.set(0.16, legsH + torsoH * 0.7, survivorGunGeo.parameters.depth / 2 + 0.1);
   group.add(gun);
 
+  // held only when out of ammo or fighting off a zombie already at the wall
+  const spear = new THREE.Group();
+  const shaft = new THREE.Mesh(survivorSpearShaftGeo, survivorSpearShaftMat);
+  shaft.rotation.x = Math.PI / 2;
+  shaft.position.set(0.16, legsH + torsoH * 0.6, 0.35);
+  spear.add(shaft);
+  const tip = new THREE.Mesh(survivorSpearTipGeo, survivorSpearTipMat);
+  tip.rotation.x = Math.PI / 2;
+  tip.position.set(0.16, legsH + torsoH * 0.6, 0.35 + 0.45 + 0.07);
+  spear.add(tip);
+  spear.visible = false;
+  group.add(spear);
+
   group.visible = false;
+  group.userData.gun = gun;
+  group.userData.spear = spear;
   scene.add(group);
   return group;
 }
@@ -506,6 +598,16 @@ function updateSurvivorAiming() {
   });
 }
 
+// swap held weapon to match how that survivor's wall is currently fighting
+function updateSurvivorWeaponVisual() {
+  survivorPool.forEach(p => {
+    if (!p.mesh.visible || p.wall == null) return;
+    const melee = !!wallMeleeMode[p.wall];
+    p.mesh.userData.gun.visible = !melee;
+    p.mesh.userData.spear.visible = melee;
+  });
+}
+
 const bulletMaterial = new THREE.LineBasicMaterial({ color: 0xf4e6b8 });
 function spawnBullet(from, target) {
   const geo = new THREE.BufferGeometry().setFromPoints([
@@ -515,6 +617,17 @@ function spawnBullet(from, target) {
   const line = new THREE.Line(geo, bulletMaterial);
   scene.add(line);
   bullets.push({ line, geo, life: 0.08 });
+}
+
+const meleeMaterial = new THREE.LineBasicMaterial({ color: 0xf2f2f2 });
+function spawnMeleeStab(from, target) {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(from.x, 0.9, from.z),
+    new THREE.Vector3(target.x, 0.6, target.z),
+  ]);
+  const line = new THREE.Line(geo, meleeMaterial);
+  scene.add(line);
+  bullets.push({ line, geo, life: 0.15 });
 }
 
 function clearZombies() {
@@ -543,23 +656,9 @@ const TASKS = [
     apply: (s, n) => { s.food += n * 8; },
   },
   {
-    // every 4 survivors sent out guarantees 1 recruit; the remainder is a
-    // 25%-per-head chance at one more (1 sent = 25% chance, 4 = guaranteed
-    // 1, 5 = guaranteed 1 plus a 25% chance at a 2nd, and so on)
-    id: "survivor", icon: "\u{1F464}", title: "Look for more survivors", unit: "new survivor",
-    preview: n => {
-      if (n <= 0) return "+0 new survivors";
-      const guaranteed = Math.floor(n / 4);
-      const chance = (n % 4) * 25;
-      let s = "+" + guaranteed + " guaranteed";
-      if (chance > 0) s += ", " + chance + "% chance of +1 more";
-      return s;
-    },
-    apply: (s, n) => {
-      let found = Math.floor(n / 4);
-      if (Math.random() < (n % 4) * 0.25) found += 1;
-      s.survivors = Math.min(MAX_SURVIVORS, s.survivors + found);
-    },
+    id: "supplies", icon: "\u{1F4E6}", title: "Scavenge building supplies", unit: "supplies",
+    gain: n => n * 5,
+    apply: (s, n) => { s.supplies += n * 5; },
   },
   {
     id: "repair", icon: "\u{1F9F1}", title: "Repair walls", unit: "% hp, every wall",
@@ -573,6 +672,29 @@ const TASKS = [
     id: "weapon", icon: "\u{1F52B}", title: "Upgrade weapons", unit: "tier",
     gain: n => Math.floor(n / 2),
     apply: (s, n) => { s.weaponTier += Math.floor(n / 2); },
+  },
+  {
+    // costs TOWER_SURVIVOR_COST survivors AND TOWER_SUPPLY_COST supplies
+    // per tower — supplies scavenged in this same batch of tasks (the
+    // "supplies" task above runs first) count toward it
+    id: "tower", icon: "\u{1F3F0}", title: "Build a tower", unit: "tower",
+    preview: n => {
+      const wanted = Math.floor(n / TOWER_SURVIVOR_COST);
+      const slotsLeft = TOWER_IDS.length - S.towers.length;
+      if (slotsLeft <= 0) return "all 4 towers already built";
+      if (wanted <= 0) return "needs " + TOWER_SURVIVOR_COST + " survivors + " + TOWER_SUPPLY_COST + " supplies each";
+      return "+" + Math.min(wanted, slotsLeft) + " tower" + (wanted > 1 ? "s" : "") + " (supplies allowing)";
+    },
+    apply: (s, n) => {
+      let toBuild = Math.floor(n / TOWER_SURVIVOR_COST);
+      while (toBuild > 0 && s.towers.length < TOWER_IDS.length && s.supplies >= TOWER_SUPPLY_COST) {
+        s.supplies -= TOWER_SUPPLY_COST;
+        const next = TOWER_IDS.find(id => !s.towers.includes(id));
+        s.towers.push(next);
+        ensureTowerBuilt(next);
+        toBuild--;
+      }
+    },
   },
 ];
 
@@ -646,14 +768,70 @@ function totalZombiesForNight(day) {
 }
 
 // ---------------------------------------------------------------
-// UI: day screen
+// UI: day screen — includes manually garrisoning any built towers;
+// whatever's left over defends the house via the usual auto-assignment
 // ---------------------------------------------------------------
+function housePersonnel() {
+  return S.survivors - TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
+}
+
+function clampTowerAssignment() {
+  let total = TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
+  const order = [...TOWER_IDS].reverse();
+  let i = 0;
+  while (total > S.survivors && i < order.length) {
+    const id = order[i];
+    const cut = Math.min(S.towerAssignment[id] || 0, total - S.survivors);
+    S.towerAssignment[id] -= cut;
+    total -= cut;
+    i++;
+  }
+}
+
+function renderTowerAssignUI() {
+  clampTowerAssignment();
+  const section = document.getElementById("towerAssignSection");
+  if (S.towers.length === 0) { section.hidden = true; return; }
+  section.hidden = false;
+
+  const listEl = document.getElementById("towerAssignList");
+  listEl.innerHTML = S.towers.map(id => `
+    <div class="task-row">
+      <span class="task-ico">&#127984;</span>
+      <div class="task-info">
+        <div class="task-title">${TOWER_LABEL[id]}</div>
+      </div>
+      <div class="task-stepper">
+        <button type="button" data-tower="${id}" data-d="-1">&minus;</button>
+        <span class="task-count" id="towerCount-${id}">${S.towerAssignment[id]}</span>
+        <button type="button" data-tower="${id}" data-d="1">+</button>
+      </div>
+    </div>
+  `).join("");
+  listEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.tower, d = Number(btn.dataset.d);
+      if (d > 0 && housePersonnel() <= 0) return;
+      if (d < 0 && S.towerAssignment[id] <= 0) return;
+      S.towerAssignment[id] += d;
+      renderTowerAssignUI();
+    });
+  });
+
+  const inHouse = housePersonnel();
+  document.getElementById("houseRemaining").textContent =
+    inHouse + (inHouse === 1 ? " survivor stays in the house" : " survivors stay in the house");
+}
+
 function updateDayScreen() {
   document.getElementById("dayTitle").textContent = "Night " + S.day;
   document.getElementById("daySurvivors").textContent = S.survivors;
   document.getElementById("dayFood").textContent = S.food;
   document.getElementById("dayAmmo").textContent = S.ammo;
+  document.getElementById("daySupplies").textContent = S.supplies;
+  document.getElementById("dayReputation").textContent = S.reputation + "%";
   document.getElementById("dayWeapon").textContent = "Tier " + S.weaponTier;
+  renderTowerAssignUI();
 }
 
 // ---------------------------------------------------------------
@@ -664,6 +842,8 @@ function updateHud() {
   hudSurvivors.textContent = S.survivors;
   hudFood.textContent = S.food;
   hudAmmo.textContent = S.ammo;
+  hudSupplies.textContent = S.supplies;
+  hudReputation.textContent = S.reputation + "%";
   hudWeapon.textContent = "Tier " + S.weaponTier;
   WALL_IDS.forEach(w => {
     const pct = Math.max(0, S.walls[w].hp / S.walls[w].max) * 100;
@@ -681,6 +861,7 @@ function goToMenu() {
   S = freshState();
   clearZombies();
   clearBullets();
+  clearTowerMeshes();
   assignSurvivorStations();
   hud.hidden = true;
   menuOverlay.hidden = false;
@@ -706,8 +887,9 @@ function startNight() {
   clearBullets();
   spawnTimer = 0.6;
   breached = false;
-  fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
-  currentTarget = { N: null, E: null, S: null, W: null };
+  fireCooldown = { N: 0, E: 0, S: 0, W: 0, NE: 0, NW: 0, SE: 0, SW: 0 };
+  currentTarget = { N: null, E: null, S: null, W: null, NE: null, NW: null, SE: null, SW: null };
+  wallMeleeMode = { N: false, E: false, S: false, W: false };
   autoAssignTimer = 0;
   zombiesSpawnedThisNight = 0;
   zombiesTotalThisNight = totalZombiesForNight(S.day);
@@ -734,11 +916,21 @@ function endNightSuccess() {
     }
   }
 
-  // a 10% chance, independent of anyone's assigned tasks, that a stranger
-  // finds the house overnight and joins up
-  if (S.survivors < MAX_SURVIVORS && Math.random() < 0.10) {
-    S.survivors += 1;
-    showToast("A stranger found your door overnight. +1 survivor.");
+  // reputation: +10% just for surviving the night, on top of whatever
+  // sending people out on chores built up (+5% per survivor sent, applied
+  // when tasks were confirmed). Every 100% is a guaranteed recruit; the
+  // leftover is a straight percent chance at one more. Spent either way.
+  S.reputation += 10;
+  {
+    let recruits = Math.floor(S.reputation / 100);
+    const chance = S.reputation % 100;
+    if (Math.random() * 100 < chance) recruits += 1;
+    const actual = Math.min(recruits, MAX_SURVIVORS - S.survivors);
+    if (actual > 0) {
+      S.survivors += actual;
+      showToast(actual === 1 ? "Word got around — a new survivor joined you." : actual + " new survivors joined you.");
+    }
+    S.reputation = 0;
   }
 
   document.getElementById("rewardLead").textContent =
@@ -772,12 +964,13 @@ function updateAutoAssignment(dt) {
   if (autoAssignTimer > 0) return;
   autoAssignTimer = 0.5;
 
+  const houseCrew = housePersonnel();
   const activeWalls = WALL_IDS.filter(w => zombies.some(z => z.wall === w));
   WALL_IDS.forEach(w => { S.assignment[w] = 0; });
   if (activeWalls.length === 0) { assignSurvivorStations(); return; }
 
-  const per = Math.floor(S.survivors / activeWalls.length);
-  const remainder = S.survivors - per * activeWalls.length;
+  const per = Math.floor(houseCrew / activeWalls.length);
+  const remainder = houseCrew - per * activeWalls.length;
   activeWalls.forEach((w, i) => { S.assignment[w] = per + (i < remainder ? 1 : 0); });
   assignSurvivorStations();
 }
@@ -884,7 +1077,7 @@ function updateTurrets(dt) {
   WALL_IDS.forEach(w => {
     fireCooldown[w] = Math.max(0, fireCooldown[w] - dt);
     const crew = arrivedCrewCount(w);
-    if (crew <= 0 || S.ammo <= 0) return;
+    if (crew <= 0) { wallMeleeMode[w] = false; return; }
     if (fireCooldown[w] > 0) return;
 
     // keep firing at whatever's already locked in until it's dead (removed
@@ -900,7 +1093,20 @@ function updateTurrets(dt) {
       }
       currentTarget[w] = best;
     }
-    if (!best) return;
+    if (!best) { wallMeleeMode[w] = false; return; }
+
+    // out of ammo, or the target's already at the wall clawing at it —
+    // either way, spears instead of guns
+    const useMelee = S.ammo <= 0 || best.arrived;
+    wallMeleeMode[w] = useMelee;
+
+    if (useMelee) {
+      best.hp -= MELEE_DMG;
+      if (best.hp <= 0) currentTarget[w] = null;
+      spawnMeleeStab(DEFENSE_POINT[w], best);
+      fireCooldown[w] = Math.max(0.15, MELEE_INTERVAL_BASE / Math.min(crew, 6));
+      return;
+    }
 
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
@@ -918,6 +1124,39 @@ function updateTurrets(dt) {
 
     const interval = Math.max(0.12, 0.85 / Math.min(crew, 6));
     fireCooldown[w] = interval;
+  });
+}
+
+// corner towers: manually garrisoned, shoot anything they have line of
+// sight to (any wall's zombies, not just "their" side), never melee since
+// nothing ever reaches a tower to fight point-blank
+function updateTowers(dt) {
+  S.towers.forEach(id => {
+    fireCooldown[id] = Math.max(0, (fireCooldown[id] || 0) - dt);
+    const crew = S.towerAssignment[id] || 0;
+    if (crew <= 0 || S.ammo <= 0) return;
+    if (fireCooldown[id] > 0) return;
+
+    let best = currentTarget[id];
+    if (!best || !zombies.includes(best) || !hasLineOfSight(TOWER_POS[id], best)) {
+      best = null;
+      let bestDist = Infinity;
+      for (const z of zombies) {
+        if (!hasLineOfSight(TOWER_POS[id], z)) continue;
+        const d = Math.hypot(z.x - TOWER_POS[id].x, z.z - TOWER_POS[id].z);
+        if (d < bestDist) { bestDist = d; best = z; }
+      }
+      currentTarget[id] = best;
+    }
+    if (!best) return;
+
+    const dmg = 3 * S.weaponTier;
+    best.hp -= dmg;
+    S.ammo -= 1;
+    if (best.hp <= 0) currentTarget[id] = null;
+
+    spawnBullet(TOWER_POS[id], best);
+    fireCooldown[id] = Math.max(0.12, 0.85 / Math.min(crew, 6));
   });
 }
 
@@ -945,9 +1184,11 @@ function frame(now) {
     updateZombies(dt);
     updateAutoAssignment(dt);
     updateTurrets(dt);
+    updateTowers(dt);
     updateBullets(dt);
     updateSurvivorAiming();
     updateSurvivorMovement(dt);
+    updateSurvivorWeaponVisual();
     updateHud();
 
     const allSpawned = zombiesSpawnedThisNight >= zombiesTotalThisNight;
@@ -972,6 +1213,7 @@ document.getElementById("btnStartNight").addEventListener("click", startNight);
 document.getElementById("btnRetry").addEventListener("click", goToMenu);
 document.getElementById("btnConfirmTasks").addEventListener("click", () => {
   TASKS.forEach(t => t.apply(S, taskAlloc[t.id]));
+  S.reputation += 5 * S.survivors; // everyone sent out today spreads the word
   S.day += 1;
   goToDay();
 });
