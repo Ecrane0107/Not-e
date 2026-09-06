@@ -497,52 +497,87 @@ function clearBullets() {
 }
 
 // ---------------------------------------------------------------
-// rewards
+// post-night tasks — every survivor is a point of labor to spend
+// across these each dawn; the more you put on one task, the more it
+// yields, so it's a real trade-off rather than a single free pick
 // ---------------------------------------------------------------
-const REWARDS = [
+const TASKS = [
   {
-    id: "survivor", icon: "\u{1F464}", title: "Look for more survivors",
-    desc: "A stranger made it to your door. +1 survivor.",
-    canApply: s => s.survivors < MAX_SURVIVORS,
-    apply: s => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + 1); },
+    id: "ammo", icon: "\u{1F9F0}", title: "Scavenge ammo", unit: "ammo",
+    gain: n => n * 15,
+    apply: (s, n) => { s.ammo += n * 15; },
   },
   {
-    id: "ammo", icon: "\u{1F9F0}", title: "Scavenge ammo",
-    desc: "+25 rounds for the whole house.",
-    apply: s => { s.ammo += 25; },
+    id: "food", icon: "\u{1F96B}", title: "Scavenge food", unit: "food",
+    gain: n => n * 8,
+    apply: (s, n) => { s.food += n * 8; },
   },
   {
-    id: "food", icon: "\u{1F96B}", title: "Scavenge food",
-    desc: "+12 food. Keeps everyone standing a while longer.",
-    apply: s => { s.food += 12; },
+    id: "survivor", icon: "\u{1F464}", title: "Look for more survivors", unit: "new survivor",
+    gain: n => Math.floor(n / 2),
+    apply: (s, n) => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + Math.floor(n / 2)); },
   },
   {
-    id: "weapon", icon: "\u{1F52B}", title: "Upgrade weapons",
-    desc: "Every shot hits harder, permanently.",
-    apply: s => { s.weaponTier += 1; },
+    id: "repair", icon: "\u{1F9F1}", title: "Repair walls", unit: "% hp, every wall",
+    gain: n => n * 5,
+    // never a full heal in one go — each survivor assigned patches 5% of
+    // a wall's max hp, capped at that wall's own max
+    apply: (s, n) => { WALL_IDS.forEach(w => { const wl = s.walls[w]; wl.hp = Math.min(wl.max, wl.hp + wl.max * 0.05 * n); }); },
   },
   {
-    id: "reinforce", icon: "\u{1F9F1}", title: "Reinforce walls",
-    desc: "+20 max HP to every wall, fully repaired.",
-    apply: s => { WALL_IDS.forEach(w => { s.walls[w].max += 20; s.walls[w].hp = s.walls[w].max; }); },
-  },
-  {
-    id: "medkit", icon: "⚕️", title: "Repair walls",
-    desc: "Fully repair every wall to its current max HP.",
-    canApply: s => WALL_IDS.some(w => s.walls[w].hp < s.walls[w].max),
-    apply: s => { WALL_IDS.forEach(w => { s.walls[w].hp = s.walls[w].max; }); },
+    id: "weapon", icon: "\u{1F52B}", title: "Upgrade weapons", unit: "tier",
+    gain: n => Math.floor(n / 3),
+    apply: (s, n) => { s.weaponTier += Math.floor(n / 3); },
   },
 ];
 
-function rollRewards() {
-  const pool = REWARDS.filter(r => !r.canApply || r.canApply(S));
-  const picks = [];
-  const bag = pool.slice();
-  while (picks.length < 3 && bag.length) {
-    const i = Math.floor(Math.random() * bag.length);
-    picks.push(bag.splice(i, 1)[0]);
-  }
-  return picks;
+let taskAlloc = {};
+
+function renderTaskAllocation() {
+  TASKS.forEach(t => { taskAlloc[t.id] = 0; });
+  const listEl = document.getElementById("taskList");
+  listEl.innerHTML = TASKS.map(t => `
+    <div class="task-row">
+      <span class="task-ico">${t.icon}</span>
+      <div class="task-info">
+        <div class="task-title">${t.title}</div>
+        <div class="task-gain" id="taskGain-${t.id}">+0 ${t.unit}</div>
+      </div>
+      <div class="task-stepper">
+        <button type="button" data-task="${t.id}" data-d="-1">&minus;</button>
+        <span class="task-count" id="taskCount-${t.id}">0</span>
+        <button type="button" data-task="${t.id}" data-d="1">+</button>
+      </div>
+    </div>
+  `).join("");
+  listEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.task, d = Number(btn.dataset.d);
+      const total = Object.values(taskAlloc).reduce((a, b) => a + b, 0);
+      if (d > 0 && total >= S.survivors) return;
+      if (d < 0 && taskAlloc[id] <= 0) return;
+      taskAlloc[id] += d;
+      updateTaskUI();
+    });
+  });
+  updateTaskUI();
+}
+
+function updateTaskUI() {
+  const total = Object.values(taskAlloc).reduce((a, b) => a + b, 0);
+  const remaining = S.survivors - total;
+  document.getElementById("allocRemaining").textContent = remaining > 0
+    ? remaining + (remaining === 1 ? " survivor left to assign" : " survivors left to assign")
+    : "Everyone has a job tonight.";
+  TASKS.forEach(t => {
+    const n = taskAlloc[t.id];
+    document.getElementById(`taskCount-${t.id}`).textContent = n;
+    document.getElementById(`taskGain-${t.id}`).textContent = "+" + t.gain(n) + " " + t.unit;
+    const row = document.getElementById(`taskCount-${t.id}`).closest(".task-row");
+    row.querySelector('button[data-d="-1"]').disabled = n <= 0;
+    row.querySelector('button[data-d="1"]').disabled = remaining <= 0;
+  });
+  document.getElementById("btnConfirmTasks").disabled = remaining !== 0;
 }
 
 // ---------------------------------------------------------------
@@ -653,25 +688,8 @@ function endNightSuccess() {
   }
 
   document.getElementById("rewardLead").textContent =
-    "Night " + S.day + " is over. Pick one — you can't take them all.";
-  const cardsEl = document.getElementById("rewardCards");
-  const picks = rollRewards();
-  cardsEl.innerHTML = picks.map((r, i) => `
-    <button class="card" data-i="${i}">
-      <span class="cico">${r.icon}</span>
-      <span>
-        <span class="ctitle">${r.title}</span>
-        <span class="cdesc">${r.desc}</span>
-      </span>
-    </button>
-  `).join("");
-  cardsEl.querySelectorAll(".card").forEach(btn => {
-    btn.addEventListener("click", () => {
-      picks[Number(btn.dataset.i)].apply(S);
-      S.day += 1;
-      goToDay();
-    }, { once: true });
-  });
+    "Night " + S.day + " is over. Send your people out to work before the next one.";
+  renderTaskAllocation();
   rewardOverlay.hidden = false;
 }
 
@@ -883,5 +901,10 @@ document.getElementById("btnStart").addEventListener("click", () => {
 });
 document.getElementById("btnStartNight").addEventListener("click", startNight);
 document.getElementById("btnRetry").addEventListener("click", goToMenu);
+document.getElementById("btnConfirmTasks").addEventListener("click", () => {
+  TASKS.forEach(t => t.apply(S, taskAlloc[t.id]));
+  S.day += 1;
+  goToDay();
+});
 
 requestAnimationFrame(frame);

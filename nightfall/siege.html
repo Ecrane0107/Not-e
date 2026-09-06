@@ -23,17 +23,17 @@
 </div>
 
 <div class="hud" id="hud" hidden>
-  <div class="hud-top">
-    <div class="chip day"><span class="ic">&#127769;</span><span id="hudDay">Night 1</span></div>
-    <div class="chip"><span class="ic">&#128100;</span><span id="hudSurvivors">1</span><span class="lbl">/20</span></div>
-    <div class="chip"><span class="ic">&#127831;</span><span id="hudFood">10</span><span class="lbl">food</span></div>
-    <div class="chip"><span class="ic">&#128299;</span><span id="hudAmmo">200</span><span class="lbl">ammo</span></div>
+  <div class="hud-panel">
+    <div class="hud-row day"><span class="ic">&#127769;</span><span id="hudDay">Night 1</span></div>
+    <div class="hud-row"><span class="ic">&#128100;</span><span id="hudSurvivors">1</span><span class="lbl">/20 survivors</span></div>
+    <div class="hud-row"><span class="ic">&#127831;</span><span id="hudFood">10</span><span class="lbl">food</span></div>
+    <div class="hud-row"><span class="ic">&#128299;</span><span id="hudAmmo">200</span><span class="lbl">ammo</span></div>
+    <div class="hud-div"></div>
+    <div class="wallbar" id="wallN"><span>N</span><div class="hp"><i style="width:100%"></i></div></div>
+    <div class="wallbar" id="wallE"><span>E</span><div class="hp"><i style="width:100%"></i></div></div>
+    <div class="wallbar" id="wallS"><span>S</span><div class="hp"><i style="width:100%"></i></div></div>
+    <div class="wallbar" id="wallW"><span>W</span><div class="hp"><i style="width:100%"></i></div></div>
   </div>
-
-  <div class="wallbar n" id="wallN"><span>N</span><div class="hp"><i style="width:100%"></i></div></div>
-  <div class="wallbar e" id="wallE"><span>E</span><div class="hp"><i style="width:100%"></i></div></div>
-  <div class="wallbar s" id="wallS"><span>S</span><div class="hp"><i style="width:100%"></i></div></div>
-  <div class="wallbar w" id="wallW"><span>W</span><div class="hp"><i style="width:100%"></i></div></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -71,8 +71,10 @@
   <div class="panel">
     <p class="eyebrow">Dawn</p>
     <h1>You held the line</h1>
-    <p class="lead" id="rewardLead">Night 1 is over. Pick one — you can't take them all.</p>
-    <div class="cards" id="rewardCards"></div>
+    <p class="lead" id="rewardLead">Night 1 is over. Send your people out to work before the next one.</p>
+    <p class="alloc-remaining" id="allocRemaining">1 survivor to assign</p>
+    <div class="tasks" id="taskList"></div>
+    <button class="primary-btn" id="btnConfirmTasks" disabled>Confirm</button>
   </div>
 </div>
 
