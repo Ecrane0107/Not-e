@@ -62,10 +62,10 @@ function freshState() {
   return {
     phase: "menu", // menu | day | night | reward | gameover
     day: 1,
-    survivors: 1,
+    survivors: 3,
     assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
-    food: 10,
-    ammo: 200,
+    food: 30,
+    ammo: 250,
     weaponTier: 1,
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
