@@ -972,11 +972,16 @@ function updateAutoAssignment(dt) {
   if (autoAssignTimer > 0) return;
   autoAssignTimer = 0.5;
 
-  const houseCrew = housePersonnel();
   const activeWalls = WALL_IDS.filter(w => zombies.some(z => z.wall === w));
-  WALL_IDS.forEach(w => { S.assignment[w] = 0; });
-  if (activeWalls.length === 0) { assignSurvivorStations(); return; }
+  // a lull between spawns (no zombies in flight at all) used to zero out
+  // every wall's assignment here, which recalled the entire garrison to
+  // idle — then the instant a new zombie appeared, all of them popped
+  // back to the house center and walked out again. Just leave everyone
+  // exactly where they are until there's real new demand to react to.
+  if (activeWalls.length === 0) return;
 
+  const houseCrew = housePersonnel();
+  WALL_IDS.forEach(w => { S.assignment[w] = 0; });
   const per = Math.floor(houseCrew / activeWalls.length);
   const remainder = houseCrew - per * activeWalls.length;
   activeWalls.forEach((w, i) => { S.assignment[w] = per + (i < remainder ? 1 : 0); });
