@@ -906,37 +906,50 @@ const TASKS = [
     gain: n => Math.floor(n / 2),
     apply: (s, n) => { s.weaponTier += Math.floor(n / 2); },
   },
-  {
-    // costs TRENCH_SURVIVOR_COST survivors AND TRENCH_SUPPLY_COST supplies
-    // per trench — supplies scavenged in this same batch of tasks (the
-    // "supplies" task above runs first) count toward it
-    id: "trench", icon: "\u{1F6A7}", title: "Dig a trench", unit: "trench",
+  // one task per side, instead of a single "build whichever's next"
+  // task -- lets the player pick exactly which side to dig, and in
+  // whatever order they want. Each costs TRENCH_SURVIVOR_COST survivors
+  // AND TRENCH_SUPPLY_COST supplies (supplies scavenged in this same
+  // batch of tasks count toward it); putting more than that on one side
+  // doesn't do anything further, so its stepper caps there. A side drops
+  // out of the list entirely once it's already dug.
+  ...WALL_IDS.map(id => ({
+    id: "trench" + id,
+    icon: "\u{1F6A7}",
+    title: "Dig the " + TRENCH_LABEL[id].toLowerCase(),
+    unit: "trench",
+    max: TRENCH_SURVIVOR_COST,
+    visible: () => !S.trenches.includes(id),
     preview: n => {
-      const wanted = Math.floor(n / TRENCH_SURVIVOR_COST);
-      const slotsLeft = WALL_IDS.length - S.trenches.length;
-      if (slotsLeft <= 0) return "all 4 trenches already dug";
-      if (wanted <= 0) return "needs " + TRENCH_SURVIVOR_COST + " survivors + " + TRENCH_SUPPLY_COST + " supplies each";
-      return "+" + Math.min(wanted, slotsLeft) + " trench" + (wanted > 1 ? "es" : "") + " (supplies allowing)";
+      if (n <= 0) return "needs " + TRENCH_SURVIVOR_COST + " survivors + " + TRENCH_SUPPLY_COST + " supplies";
+      if (n < TRENCH_SURVIVOR_COST) return n + "/" + TRENCH_SURVIVOR_COST + " survivors committed";
+      return S.supplies >= TRENCH_SUPPLY_COST
+        ? "dug by dawn"
+        : "short " + (TRENCH_SUPPLY_COST - S.supplies) + " supplies";
     },
     apply: (s, n) => {
-      let toBuild = Math.floor(n / TRENCH_SURVIVOR_COST);
-      while (toBuild > 0 && s.trenches.length < WALL_IDS.length && s.supplies >= TRENCH_SUPPLY_COST) {
+      if (n >= TRENCH_SURVIVOR_COST && !s.trenches.includes(id) && s.supplies >= TRENCH_SUPPLY_COST) {
         s.supplies -= TRENCH_SUPPLY_COST;
-        const next = WALL_IDS.find(id => !s.trenches.includes(id));
-        s.trenches.push(next);
-        ensureTrenchBuilt(next);
-        toBuild--;
+        s.trenches.push(id);
+        ensureTrenchBuilt(id);
       }
     },
-  },
+  })),
 ];
 
 let taskAlloc = {};
 
+// which tasks actually show up tonight -- e.g. a trench side drops off
+// the list once it's already dug
+function visibleTasks() {
+  return TASKS.filter(t => !t.visible || t.visible());
+}
+
 function renderTaskAllocation() {
   TASKS.forEach(t => { taskAlloc[t.id] = 0; });
+  const tasks = visibleTasks();
   const listEl = document.getElementById("taskList");
-  listEl.innerHTML = TASKS.map(t => `
+  listEl.innerHTML = tasks.map(t => `
     <div class="task-row">
       <span class="task-ico">${t.icon}</span>
       <div class="task-info">
@@ -953,8 +966,10 @@ function renderTaskAllocation() {
   listEl.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.task, d = Number(btn.dataset.d);
+      const t = TASKS.find(task => task.id === id);
       const total = Object.values(taskAlloc).reduce((a, b) => a + b, 0);
       if (d > 0 && total >= S.survivors) return;
+      if (d > 0 && t.max != null && taskAlloc[id] >= t.max) return;
       if (d < 0 && taskAlloc[id] <= 0) return;
       taskAlloc[id] += d;
       updateTaskUI();
@@ -969,13 +984,13 @@ function updateTaskUI() {
   document.getElementById("allocRemaining").textContent = remaining > 0
     ? remaining + (remaining === 1 ? " survivor left to assign" : " survivors left to assign")
     : "Everyone has a job tonight.";
-  TASKS.forEach(t => {
+  visibleTasks().forEach(t => {
     const n = taskAlloc[t.id];
     document.getElementById(`taskCount-${t.id}`).textContent = n;
     document.getElementById(`taskGain-${t.id}`).textContent = t.preview ? t.preview(n) : "+" + t.gain(n) + " " + t.unit;
     const row = document.getElementById(`taskCount-${t.id}`).closest(".task-row");
     row.querySelector('button[data-d="-1"]').disabled = n <= 0;
-    row.querySelector('button[data-d="1"]').disabled = remaining <= 0;
+    row.querySelector('button[data-d="1"]').disabled = remaining <= 0 || (t.max != null && n >= t.max);
   });
   document.getElementById("btnConfirmTasks").disabled = remaining !== 0;
 }
