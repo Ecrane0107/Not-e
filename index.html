@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <canvas id="bg"></canvas>
@@ -19,6 +19,7 @@
     <p class="blurb">A small collection of interactive things. Click a tile to open it.</p>
   </header>
 
+  <canvas id="gridOrbs" class="grid-orbs" aria-hidden="true"></canvas>
   <div class="grid">
 
     <a class="tile" href="from-bits-to-models/map.html">
@@ -148,7 +149,7 @@
 
 </div>
 
-<script src="assets/spiral-bg.js?v=5"></script>
+<script src="assets/spiral-bg.js?v=6"></script>
 <script>
   initSpiralBackground(document.getElementById("bg"), {
     intensity: 0.32,
@@ -159,6 +160,81 @@
     cubeCount: 10,
     fps: 24,
   });
+
+  // flying orbs looping around the project panels — no rods, no cubes,
+  // just the particle "flights" sized to the grid's own footprint
+  const gridEl = document.querySelector(".grid");
+  const orbsCanvas = document.getElementById("gridOrbs");
+  const ORB_MARGIN = 46;
+  function positionGridOrbs() {
+    orbsCanvas.style.left = (gridEl.offsetLeft - ORB_MARGIN) + "px";
+    orbsCanvas.style.top = (gridEl.offsetTop - ORB_MARGIN) + "px";
+    orbsCanvas.style.width = (gridEl.offsetWidth + ORB_MARGIN * 2) + "px";
+    orbsCanvas.style.height = (gridEl.offsetHeight + ORB_MARGIN * 2) + "px";
+  }
+  positionGridOrbs();
+  window.addEventListener("resize", positionGridOrbs);
+  initSpiralBackground(orbsCanvas, {
+    barCount: 0,
+    cubeCount: 0,
+    intensity: 0.75,
+    radiusScale: 0.5,
+    fps: 24,
+  });
+
+  // tiles as glass blocks: tilt toward the cursor, and shatter before a
+  // real navigation happens on click
+  const tiles = document.querySelectorAll("a.tile");
+  tiles.forEach((tile) => {
+    tile.addEventListener("mousemove", (e) => {
+      const r = tile.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      tile.style.transform = `perspective(700px) rotateX(${(-py * 12).toFixed(2)}deg) rotateY(${(px * 12).toFixed(2)}deg)`;
+    });
+    tile.addEventListener("mouseleave", () => { tile.style.transform = ""; });
+
+    tile.addEventListener("click", (e) => {
+      if (tile.dataset.breaking) return;
+      e.preventDefault();
+      tile.dataset.breaking = "1";
+      const href = tile.getAttribute("href");
+      shatterTile(tile, () => { window.location.href = href; });
+    });
+  });
+
+  function shatterTile(tile, onDone) {
+    tile.style.transform = "";
+    tile.classList.add("tile--breaking");
+    const shardCount = 9;
+    const shards = [];
+    for (let i = 0; i < shardCount; i += 1) {
+      const shard = document.createElement("div");
+      shard.className = "tile-shard";
+      const w = 22 + Math.random() * 22, h = 22 + Math.random() * 22;
+      shard.style.left = Math.random() * (100 - w) + "%";
+      shard.style.top = Math.random() * (100 - h) + "%";
+      shard.style.width = w + "%";
+      shard.style.height = h + "%";
+      const pts = [];
+      for (let p = 0; p < 4; p += 1) pts.push(`${Math.round(Math.random() * 100)}% ${Math.round(Math.random() * 100)}%`);
+      shard.style.clipPath = `polygon(${pts.join(",")})`;
+      tile.appendChild(shard);
+      shards.push(shard);
+    }
+    // eslint-disable-next-line no-unused-expressions
+    tile.offsetHeight; // force layout so the fly-out transition below actually animates
+    requestAnimationFrame(() => {
+      shards.forEach((shard) => {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 50 + Math.random() * 110;
+        const spin = (Math.random() - 0.5) * 260;
+        shard.style.transform = `translate(${(Math.cos(angle) * dist).toFixed(0)}px, ${(Math.sin(angle) * dist - 40).toFixed(0)}px) rotate(${spin.toFixed(0)}deg) scale(.35)`;
+        shard.style.opacity = "0";
+      });
+    });
+    setTimeout(onDone, 500);
+  }
 </script>
 </body>
 </html>

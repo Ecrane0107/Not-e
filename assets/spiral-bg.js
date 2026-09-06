@@ -53,6 +53,34 @@ function initSpiralBackground(canvas, options) {
   const hue = typeof opts.hue === "number" ? opts.hue : Math.floor(Math.random() * 360);
   const hue2 = (hue + 18) % 360; // a near neighbor for the alternating bar tint
 
+  // the whole ring of bars slowly tumbles in 3D (one shared tilt applied
+  // uniformly to every bar, not per-bar jitter) so different bars read as
+  // more or less foreshortened as they spin through it, on top of the
+  // existing in-plane spin — randomized per load so it's never quite the
+  // same tumble twice
+  const tiltAmpX = 0.35 + Math.random() * 0.35;
+  const tiltAmpY = 0.35 + Math.random() * 0.35;
+  const tiltPeriodX = 18 + Math.random() * 20;
+  const tiltPeriodY = 22 + Math.random() * 24;
+  const tiltPhaseX = Math.random() * Math.PI * 2;
+  const tiltPhaseY = Math.random() * Math.PI * 2;
+  function ringTilt(t) {
+    return {
+      x: tiltAmpX * Math.sin((Math.PI * 2 / tiltPeriodX) * t + tiltPhaseX),
+      y: tiltAmpY * Math.sin((Math.PI * 2 / tiltPeriodY) * t + tiltPhaseY),
+    };
+  }
+  // project a point that lives flat in the ring's own plane (z=0) through
+  // that shared tilt — rotate around the X axis then the Y axis, keep only
+  // the resulting (x,y); dropping z (depth) is enough for a convincing
+  // orthographic tumble without needing real 3D
+  function applyTilt(x, y, tx, ty) {
+    const y1 = y * Math.cos(tx);
+    const z1 = y * Math.sin(tx);
+    const x1 = x * Math.cos(ty) + z1 * Math.sin(ty);
+    return { x: x1, y: y1 };
+  }
+
   const ctx = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const dpr = 1; // this is a soft blurry background — full retina density buys nothing
@@ -139,12 +167,15 @@ function initSpiralBackground(canvas, options) {
 
   // one rod, drawn as a few filled facets instead of a flat stroke so it
   // reads as a beveled prism (bright face, mid face, shadow face) rather
-  // than a thin flat bar, plus a small hexagonal cap at the outer tip
-  function drawRod(cx, cy, angle, r1, r2, thickness, alpha, rodHue) {
-    const dx = Math.cos(angle), dy = Math.sin(angle);
-    const px = -dy, py = dx;
-    const x1 = cx + dx * r1, y1 = cy + dy * r1;
-    const x2 = cx + dx * r2, y2 = cy + dy * r2;
+  // than a thin flat bar, plus a small hexagonal cap at the outer tip.
+  // Takes explicit screen-space endpoints (already tilt-projected) rather
+  // than an angle+radii, so it doesn't care whether the ring is flat or
+  // tumbled — the foreshortening is already baked into x1,y1,x2,y2.
+  function drawRod(x1, y1, x2, y2, thickness, alpha, rodHue) {
+    const ddx = x2 - x1, ddy = y2 - y1;
+    const len = Math.hypot(ddx, ddy) || 1;
+    const ux = ddx / len, uy = ddy / len;
+    const px = -uy, py = ux;
     const bandW = thickness / 3;
 
     function quad(off, lightness) {
@@ -166,10 +197,11 @@ function initSpiralBackground(canvas, options) {
 
     // small faceted cap at the outer tip
     const capR = thickness * 0.55;
+    const capAngle = Math.atan2(uy, ux);
     ctx.fillStyle = `hsla(${rodHue},70%,86%,${alpha})`;
     ctx.beginPath();
     for (let i = 0; i < 6; i += 1) {
-      const a = angle + (i / 6) * Math.PI * 2;
+      const a = capAngle + (i / 6) * Math.PI * 2;
       const px2 = x2 + Math.cos(a) * capR, py2 = y2 + Math.sin(a) * capR;
       if (i === 0) ctx.moveTo(px2, py2); else ctx.lineTo(px2, py2);
     }
@@ -181,14 +213,21 @@ function initSpiralBackground(canvas, options) {
     const rotation = (opts.reverse ? -1 : 1) * t * opts.spin;
     const barLength = radius * 0.95;
     const barThickness = Math.max(3, radius * 0.12);
+    const tilt = ringTilt(t);
     for (let i = 0; i < opts.barCount; i += 1) {
       const angle = (i / opts.barCount) * Math.PI * 2 + rotation;
       const wobble = Math.sin(t * 0.6 + i * 0.7) * radius * 0.05;
       const r1 = radius + wobble;
       const r2 = r1 + barLength;
+      const dx = Math.cos(angle), dy = Math.sin(angle);
+      // both endpoints live flat in the ring's plane until here — tilting
+      // them the same way is what makes the whole ring read as one rigid
+      // tumbling disc instead of independently wobbling bars
+      const p1 = applyTilt(dx * r1, dy * r1, tilt.x, tilt.y);
+      const p2 = applyTilt(dx * r2, dy * r2, tilt.x, tilt.y);
       const rodHue = i % 3 === 0 ? hue2 : hue;
       const alpha = Math.max(0, (0.55 + 0.25 * Math.sin(t * 0.8 + i)) * opts.intensity);
-      drawRod(cx, cy, angle, r1, r2, barThickness, alpha, rodHue);
+      drawRod(cx + p1.x, cy + p1.y, cx + p2.x, cy + p2.y, barThickness, alpha, rodHue);
     }
   }
 
