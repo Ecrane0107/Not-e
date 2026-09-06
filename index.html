@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <canvas id="bg"></canvas>
@@ -19,7 +19,6 @@
     <p class="blurb">A small collection of interactive things. Click a tile to open it.</p>
   </header>
 
-  <canvas id="gridOrbsBack" class="grid-orbs grid-orbs--back" aria-hidden="true"></canvas>
   <div class="grid">
 
     <a class="tile" href="from-bits-to-models/map.html">
@@ -172,7 +171,6 @@
     </div>
 
   </div>
-  <canvas id="gridOrbsFront" class="grid-orbs grid-orbs--front" aria-hidden="true"></canvas>
 
   <footer>Created by Eastland Crane</footer>
 
@@ -190,50 +188,20 @@
     fps: 24,
   });
 
-  // flying orbs looping around the project panels, in two depth layers so
-  // they can actually pass behind AND over the 3d tile boxes rather than
-  // always sitting on top of everything
-  const gridEl = document.querySelector(".grid");
-  const orbsBack = document.getElementById("gridOrbsBack");
-  const orbsFront = document.getElementById("gridOrbsFront");
-  const ORB_MARGIN = 46;
-  function positionGridOrbs(canvas) {
-    canvas.style.left = (gridEl.offsetLeft - ORB_MARGIN) + "px";
-    canvas.style.top = (gridEl.offsetTop - ORB_MARGIN) + "px";
-    canvas.style.width = (gridEl.offsetWidth + ORB_MARGIN * 2) + "px";
-    canvas.style.height = (gridEl.offsetHeight + ORB_MARGIN * 2) + "px";
+  // tiles are real 3d boxes, resting at a fixed slight angle so the depth
+  // reads as an actual cube at all times (not just a flat card) — hovering
+  // adds a small further nudge toward the cursor on top of that resting
+  // pose, like the cube is turning slightly to face it
+  const REST_X = -10, REST_Y = 14;
+  const HOVER_RANGE = 5;
+  function restTransform() {
+    return `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
   }
-  function positionAllGridOrbs() {
-    positionGridOrbs(orbsBack);
-    positionGridOrbs(orbsFront);
-  }
-  positionAllGridOrbs();
-  window.addEventListener("resize", positionAllGridOrbs);
-  initSpiralBackground(orbsBack, {
-    barCount: 0,
-    cubeCount: 0,
-    intensity: 0.7,
-    radiusScale: 0.5,
-    fps: 24,
-  });
-  initSpiralBackground(orbsFront, {
-    barCount: 0,
-    cubeCount: 0,
-    intensity: 0.5,
-    radiusScale: 0.5,
-    fps: 24,
-  });
-
-  // tiles are real 3d boxes that sit perfectly flat, facing the viewer —
-  // they only tilt while the mouse is over them, turning to face the
-  // cursor, then ease straight back to flat on mouseleave. Skip all of
-  // that on touch: there's no real hover there, and a stray synthetic
-  // mousemove on tap could otherwise leave a tile stuck mid-tilt with no
-  // mouseleave ever following to reset it.
-  const TILT_MAX = 16;
   const supportsHoverTilt = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const tiles = document.querySelectorAll("a.tile");
   tiles.forEach((tile) => {
+    tile.style.transform = restTransform();
+
     if (supportsHoverTilt) {
       tile.addEventListener("mouseenter", () => {
         tile.style.transition = "none";
@@ -242,13 +210,13 @@
         const r = tile.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        const rx = -py * TILT_MAX;
-        const ry = px * TILT_MAX;
+        const rx = REST_X - py * HOVER_RANGE;
+        const ry = REST_Y + px * HOVER_RANGE;
         tile.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
       });
       tile.addEventListener("mouseleave", () => {
         tile.style.transition = "transform .35s ease";
-        tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
+        tile.style.transform = restTransform();
       });
     }
 
@@ -266,7 +234,7 @@
   // plane, so all three faces come apart together
   function shatterTile(tile, onDone) {
     tile.style.transition = "transform .35s ease";
-    tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
+    tile.style.transform = restTransform();
     tile.classList.add("tile--breaking");
 
     const front = tile.querySelector(".tile-face--front");
@@ -322,7 +290,7 @@
       delete tile.dataset.breaking;
       tile.classList.remove("tile--breaking");
       tile.style.transition = "none";
-      tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
+      tile.style.transform = restTransform();
       tile.querySelectorAll(".tile-shard").forEach((shard) => shard.remove());
       const right = tile.querySelector(".tile-face--right");
       const bottom = tile.querySelector(".tile-face--bottom");

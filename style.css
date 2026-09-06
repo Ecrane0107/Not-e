@@ -76,24 +76,14 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   gap:16px;
 }
 
-/* flying orbs looping around the panels, sized/positioned from JS to the
-   grid's own footprint plus a margin. Two layers, one behind the tiles
-   and one in front, so they can actually pass behind and over the boxes
-   instead of always sitting on top of everything. */
-.grid-orbs{
-  position:absolute;
-  pointer-events:none;
-  display:block;
-}
-.grid-orbs--back{z-index:0}
-.grid-orbs--front{z-index:2}
-
 /* each tile is a real 3D box (front/right/bottom faces with actual
-   thickness, not a flat card faking rotation) — it sits perfectly flat,
-   facing the viewer, and only tilts (as if turning to face the cursor)
-   while the mouse is over it; JS resets it to flat on mouseleave */
+   thickness, not a flat card faking rotation) — it rests at a fixed
+   slight angle so the depth reads as an actual cube at all times, and
+   tilts a little further (as if turning to face the cursor) on hover;
+   JS sets the initial resting transform and eases back to it on
+   mouseleave */
 .tile{
-  --depth:22px;
+  --depth:28px;
   position:relative;
   z-index:1;
   aspect-ratio:1/1;
@@ -101,9 +91,8 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   color:var(--ink);
   cursor:pointer;
   transform-style:preserve-3d;
-  transform:perspective(800px) rotateX(0) rotateY(0);
   /* JS drives this: no transition while actively tracking the cursor,
-     an eased one when settling back to flat on mouseleave */
+     an eased one when settling back to the resting angle on mouseleave */
   transition:none;
 }
 .tile:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
@@ -227,10 +216,9 @@ footer{
   .blurb{font-size:14.5px}
 
   .grid{grid-template-columns:1fr;gap:10px}
-  .grid-orbs{display:none}
 
-  /* the 3d cube depends on a hover-driven tilt, which doesn't exist on
-     touch -- tiles fall back to a plain flat row (front face only) */
+  /* the 3d cube's tilt doesn't read well in a single-column list on a
+     small screen -- tiles fall back to a plain flat row (front face only) */
   .tile{
     aspect-ratio:auto;
     transform:none;
