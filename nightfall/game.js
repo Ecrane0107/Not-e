@@ -2180,11 +2180,26 @@ const WALL_OUTWARD = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 // immediately repeating whatever shot is just ending
 function startCinematicShot() {
   const prevType = shot && shot.type;
-  const order = ["survivorPov", "zombieApproach", "wideAngle", "overview"]
+  const order = ["survivorPov", "zombieApproach", "wideAngle", "beacon", "overview"]
     .sort(() => Math.random() - 0.5)
     .sort((a, b) => (a === prevType ? 1 : 0) - (b === prevType ? 1 : 0));
 
   for (const type of order) {
+    if (type === "beacon") {
+      // a slow orbit around the sky beacon itself -- always available
+      // (it's a fixed landmark, not tied to any in-progress fight) so
+      // this is guaranteed a regular turn in the rotation instead of
+      // only ever showing up if some other shot happens to glance past it
+      shot = {
+        type, start: performance.now(),
+        duration: 6000 + Math.random() * 2500,
+        angle: Math.random() * Math.PI * 2,
+        angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.06),
+        radius: 12 + Math.random() * 8,
+        heightOff: 2 + Math.random() * 5,
+      };
+      return;
+    }
     if (type === "survivorPov") {
       const t = pickSurvivorPovTarget();
       if (!t) continue;
@@ -2274,6 +2289,16 @@ function updateCinematicCamera(now) {
       z.z - _camFwd.z * 3.6 + Math.cos(now * 0.0005) * 0.4,
     );
     _camLook.set(z.x + _camFwd.x * 3, 0.9, z.z + _camFwd.z * 3);
+    camera.lookAt(_camLook);
+    camera.fov = 46;
+  } else if (shot.type === "beacon") {
+    const angle = shot.angle + shot.angleDrift * t;
+    camera.position.set(
+      SPIRAL_POS.x + Math.sin(angle) * shot.radius,
+      SPIRAL_POS.y + shot.heightOff,
+      SPIRAL_POS.z + Math.cos(angle) * shot.radius,
+    );
+    _camLook.copy(SPIRAL_POS);
     camera.lookAt(_camLook);
     camera.fov = 46;
   }
