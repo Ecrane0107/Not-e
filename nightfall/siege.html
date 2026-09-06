@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -24,7 +24,6 @@
 
 <div class="stage">
   <canvas id="game"></canvas>
-  <canvas id="skyFx"></canvas>
 </div>
 
 <div class="hud" id="hud" hidden>
@@ -159,24 +158,6 @@
   </div>
 </div>
 
-<script src="../assets/spiral-bg.js?v=7"></script>
-<script>
-  // the same ambient rig the main menu uses (glowing rod ring + comet-
-  // trail "flying lights") -- tucked into a back corner of the sky, small
-  // and distant, instead of sitting dead center over the house. No
-  // drifting glow cubes here (cubeCount:0) -- at this scale they read as
-  // falling hail, not ambient sparkle. Random theme color and shot
-  // pattern picked fresh on every load, same as everywhere else it's used.
-  initSpiralBackground(document.getElementById("skyFx"), {
-    intensity: 0.4,
-    radiusScale: 0.09,
-    centerX: 0.86,
-    centerY: 0.14,
-    barCount: 14,
-    cubeCount: 0,
-    fps: 24,
-  });
-</script>
-<script type="module" src="game.js?v=19"></script>
+<script type="module" src="game.js?v=20"></script>
 </body>
 </html>

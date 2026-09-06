@@ -588,6 +588,115 @@ function scatterTrees(count) {
 }
 scatterTrees(90);
 
+// ---------------------------------------------------------------
+// a distant sky beacon -- an actual object sitting out in the world past
+// the tree line, not a 2d overlay glued to the screen. A ring of glowing
+// rods (random color per rod) that slowly spins, plus a few small lights
+// orbiting it that trail a short fading tracer. Because it's real
+// geometry at a fixed world position, the cinematic camera sees it the
+// way it sees everything else -- perspective, parallax, and the house or
+// tree line can pass in front of it -- instead of it always being
+// stapled flat over whatever's on screen. fog:false on every material
+// here so it stays a crisp, visible landmark out at the edge of the fog
+// instead of drowning in it the way the ground/trees do at that range.
+// ---------------------------------------------------------------
+const SPIRAL_POS = new THREE.Vector3(-38, 20, -38);
+const spiralGroup = new THREE.Group();
+spiralGroup.position.copy(SPIRAL_POS);
+scene.add(spiralGroup);
+
+const SPIRAL_ROD_COUNT = 14;
+const SPIRAL_ROD_LEN = 5;
+const SPIRAL_ROD_INNER = 1.6;
+for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
+  const angle = (i / SPIRAL_ROD_COUNT) * Math.PI * 2;
+  const hue = Math.floor(Math.random() * 360);
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.16, SPIRAL_ROD_LEN, 6),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 75%, 62%)`), fog: false }),
+  );
+  rod.rotation.z = Math.PI / 2; // lay it flat -- long axis now along local +x
+  rod.rotation.y = -angle;      // swing that axis out to this rod's angle
+  const mid = SPIRAL_ROD_INNER + SPIRAL_ROD_LEN / 2;
+  rod.position.set(Math.cos(angle) * mid, 0, Math.sin(angle) * mid);
+  spiralGroup.add(rod);
+
+  // small bright cap at the outer tip, echoing the rod's own hue but
+  // lighter -- reads as a lit tip rather than a bare cylinder end
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 6, 5),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 80%, 80%)`), fog: false }),
+  );
+  cap.position.set(Math.cos(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN), 0, Math.sin(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN));
+  spiralGroup.add(cap);
+}
+
+const SPIRAL_LIGHT_COUNT = 4;
+const spiralLights = Array.from({ length: SPIRAL_LIGHT_COUNT }, () => {
+  const hue = Math.floor(Math.random() * 360);
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 8, 6),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue}, 85%, 78%)`), fog: false }),
+  );
+  spiralGroup.add(mesh);
+  return {
+    mesh,
+    hue,
+    radius: 3 + Math.random() * 4,
+    speed: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.4),
+    phase: Math.random() * Math.PI * 2,
+    lastTrailPos: null,
+    trailTimer: 0,
+  };
+});
+let spiralTrails = [];
+const SPIRAL_TRAIL_LIFE = 0.6;
+
+function updateSpiralBeacon(now, dt) {
+  spiralGroup.rotation.y += dt * 0.15;
+
+  spiralLights.forEach(l => {
+    const angle = l.phase + now * 0.001 * l.speed;
+    l.mesh.position.set(
+      Math.cos(angle) * l.radius,
+      Math.sin(now * 0.0006 + l.phase) * 1.2,
+      Math.sin(angle) * l.radius,
+    );
+
+    // a short fading tracer behind each light -- spawned periodically
+    // rather than every frame so a comet trail doesn't mean hundreds of
+    // tiny line objects a second
+    l.trailTimer -= dt;
+    if (l.trailTimer <= 0 && l.lastTrailPos) {
+      l.trailTimer = 0.06;
+      const geo = new THREE.BufferGeometry().setFromPoints([l.lastTrailPos, l.mesh.position.clone()]);
+      const mat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(`hsl(${l.hue}, 85%, 75%)`),
+        transparent: true, opacity: 0.8, fog: false,
+      });
+      const line = new THREE.Line(geo, mat);
+      spiralGroup.add(line);
+      spiralTrails.push({ line, geo, mat, life: SPIRAL_TRAIL_LIFE });
+    } else if (l.trailTimer <= 0) {
+      l.trailTimer = 0.06;
+    }
+    l.lastTrailPos = l.mesh.position.clone();
+  });
+
+  for (let i = spiralTrails.length - 1; i >= 0; i--) {
+    const t = spiralTrails[i];
+    t.life -= dt;
+    if (t.life <= 0) {
+      spiralGroup.remove(t.line);
+      t.geo.dispose();
+      t.mat.dispose();
+      spiralTrails.splice(i, 1);
+    } else {
+      t.mat.opacity = (t.life / SPIRAL_TRAIL_LIFE) * 0.8;
+    }
+  }
+}
+
 // no roof and no solid box — a pitched roof (or even a flat box top) just
 // hides everything from a steep top-down camera, so the house is an
 // open-top shell: a floor plus four thin perimeter walls, dollhouse-style,
@@ -2184,6 +2293,11 @@ function frame(now) {
     toastTimer -= dt;
     if (toastTimer <= 0) toast.classList.remove("show");
   }
+
+  // an ambient world fixture -- keeps spinning/orbiting regardless of
+  // phase, same as the tree line just sitting there, not something that
+  // only exists during a fight
+  updateSpiralBeacon(now, dt);
 
   if (S.phase === "night") {
     const diff = difficultyForDay(S.day);
