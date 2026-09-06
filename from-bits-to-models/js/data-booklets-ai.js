@@ -1041,3 +1041,1133 @@ Object.assign(BOOKLETS, {
       ]
     }
 });
+
+Object.assign(BOOKLETS, {
+  "llm": {
+    "title": "Large Language Models",
+    "blurb": "A transformer trained on an enormous amount of text to do one narrow thing — predict the next token — and the surprising amount of behavior that falls out of doing that one thing at scale.",
+    "chapters": [
+      {
+        "title": "One objective, predicting the next token",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "An LLM is a transformer, in the sense the attention booklet describes, trained on a single objective: given a sequence of tokens, predict a probability distribution over what token comes next. Training minimizes cross-entropy between that predicted distribution and the token that actually followed, across an enormous corpus of text, repeated for trillions of tokens."
+          },
+          {
+            "t": "p",
+            "x": "Nothing about that objective mentions reasoning, facts, or conversation. Those behaviors emerge because predicting the next token well, across a corpus that contains code, arguments, dialogue, and explanations, turns out to require modeling an awful lot about how language, facts, and reasoning actually work. The objective is narrow; the corpus is what makes the resulting behavior broad."
+          },
+          {
+            "t": "note",
+            "x": "This is why an LLM can be simultaneously extremely capable and prone to confidently generating false statements: nothing in the training objective distinguishes 'plausible continuation' from 'true statement.' Those two things are correlated in the training data, not identical."
+          }
+        ]
+      },
+      {
+        "title": "Corpus construction and scale",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Pretraining corpora are built from web crawls, books, code repositories, and other large text sources, then heavily filtered and deduplicated — near-duplicate documents otherwise get memorized disproportionately, and low-quality or toxic content otherwise shapes the model's output distribution more than intended."
+          },
+          {
+            "t": "p",
+            "x": "Empirically, loss falls in a predictable, smooth relationship with model size, dataset size, and compute — the so-called scaling laws. This is part of why frontier labs invest so heavily in more compute and more (filtered) data: the returns on scale, while eventually diminishing, have held remarkably well across many orders of magnitude, which is unusual for a machine learning result."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 220' xmlns='http://www.w3.org/2000/svg'><text x='20' y='24' font-size='12' fill='#9AA1A6'>loss vs. training compute (schematic, log-log axes)</text><line x1='60' y1='180' x2='600' y2='180' stroke='#23282B'/><line x1='60' y1='40' x2='60' y2='180' stroke='#23282B'/><path d='M70,60 C 200,110 350,150 590,172' fill='none' stroke='#FFFFFF' stroke-width='2.4'/><text x='60' y='200' font-size='11.5' fill='#666D72'>compute &#8594;</text><text x='16' y='45' font-size='11.5' fill='#666D72'>loss</text><text x='420' y='150' font-size='12' fill='#9AA1A6'>diminishing but persistent returns</text></svg>",
+            "cap": "Pretraining loss falls smoothly as compute (model size × data × training time) grows, roughly a straight line on log-log axes — the empirical basis for scaling laws."
+          }
+        ]
+      },
+      {
+        "title": "Context windows and KV caching",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "The context window is the maximum number of tokens a model can attend over at once — its entire working memory for a given call. Anything outside that window simply isn't visible to the model, which is why long documents need to be chunked (as the RAG booklet covers) or why a long conversation can cause a model to 'forget' something said much earlier."
+          },
+          {
+            "t": "p",
+            "x": "Generating text one token at a time naively would recompute attention over the whole context from scratch at every single step, which is wasteful: the key and value vectors for all previous tokens don't change once computed. KV caching stores those key/value vectors after each step and reuses them, so generating token N only does the new work for token N, not for the whole prefix again."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 190' xmlns='http://www.w3.org/2000/svg'><text x='20' y='24' font-size='12' fill='#9AA1A6'>KV cache: reused work vs. new work per generated token</text><rect x='40' y='60' width='260' height='40' rx='4' fill='#1A1E20' stroke='#23282B'/><text x='170' y='85' text-anchor='middle' font-size='12.5' fill='#9AA1A6' font-family='monospace'>cached K/V, tokens 1..N-1</text><rect x='310' y='60' width='90' height='40' rx='4' fill='#FFFFFF' fill-opacity='0.15' stroke='#FFFFFF'/><text x='355' y='85' text-anchor='middle' font-size='12.5' fill='#EDEFF0' font-family='monospace'>token N</text><text x='40' y='130' font-size='12' fill='#666D72'>only the new token's K/V is computed fresh; the rest is read from cache</text></svg>",
+            "cap": "At each generation step, only the newest token's key/value vectors are freshly computed; everything before it is served from the KV cache."
+          },
+          {
+            "t": "note",
+            "x": "The KV cache itself takes memory proportional to sequence length, model depth, and hidden size — for long contexts and large models this can rival or exceed the memory taken by the model's weights, which is a real deployment constraint, not a footnote."
+          }
+        ]
+      },
+      {
+        "title": "Sampling: temperature, top-p, and beam search",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "The model's output at each step is a probability distribution over the whole vocabulary, not a single answer — something has to turn that distribution into an actual next token. Greedy decoding always takes the single highest-probability token, which is deterministic but tends toward repetitive, overly safe text."
+          },
+          {
+            "t": "p",
+            "x": "Temperature rescales the distribution before sampling: values below 1 sharpen it toward the top choices (approaching greedy as temperature approaches 0), values above 1 flatten it, giving lower-probability tokens a more realistic chance of being picked. Top-p (nucleus) sampling instead keeps only the smallest set of top tokens whose probabilities sum to at least p, then samples within that set — adapting how many options are considered based on how confident the distribution actually is at each step."
+          },
+          {
+            "t": "worked",
+            "q": "A distribution assigns 0.6, 0.25, 0.1, 0.05 to four candidate tokens. With top-p = 0.8, which tokens remain eligible for sampling?",
+            "steps": [
+              "Sort by probability (already sorted here) and accumulate: 0.6, then 0.6+0.25=0.85.",
+              "The cumulative sum first reaches or exceeds 0.8 after including the second token (0.85 ≥ 0.8).",
+              "So the nucleus includes only the first two tokens, with probabilities 0.6 and 0.25.",
+              "The remaining two tokens (0.1 and 0.05) are excluded from sampling entirely, regardless of temperature."
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Beam search instead keeps several partial sequences (beams) alive at once, extending each and keeping only the highest-scoring beams at every step, aiming for a high-probability full sequence rather than a good next token in isolation. It is common in tasks like translation with one clearly best answer, and less common for open-ended chat, where it tends to produce bland, hedged text."
+          }
+        ]
+      },
+      {
+        "title": "Instruction tuning and RLHF, in outline",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "A raw pretrained model is only trained to continue text plausibly — asked a question, it might just as easily continue with more questions in the same style as answer the one asked, because that is a plausible continuation of text that looks like a list of questions. Instruction tuning fine-tunes the pretrained model on examples of instructions paired with the kind of response actually wanted, shifting its default behavior toward being helpful when prompted like an assistant."
+          },
+          {
+            "t": "p",
+            "x": "RLHF, covered in full in the alignment booklet, goes a step further: human raters compare candidate responses, that preference data trains a reward model, and the LLM is then fine-tuned with reinforcement learning against that reward model. Where instruction tuning teaches the model the shape of a good response, RLHF pushes further toward responses humans actually prefer along dimensions like helpfulness and harmlessness that are hard to specify with example pairs alone."
+          }
+        ]
+      },
+      {
+        "title": "Where large language models sit in this map",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Everything in this booklet is the attention booklet's transformer, trained at a scale the training-at-scale booklet describes, on data assembled the way this booklet's second chapter describes. Adapting a pretrained LLM to a specific task or dataset without full retraining is the fine-tuning booklet's subject; giving it current, external knowledge at query time is the RAG booklet's; letting it act across multiple steps rather than answer once is the agents booklet's. This booklet is the hub the rest of the AI-in-practice track adapts, retrieves for, and acts through."
+          }
+        ]
+      },
+      {
+        "title": "Exercises",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "These revisit sampling arithmetic and check the reasoning behind the pretraining objective, KV caching, and instruction tuning."
+          }
+        ],
+        "exercises": [
+          {
+            "q": "A distribution assigns 0.5, 0.3, 0.15, 0.05 to four tokens. With top-p = 0.75, which tokens are eligible for sampling?",
+            "steps": [
+              "Cumulative sum: 0.5, then 0.5+0.3=0.8.",
+              "The cumulative sum first reaches or exceeds 0.75 after the second token.",
+              "So the nucleus is the first two tokens, with combined probability 0.8.",
+              "The remaining two (0.15 and 0.05) are excluded."
+            ],
+            "answer": "The first two tokens (probabilities 0.5 and 0.3) are eligible; the rest are excluded."
+          },
+          {
+            "kind": "mc",
+            "q": "Why can an LLM produce a fluent, confident, but completely false statement, given that its training objective is just next-token prediction?",
+            "options": [
+              "The objective rewards plausible continuations of the training distribution, and nothing in it distinguishes a plausible continuation from a true one",
+              "The model deliberately decides to lie when it lacks information",
+              "This only happens due to a bug that better training data would always fix completely",
+              "Cross-entropy loss explicitly penalizes true statements more than false ones"
+            ],
+            "correct": 0,
+            "steps": [
+              "Cross-entropy training only measures how well predicted probabilities match the actual next token in training text.",
+              "Plausibility and truth are correlated in most training text, but the objective never explicitly separates them.",
+              "So a false but stylistically plausible continuation can score just as well, from the objective's point of view, as a true one.",
+              "This isn't a bug to be patched away entirely — it's a direct consequence of what the objective measures."
+            ],
+            "answer": "Nothing in the next-token objective distinguishes plausible from true; the two are only correlated in training data, not identical."
+          },
+          {
+            "kind": "write",
+            "q": "The technique that stores previously-computed key and value vectors so generating each new token doesn't require recomputing attention over the whole prefix is called the ___ cache.",
+            "accept": [
+              "kv",
+              "key-value",
+              "key value"
+            ],
+            "hint": "two letters, from the two vectors it stores",
+            "steps": [
+              "Each attention step needs key and value vectors for every prior token.",
+              "Those vectors don't change once computed, so recomputing them at every step would be wasted work.",
+              "Storing and reusing them is the KV cache.",
+              "This is why generation cost per token stays roughly constant rather than growing with the full recomputation cost of the sequence so far."
+            ],
+            "answer": "The KV cache."
+          },
+          {
+            "q": "Why does instruction tuning alone often still fall short of what RLHF adds, given that both operate on a pretrained model?",
+            "steps": [
+              "Instruction tuning trains on example instruction-response pairs, teaching the general shape and tone of a helpful response.",
+              "But writing enough example pairs to cover every nuance of what humans actually prefer (tone, safety, honesty about uncertainty) is impractical by hand.",
+              "RLHF instead trains a reward model from human preference comparisons, which can generalize preferences across situations no single example pair covered.",
+              "The LLM is then optimized against that learned reward model with reinforcement learning, pushing behavior toward what raters actually preferred, not just what shape of answer they demonstrated."
+            ],
+            "answer": "Instruction tuning teaches the shape of a good response from examples; RLHF pushes further toward what humans actually prefer, learned from comparisons rather than hand-written examples."
+          },
+          {
+            "kind": "mc",
+            "q": "A model given a 50,000-token document and asked a question about its first paragraph performs poorly. Given this booklet, what is the most likely explanation?",
+            "options": [
+              "The document may exceed the model's context window, or relevant content may be diluted among enough tokens that attention doesn't weight it strongly",
+              "The model always ignores the first paragraph of any document on principle",
+              "KV caching corrupts early tokens after enough later tokens are processed",
+              "Longer documents always cause a hard error rather than a quality issue"
+            ],
+            "correct": 0,
+            "steps": [
+              "If 50,000 tokens exceeds the model's context window, the earliest content may be truncated or unavailable entirely.",
+              "Even within the window, attention has to spread across many tokens, and very long contexts can dilute how strongly any one span is weighted.",
+              "KV caching preserves, rather than corrupts, earlier tokens' key/value vectors — it doesn't explain degraded quality.",
+              "Long documents don't universally error out; behavior degrading gracefully (or via truncation) is more typical than a hard failure."
+            ],
+            "answer": "Either the document exceeds the context window or relevant content is diluted across a very long context — not corruption from caching or a hard length error."
+          }
+        ]
+      }
+    ],
+    "vocab": [
+      [
+        "Pretraining",
+        "Training an LLM on the next-token prediction objective over a large, general corpus."
+      ],
+      [
+        "Cross-entropy loss",
+        "The loss function comparing a predicted next-token distribution to the actual next token."
+      ],
+      [
+        "Scaling laws",
+        "The empirical relationship between model size, data size, compute, and resulting loss."
+      ],
+      [
+        "Context window",
+        "The maximum number of tokens a model can attend over in a single call."
+      ],
+      [
+        "KV cache",
+        "Stored key/value vectors from prior tokens, reused to avoid recomputing attention from scratch each step."
+      ],
+      [
+        "Greedy decoding",
+        "Always selecting the single highest-probability next token."
+      ],
+      [
+        "Temperature",
+        "A scaling factor on the output distribution controlling how sharply it favors top candidates."
+      ],
+      [
+        "Top-p (nucleus) sampling",
+        "Sampling only from the smallest set of top tokens whose probabilities sum to at least p."
+      ],
+      [
+        "Beam search",
+        "Keeping several high-scoring partial sequences alive and extending them, favoring overall sequence probability."
+      ],
+      [
+        "Instruction tuning",
+        "Fine-tuning a pretrained model on instruction-response pairs to shift it toward assistant-like behavior."
+      ],
+      [
+        "RLHF",
+        "Reinforcement learning from human feedback; fine-tuning against a reward model trained on human preference comparisons."
+      ],
+      [
+        "Reward model",
+        "A model trained to predict which of two outputs a human rater would prefer."
+      ],
+      [
+        "Hallucination",
+        "A fluent but factually false model output, arising because the training objective doesn't distinguish truth from plausibility."
+      ]
+    ]
+  },
+  "finetune": {
+    "title": "Fine-tuning and LoRA",
+    "blurb": "Adapting a pretrained model to a narrower task without paying the cost of retraining it from scratch — and the parameter-efficient tricks that make adapting a huge model affordable at all.",
+    "chapters": [
+      {
+        "title": "Prompting versus fine-tuning",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "The cheapest way to adapt a large language model to a task is often to not train it at all: describe the task and give examples directly in the prompt, using the context the LLM booklet covers. This costs nothing to set up and can be changed instantly, but it consumes context-window space on every single call, and it can only push behavior so far — it can't teach a genuinely new skill the base model has no latent capacity for."
+          },
+          {
+            "t": "p",
+            "x": "Fine-tuning instead updates the model's own parameters on examples of the target task, so the adapted behavior is baked in rather than re-specified on every call. It costs real compute up front and produces a model that has to be hosted and versioned separately, but it can shift behavior more deeply and reliably than a prompt ever can, and it removes the per-call context cost of long instructions."
+          },
+          {
+            "t": "note",
+            "x": "In practice, the decision isn't binary: many production systems combine a modest prompt with a fine-tuned or lightly adapted model, using each technique where it's cheapest to fix a given gap."
+          }
+        ]
+      },
+      {
+        "title": "Full fine-tuning versus parameter-efficient methods",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Full fine-tuning updates every parameter in the model, using the same gradient descent and backpropagation machinery covered earlier in this map. For a model with billions of parameters, that means storing gradients and optimizer state (commonly two to three times the parameter count itself, for an optimizer like Adam) alongside the weights — memory that can exceed what even high-end hardware provides."
+          },
+          {
+            "t": "p",
+            "x": "Parameter-efficient fine-tuning methods instead freeze most or all of the original weights and train a much smaller number of new parameters layered on top. The frozen weights need no gradients or optimizer state at all, so the memory and compute cost drops dramatically — often by more than an order of magnitude — while still meaningfully adapting the model's behavior."
+          }
+        ]
+      },
+      {
+        "title": "LoRA: low-rank adapters",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "LoRA (low-rank adaptation) freezes an existing weight matrix W entirely and adds a separate update ΔW, but never forms ΔW as a full matrix. Instead it factors it into two much smaller matrices, A and B, so that ΔW = B·A, where A and B share a small inner dimension called the rank. Only A and B are trained; W stays frozen throughout."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 220' xmlns='http://www.w3.org/2000/svg'><text x='20' y='24' font-size='12' fill='#9AA1A6'>LoRA: a large frozen matrix, adapted by two small trained ones</text><rect x='40' y='50' width='120' height='120' fill='#1A1E20' stroke='#23282B'/><text x='100' y='115' text-anchor='middle' font-size='13' fill='#9AA1A6' font-family='monospace'>W</text><text x='40' y='188' font-size='11.5' fill='#666D72'>frozen, d&#215;d</text><text x='180' y='115' text-anchor='middle' font-size='16' fill='#666D72'>+</text><rect x='210' y='50' width='30' height='120' fill='#FFFFFF' fill-opacity='0.18' stroke='#FFFFFF'/><text x='225' y='115' text-anchor='middle' font-size='11' fill='#EDEFF0' font-family='monospace' transform='rotate(-90 225 115)'>B</text><rect x='250' y='140' width='120' height='30' fill='#FFFFFF' fill-opacity='0.18' stroke='#FFFFFF'/><text x='310' y='159' text-anchor='middle' font-size='11' fill='#EDEFF0' font-family='monospace'>A</text><text x='210' y='188' font-size='11.5' fill='#666D72'>trained, d&#215;r and r&#215;d</text><text x='420' y='115' font-size='12.5' fill='#DDE3E7'>r &#8810; d, so B&#183;A has far</text><text x='420' y='134' font-size='12.5' fill='#DDE3E7'>fewer parameters than W</text></svg>",
+            "cap": "W stays frozen at its full size; only the two small matrices A and B (sharing a small rank r) are trained, and their product approximates a useful update."
+          },
+          {
+            "t": "worked",
+            "q": "A weight matrix W is 4096×4096. Compare the parameter count of fully fine-tuning W versus a LoRA update with rank r = 8.",
+            "steps": [
+              "Full fine-tuning of W updates all 4096 × 4096 = 16,777,216 parameters.",
+              "LoRA's A is 4096 × 8 and B is 8 × 4096, each with 4096 × 8 = 32,768 parameters.",
+              "Total LoRA parameters = 32,768 × 2 = 65,536.",
+              "That is about 0.4% of the full fine-tuning parameter count for this one matrix — a reduction of roughly 256×."
+            ]
+          },
+          {
+            "t": "p",
+            "x": "After training, B·A can either be kept separate (letting the same frozen base model be paired with different LoRA adapters for different tasks, swapped in and out cheaply) or merged directly into W by simple matrix addition, producing a single ordinary weight matrix with no extra inference-time cost at all."
+          }
+        ]
+      },
+      {
+        "title": "QLoRA and memory budgeting",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Quantization reduces the number of bits used to store each weight — for instance from 16-bit floating point down to 4-bit integers — trading some numeric precision for a large reduction in memory footprint. QLoRA combines this with LoRA: the large frozen base model is stored in a heavily quantized, low-memory format, while the small trainable LoRA matrices are kept at higher precision, since it's the small trained part whose precision matters most for learning."
+          },
+          {
+            "t": "p",
+            "x": "This combination is what makes it practical to adapt models with tens of billions of parameters on a single consumer or workstation-class GPU — the frozen majority of the model sits compressed in memory, and only the comparatively tiny adapter actually needs to be trained at full precision."
+          }
+        ]
+      },
+      {
+        "title": "Dataset construction and catastrophic forgetting",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "A fine-tuning dataset needs to actually represent the target behavior — the format, tone, and edge cases the model should handle — since the model will faithfully learn whatever pattern the examples demonstrate, including unintended ones like a formatting quirk that happens to appear in every example."
+          },
+          {
+            "t": "p",
+            "x": "Fine-tuning too aggressively, for too long, or on too narrow a dataset risks catastrophic forgetting: the model's parameters shift so far toward the fine-tuning distribution that previously-learned, unrelated capabilities degrade. This risk is generally lower with parameter-efficient methods like LoRA, precisely because most of the original weights never change at all."
+          }
+        ]
+      },
+      {
+        "title": "Where fine-tuning sits in this map",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Fine-tuning takes the pretrained LLM the previous booklet describes and specializes it, using the same gradient descent and backpropagation machinery introduced earlier in the machine learning track, just applied to a much smaller, more targeted dataset. Whether fine-tuning is even the right move given a task, or whether retrieval (the RAG booklet) or a better prompt would fix it more cheaply, is exactly the kind of judgment call the model evaluation booklet's tools help make concrete."
+          }
+        ]
+      },
+      {
+        "title": "Exercises",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "These re-run the LoRA parameter-count reasoning at a different scale and check the ideas behind quantization and catastrophic forgetting."
+          }
+        ],
+        "exercises": [
+          {
+            "q": "A weight matrix W is 2048×2048. Compare full fine-tuning's parameter count to a LoRA update with rank r = 4.",
+            "steps": [
+              "Full fine-tuning: 2048 × 2048 = 4,194,304 parameters.",
+              "LoRA's A is 2048×4 and B is 4×2048, each with 8,192 parameters.",
+              "Total LoRA parameters = 8,192 × 2 = 16,384.",
+              "That's about 0.4% of the full count — roughly a 256× reduction, the same ratio as the worked example, since it depends only on r/d, not the absolute size."
+            ],
+            "answer": "16,384 LoRA parameters versus 4,194,304 for full fine-tuning — about a 256× reduction."
+          },
+          {
+            "kind": "mc",
+            "q": "Why does QLoRA quantize the frozen base model but keep the LoRA adapter matrices at higher precision, rather than quantizing everything equally?",
+            "options": [
+              "The frozen weights never receive gradient updates, so their precision only affects the forward pass; the adapter is what's actually being learned and is more sensitive to precision during training",
+              "Quantizing the adapter matrices is technically impossible on any current hardware",
+              "The base model's precision doesn't affect output quality at all, regardless of quantization level",
+              "Higher precision is only needed for inference, never for training"
+            ],
+            "correct": 0,
+            "steps": [
+              "The frozen base model only needs to be read during the forward pass, so a coarser (quantized) representation mainly costs some forward-pass accuracy, not training stability.",
+              "The LoRA matrices are the parameters actually being optimized; keeping them at higher precision protects the fidelity of that learning process.",
+              "This isn't a hardware limitation — quantized training exists — it's a deliberate precision budget allocated where it matters most.",
+              "Precision matters for training stability, not only for inference quality, which is why the adapter specifically is protected."
+            ],
+            "answer": "The frozen weights only need to support a forward pass, so quantizing them is cheap; the adapter is what's being trained and benefits most from higher precision."
+          },
+          {
+            "kind": "write",
+            "q": "The failure where a model fine-tuned narrowly loses previously-learned, unrelated capabilities is called ___ forgetting.",
+            "accept": [
+              "catastrophic"
+            ],
+            "hint": "two words, the first describing how severe the loss can be",
+            "steps": [
+              "Fine-tuning shifts parameters toward the new, narrow dataset's distribution.",
+              "If that shift is large enough, it can overwrite representations the model relied on for other, unrelated tasks.",
+              "This specific failure mode is named catastrophic forgetting.",
+              "Parameter-efficient methods like LoRA reduce this risk because most original weights are never touched."
+            ],
+            "answer": "Catastrophic forgetting."
+          },
+          {
+            "q": "A team wants to adapt a base model to five different customer-support personas that need to be swapped in and out per customer. Why is training five separate LoRA adapters a better fit than five fully fine-tuned model copies?",
+            "steps": [
+              "Five full fine-tunes means storing five entire copies of a very large model — an enormous, mostly redundant memory cost, since the base capabilities are identical across all five.",
+              "Five LoRA adapters mean storing one shared frozen base model plus five small adapter matrices, which are cheap to store and swap.",
+              "Serving a request just means loading the right small adapter alongside the one shared base model, rather than switching between five giant model copies.",
+              "This is one of LoRA's most practical advantages in production: many task-specific adapters can share one expensive base model."
+            ],
+            "answer": "LoRA adapters share one base model and add small, swappable pieces per persona, instead of duplicating an entire large model five times over."
+          },
+          {
+            "kind": "mc",
+            "q": "A model fine-tuned exclusively on very short, single-sentence customer replies later performs worse on longer, multi-paragraph explanations it used to handle well. What is the most likely explanation?",
+            "options": [
+              "Catastrophic forgetting from narrow fine-tuning data that didn't represent longer responses",
+              "The base model's context window shrank as a side effect of fine-tuning",
+              "Fine-tuning always degrades every unrelated capability equally, regardless of the data used",
+              "This is unrelated to fine-tuning and only caused by hardware issues"
+            ],
+            "correct": 0,
+            "steps": [
+              "The fine-tuning data consisted entirely of short replies, so the model was only ever pushed toward that narrow pattern.",
+              "Nothing in that narrow dataset reinforced the longer-form behavior the base model previously had, and fine-tuning can overwrite it as a side effect.",
+              "Context window size is a fixed architectural property, not something ordinary fine-tuning changes.",
+              "The degradation is data-dependent, not universal or hardware-related — a broader or better-mixed fine-tuning set would reduce it."
+            ],
+            "answer": "Catastrophic forgetting from a narrow fine-tuning dataset that never reinforced the longer-form behavior."
+          }
+        ]
+      }
+    ],
+    "vocab": [
+      [
+        "Fine-tuning",
+        "Continuing to train some or all of a pretrained model's parameters on a new, typically smaller, dataset."
+      ],
+      [
+        "Full fine-tuning",
+        "Updating every parameter in a model during fine-tuning."
+      ],
+      [
+        "Parameter-efficient fine-tuning",
+        "Freezing most of a model's weights and training only a small number of new parameters."
+      ],
+      [
+        "LoRA",
+        "Low-rank adaptation: representing a weight update as the product of two small matrices instead of one full-size matrix."
+      ],
+      [
+        "Rank",
+        "The shared inner dimension of LoRA's two small matrices, controlling how expressive the update can be."
+      ],
+      [
+        "Merging",
+        "Adding a trained LoRA update directly into the original weight matrix, producing one ordinary matrix with no extra inference cost."
+      ],
+      [
+        "Quantization",
+        "Reducing the number of bits used to store each weight, trading precision for memory."
+      ],
+      [
+        "QLoRA",
+        "Combining LoRA with a quantized frozen base model to reduce memory further."
+      ],
+      [
+        "Catastrophic forgetting",
+        "Loss of previously-learned capabilities caused by fine-tuning too narrowly or aggressively."
+      ],
+      [
+        "Adapter",
+        "A small set of trained parameters layered onto a frozen base model to specialize its behavior."
+      ]
+    ]
+  },
+  "rag": {
+    "title": "Retrieval-Augmented Generation",
+    "blurb": "Fetching relevant material at query time and handing it to the model in context, instead of hoping the answer was baked into its frozen training data.",
+    "chapters": [
+      {
+        "title": "The problem: knowledge cutoff and hallucination",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "An LLM's knowledge is fixed at whatever its training corpus contained — it has a knowledge cutoff and cannot know about anything that happened, or any document that was written, after that point. Asked about something outside its training data, it doesn't reliably say 'I don't know'; it can generate a fluent, confident-sounding answer that is simply invented, a failure the LLM booklet calls hallucination."
+          },
+          {
+            "t": "p",
+            "x": "Retrieval-augmented generation sidesteps both problems at once: at query time, relevant documents are fetched from an external, independently updatable source and placed directly into the model's context. The model can then ground its answer in that retrieved text rather than relying purely on what it memorized during training, and it can be prompted to say so explicitly when the retrieved material doesn't actually answer the question."
+          },
+          {
+            "t": "note",
+            "x": "RAG doesn't eliminate hallucination — a model can still misread or embellish beyond what its retrieved sources actually say — but it gives the model something real to be grounded in, and gives the system something concrete to check the answer against."
+          }
+        ]
+      },
+      {
+        "title": "Chunking and indexing",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Documents are split into chunks — paragraphs, fixed-size windows, or semantically-delimited sections — because a whole document is usually far too large to place in context, and a query is typically only relevant to a small part of it. Each chunk is turned into an embedding vector, using the same idea the embeddings booklet covers, and stored in a vector index alongside its original text."
+          },
+          {
+            "t": "p",
+            "x": "Chunk size is a real tradeoff: chunks that are too large waste context space on irrelevant surrounding text and dilute the embedding's specificity; chunks that are too small can lose context that spans multiple sentences, like a claim and the sentence that justifies it. Many systems add overlap between consecutive chunks specifically to reduce the chance that a relevant passage gets awkwardly split across a chunk boundary."
+          }
+        ]
+      },
+      {
+        "title": "Vector search and hybrid retrieval",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "At query time, the query itself is embedded into the same vector space as the stored chunks, and the chunks whose embeddings are most similar — by cosine similarity, as in the embeddings booklet — are retrieved as the ones most likely to be relevant."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 260' xmlns='http://www.w3.org/2000/svg'><text x='20' y='24' font-size='12' fill='#9AA1A6'>nearest neighbors of a query in embedding space</text><line x1='60' y1='230' x2='600' y2='230' stroke='#23282B'/><line x1='60' y1='40' x2='60' y2='230' stroke='#23282B'/><circle cx='330' cy='140' r='6' fill='#FFFFFF'/><text x='340' y='135' font-size='11.5' fill='#EDEFF0'>query</text><circle cx='300' cy='110' r='5' fill='none' stroke='#9AA1A6' stroke-width='1.4'/><circle cx='365' cy='170' r='5' fill='none' stroke='#9AA1A6' stroke-width='1.4'/><circle cx='310' cy='175' r='5' fill='none' stroke='#9AA1A6' stroke-width='1.4'/><circle cx='150' cy='70' r='4' fill='#666D72'/><circle cx='520' cy='200' r='4' fill='#666D72'/><circle cx='480' cy='60' r='4' fill='#666D72'/><circle cx='100' cy='190' r='4' fill='#666D72'/><circle cx='330' cy='140' r='60' fill='none' stroke='#FFFFFF' stroke-opacity='0.25' stroke-dasharray='4,3'/><text x='340' y='230' font-size='11.5' fill='#666D72'>near chunks retrieved; distant ones ignored &#8594;</text></svg>",
+            "cap": "The query's embedding lands somewhere in the same space as every stored chunk; the nearest chunks (inside the dashed circle) are retrieved, and distant ones are left alone."
+          },
+          {
+            "t": "p",
+            "x": "Pure vector search can miss exact keyword or entity matches that a sparse, term-based method like BM25 catches easily — a rare product code or an exact legal term might not land near the right semantic neighborhood if it barely appears elsewhere in training. Hybrid retrieval combines both signals, typically by running vector and keyword search in parallel and merging the results, catching semantic matches and exact matches at the same time."
+          }
+        ]
+      },
+      {
+        "title": "Reranking and context assembly",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Initial retrieval (vector, keyword, or hybrid) is optimized to be fast over a huge index, which means it trades some precision for speed. A reranker is a slower, more expensive model that re-scores only the small set of candidates the first pass already narrowed down, using a fuller comparison between the query and each candidate than raw embedding similarity allows."
+          },
+          {
+            "t": "p",
+            "x": "The final, reranked chunks are assembled into the model's prompt alongside the original query — often with the source clearly delimited and instructions to answer only from the provided material, or to say when it doesn't contain an answer, closing the loop back to the hallucination problem this booklet opened with."
+          },
+          {
+            "t": "worked",
+            "q": "A retrieval system returns 50 candidate chunks by fast vector search, then reranks only the top 8 with a slower model before building the prompt. Why not just rerank all 50, or skip reranking and use the top 8 from vector search directly?",
+            "steps": [
+              "Reranking all 50 candidates with the slower model would apply the expensive step to many chunks nearly certain to be irrelevant, wasting latency and cost for little benefit.",
+              "Skipping reranking and trusting the vector search's top 8 directly risks including chunks that are only superficially similar in embedding space but not actually the best match for the query's specific phrasing.",
+              "Narrowing with a cheap method first, then applying a more accurate but expensive method only to the shortlist, gets most of the accuracy benefit at a fraction of the cost of reranking everything.",
+              "This two-stage retrieve-then-rerank pattern is standard specifically because it fits fast-and-approximate together with slow-and-accurate in the right order."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Grounding, citation, and retrieval failure modes",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Grounding means the model's answer is explicitly tied to the retrieved text, often through inline citations pointing back to specific chunks, which lets a user verify a claim without having to trust the model's word alone. This is a large part of why RAG is preferred over pure parametric memory in domains where being wrong is costly — legal, medical, or financial question answering, for instance."
+          },
+          {
+            "t": "p",
+            "x": "Retrieval can fail in ways that are easy to miss without deliberate testing: the right document exists but never gets embedded near the query (a genuine retrieval miss), the right chunk is retrieved but the model ignores it in favor of its own parametric knowledge, or the index itself is stale and no longer reflects the current source documents. Diagnosing which of these actually happened — a retrieval failure or a generation failure — usually requires inspecting what was actually retrieved, not just what the model finally said."
+          }
+        ]
+      },
+      {
+        "title": "Where retrieval-augmented generation sits in this map",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "RAG takes the embeddings booklet's vector similarity, applies it to a document index instead of a fixed vocabulary, and hands the result to the LLM booklet's context window as extra grounding material. It's frequently one component inside a larger agent (the agents booklet's subject), which might decide when to retrieve, reformulate a query, or retrieve again if the first pass came back empty."
+          }
+        ]
+      },
+      {
+        "title": "Exercises",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "These check chunking tradeoffs, hybrid retrieval, and how to tell a retrieval failure apart from a generation failure."
+          }
+        ],
+        "exercises": [
+          {
+            "kind": "mc",
+            "q": "A RAG system over legal contracts uses very large chunks (whole sections) to make sure clauses keep their full surrounding context. What's the most likely downside?",
+            "options": [
+              "A query relevant to one sentence retrieves a whole section, spending most of the context window on irrelevant surrounding text and diluting the chunk's embedding specificity",
+              "Large chunks make the vector index impossible to build at all",
+              "Large chunks always retrieve faster than small ones regardless of index size",
+              "There is no downside; larger chunks are strictly better in every case"
+            ],
+            "correct": 0,
+            "steps": [
+              "A whole section's embedding reflects everything in it, not just the one relevant clause, which can make it a worse semantic match for a narrow query than a tightly-scoped chunk would be.",
+              "Even when retrieved correctly, most of a large chunk's text may be irrelevant to the specific query, spending context budget without adding value.",
+              "Index build time and query speed depend on the number and size of vectors, not on chunk size being inherently fast or slow.",
+              "Chunk size is a genuine tradeoff, not a case where bigger is strictly better — this booklet's chunking chapter covers the opposite failure mode too."
+            ],
+            "answer": "Large chunks dilute embedding specificity and waste context space on irrelevant surrounding text for narrowly-scoped queries."
+          },
+          {
+            "q": "A user asks about a product model number, and pure vector search fails to retrieve the right manual page even though it contains that exact model number verbatim. Why might this happen, and what retrieval approach addresses it?",
+            "steps": [
+              "Model numbers are often rare, arbitrary strings with little semantic content for an embedding model to key off of — the surrounding context may pull the embedding toward a different, more common topic.",
+              "A sparse, keyword-based method like BM25 matches the exact string directly, regardless of its semantic neighborhood.",
+              "Hybrid retrieval running both vector and keyword search in parallel would catch this case through the keyword path even if the vector path missed it.",
+              "This is exactly why hybrid retrieval is common in practice rather than relying on embeddings alone."
+            ],
+            "answer": "Rare, low-semantic-content strings like model numbers can be missed by vector search; hybrid (vector + keyword) retrieval catches exact matches that pure vector search can miss."
+          },
+          {
+            "kind": "write",
+            "q": "Explicitly tying a model's answer to specific retrieved source passages, often via inline references back to them, is called ___ the answer.",
+            "accept": [
+              "grounding"
+            ],
+            "hint": "one word, also used for connecting an electrical circuit to a stable reference",
+            "steps": [
+              "An ungrounded answer relies purely on the model's own parametric memory, with no explicit connection to any source.",
+              "A grounded answer is explicitly tied to specific retrieved passages, often with citations pointing back to them.",
+              "This lets a user verify a claim against the actual source instead of trusting the model's assertion alone.",
+              "The term for this is grounding the answer."
+            ],
+            "answer": "Grounding the answer."
+          },
+          {
+            "q": "A RAG system gives a wrong answer to a question whose correct answer definitely exists in the indexed documents. What are the two broad categories of failure to check first, and how would you distinguish them?",
+            "steps": [
+              "The first category is a retrieval failure: the right chunk was never returned by the retrieval step at all.",
+              "The second is a generation failure: the right chunk was retrieved and placed in context, but the model ignored it, misread it, or answered from its own memory instead.",
+              "Distinguishing them requires inspecting the actual retrieved chunks passed to the model for that query, not just the final answer.",
+              "If the correct chunk is absent from what was retrieved, it's a retrieval problem (chunking, indexing, or query formulation); if it's present but unused, it's a generation or prompting problem."
+            ],
+            "answer": "Retrieval failure (the right chunk was never fetched) versus generation failure (it was fetched but the model didn't use it correctly) — distinguished by inspecting what was actually retrieved."
+          },
+          {
+            "kind": "mc",
+            "q": "Why is a two-stage retrieve-then-rerank pipeline generally preferred over reranking every document in a million-document index directly?",
+            "options": [
+              "Reranking is far more computationally expensive per document than initial retrieval, so it's applied only to a small, cheaply-narrowed shortlist",
+              "Rerankers cannot process more than one document at a time under any circumstances",
+              "Initial retrieval is always more accurate than reranking, making reranking unnecessary",
+              "Reranking and retrieval always use the exact same underlying algorithm, making the distinction meaningless"
+            ],
+            "correct": 0,
+            "steps": [
+              "A reranker typically does a fuller, more expensive comparison between the query and each candidate than approximate vector or keyword search.",
+              "Running that expensive comparison over a million documents per query would be far too slow and costly for most applications.",
+              "Using fast, approximate retrieval to narrow to a small shortlist first, then applying the expensive reranker only to that shortlist, keeps most of the accuracy benefit at a fraction of the cost.",
+              "Retrieval and reranking are deliberately different in cost and accuracy — that difference is the entire reason to use both in sequence."
+            ],
+            "answer": "Reranking is expensive per document, so it's applied only to a small shortlist that cheap initial retrieval has already narrowed down."
+          }
+        ]
+      }
+    ],
+    "vocab": [
+      [
+        "Knowledge cutoff",
+        "The point after which an LLM's training data contains no information, making it unaware of anything later."
+      ],
+      [
+        "Retrieval-augmented generation (RAG)",
+        "Fetching relevant external documents at query time and placing them in the model's context."
+      ],
+      [
+        "Chunking",
+        "Splitting documents into smaller pieces suitable for embedding and retrieval."
+      ],
+      [
+        "Vector index",
+        "A store of embedding vectors, alongside their source text, searchable by similarity."
+      ],
+      [
+        "Vector search",
+        "Retrieving stored items whose embeddings are most similar to a query's embedding."
+      ],
+      [
+        "Hybrid retrieval",
+        "Combining vector (semantic) search with keyword (sparse) search to catch both kinds of matches."
+      ],
+      [
+        "BM25",
+        "A classic sparse, keyword-based ranking method used in hybrid retrieval."
+      ],
+      [
+        "Reranking",
+        "Re-scoring a small shortlist of retrieved candidates with a more accurate, more expensive model."
+      ],
+      [
+        "Grounding",
+        "Explicitly tying a model's answer to specific retrieved source passages."
+      ],
+      [
+        "Retrieval failure",
+        "A case where the correct source was never retrieved, as opposed to being retrieved but misused."
+      ]
+    ]
+  },
+  "agents": {
+    "title": "Agents and Tool Use",
+    "blurb": "Letting a model plan, call tools, and act across multiple steps instead of answering once — and the class of failure modes that only shows up once a model is allowed to act repeatedly.",
+    "chapters": [
+      {
+        "title": "From one call to a loop",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Everything earlier in the AI-in-practice track — a single LLM call, even one grounded by RAG — takes one input and produces one output. An agent instead runs a loop: the model reasons about a goal, optionally takes an action (typically calling a tool), observes the result of that action, and decides whether to act again or produce a final answer."
+          },
+          {
+            "t": "p",
+            "x": "Nothing about the underlying model changes to make this possible — it's still the same next-token-predicting transformer from the LLM booklet. What changes is the surrounding scaffold: code that intercepts the model's requests to call tools, actually executes them, and feeds the results back into the model's context for the next step of reasoning."
+          }
+        ]
+      },
+      {
+        "title": "Tool calling and structured output",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "A tool is described to the model with a name, a description of what it does, and a schema for its expected arguments — much like a function signature. Rather than the model directly executing anything, it outputs a structured request (typically JSON) naming a tool and its arguments; the surrounding system parses that request, runs the real tool, and returns the result as text back into the model's context."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 220' xmlns='http://www.w3.org/2000/svg'><text x='20' y='24' font-size='12' fill='#9AA1A6'>the tool-call loop</text><rect x='40' y='60' width='140' height='50' rx='6' fill='#1A1E20' stroke='#23282B'/><text x='110' y='90' text-anchor='middle' font-size='12.5' fill='#EDEFF0'>LLM reasons</text><rect x='250' y='60' width='140' height='50' rx='6' fill='#1A1E20' stroke='#23282B'/><text x='320' y='90' text-anchor='middle' font-size='12.5' fill='#EDEFF0'>requests a tool call</text><rect x='460' y='60' width='140' height='50' rx='6' fill='#FFFFFF' fill-opacity='0.14' stroke='#FFFFFF'/><text x='530' y='90' text-anchor='middle' font-size='12.5' fill='#EDEFF0'>tool executes</text><path d='M180,85 H250' stroke='#666D72' marker-end='url(#a1)'/><path d='M390,85 H460' stroke='#666D72' marker-end='url(#a1)'/><path d='M530,110 V150 H110 V110' fill='none' stroke='#9AA1A6' stroke-dasharray='4,3' marker-end='url(#a1)'/><text x='260' y='175' font-size='12' fill='#9AA1A6'>result fed back into context; loop repeats or ends with a final answer</text><defs><marker id='a1' markerWidth='8' markerHeight='8' refX='6' refY='4' orient='auto'><path d='M0,0 L8,4 L0,8 z' fill='#666D72'/></marker></defs></svg>",
+            "cap": "The model reasons, requests a tool call, the surrounding system actually executes it, and the result is fed back into context for the next iteration of the loop."
+          },
+          {
+            "t": "note",
+            "x": "The model never runs code itself. Every tool call passes through code the developer controls, which is exactly where validation, permissions, and safety limits belong — trusting a model's own output to be safe to execute directly would be a serious mistake."
+          }
+        ]
+      },
+      {
+        "title": "Planning loops and state management",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "A single call's context window is a snapshot for that one call, but an agent's task can span many calls, each adding new information — a tool's result, an intermediate conclusion, a revised plan. Without deliberately managing what carries forward, an agent can lose track of its original goal amid everything it's since learned, or repeat work it already did in an earlier step."
+          },
+          {
+            "t": "p",
+            "x": "Since the context window is finite, an agent's scaffold typically has to decide what state to keep verbatim, what to summarize, and what to drop entirely as a task runs long — this state management is often more of the real engineering effort in building an agent than the prompting itself."
+          }
+        ]
+      },
+      {
+        "title": "Memory and context budgeting",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Short-term memory, in this context, usually just means whatever is still in the current context window — the running record of the task so far. Long-term memory means information persisted outside any single context window, in a database or vector store, that can be retrieved back into context in a later session, functioning much like the RAG booklet's retrieval but over the agent's own history rather than external documents."
+          },
+          {
+            "t": "p",
+            "x": "Budgeting context deliberately (truncating old tool results, summarizing completed sub-tasks) is what keeps a long-running agent from either running out of context space or drowning its own reasoning in an ever-growing transcript of everything it's ever done."
+          }
+        ]
+      },
+      {
+        "title": "Loops, cascading errors, and guardrails",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "An agent that isn't converging toward a stopping condition can loop indefinitely — repeatedly calling the same tool with slightly reworded arguments, never satisfied it has enough information to answer. Left unchecked, this directly translates into unbounded cost, since every iteration is itself a paid model call plus whatever the tool itself costs."
+          },
+          {
+            "t": "p",
+            "x": "Errors can also cascade: a tool returns a subtly wrong result, the model treats it as fact and builds several further reasoning steps on top of it, and by the time a human notices anything is wrong, the error has propagated through multiple downstream actions rather than staying contained to one bad step."
+          },
+          {
+            "t": "worked",
+            "q": "An agent with no call limit is set loose to research a topic and keeps calling a web-search tool with near-identical queries for over an hour. What guardrails would you add, in order of priority?",
+            "steps": [
+              "First, a hard cap on the number of tool calls (or total cost/time) per task, so a stuck agent fails safely rather than running indefinitely.",
+              "Second, repeat-call detection — comparing a new tool call's arguments against recent ones to catch the agent going in circles.",
+              "Third, an explicit instruction and mechanism to answer with the best available information once a reasonable effort has been made, rather than requiring certainty before it's allowed to stop.",
+              "Together these turn an open-ended, unbounded loop into one that is guaranteed to terminate, even in the worst case where the model itself never decides to stop."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Where agents sit in this map",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "An agent is the LLM booklet's model, often augmented with the RAG booklet's retrieval as one of its available tools, wrapped in a loop that lets it act repeatedly rather than answer once. Once deployed, an agent inherits every concern the MLOps booklet raises about serving and monitoring a model in production, with the added twist that a single user request can now trigger an unpredictable number of downstream actions and costs rather than one fixed inference call."
+          }
+        ]
+      },
+      {
+        "title": "Exercises",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "These trace through the tool-call loop and check the reasoning behind state management and guardrails."
+          }
+        ],
+        "exercises": [
+          {
+            "q": "Put these steps in order: (a) the tool's result is returned to the agent's context, (b) the agent decides to call a specific tool with specific arguments, (c) the calling code validates and executes the tool, (d) the agent produces a final answer or calls another tool.",
+            "steps": [
+              "The loop begins with the model reasoning about the task and deciding a tool call is needed, choosing the tool and its arguments.",
+              "That request is handed to code outside the model, which validates it and actually executes the tool.",
+              "The tool's real-world result is fed back into the model's context, as though the model had just observed it directly.",
+              "With that new information, the model either calls another tool or, if it now has enough to work with, produces a final answer."
+            ],
+            "answer": "(b) decide to call a tool, (c) validate and execute it, (a) return the result to context, (d) produce a final answer or call again."
+          },
+          {
+            "kind": "mc",
+            "q": "Why shouldn't a model's own generated code or tool-call request ever be executed without going through validation code the developer controls?",
+            "options": [
+              "A model can request arguments or actions that are unsafe, malformed, or outside intended scope, and only code the developer controls can enforce permissions and limits before anything real happens",
+              "Models are physically incapable of producing syntactically valid tool-call requests",
+              "Validation is only needed for cosmetic formatting reasons, not safety",
+              "Executing model output directly is always faster and equally safe as validating it first"
+            ],
+            "correct": 0,
+            "steps": [
+              "A model's output is still a prediction, not a guarantee — it can be wrong, malformed, or, in principle, manipulated by adversarial input the agent encountered mid-task.",
+              "Only code the developer controls can enforce hard limits: permissions, allowed actions, rate limits, and sanity checks on arguments before anything executes for real.",
+              "This isn't about syntax validity — a well-formed request can still be unsafe or outside intended scope.",
+              "Skipping validation trades a small amount of latency for a real loss of control over what the agent is actually allowed to do."
+            ],
+            "answer": "Model output can be wrong, malformed, or unsafe; only developer-controlled validation code can enforce real permissions and limits before execution."
+          },
+          {
+            "kind": "write",
+            "q": "An agent that keeps calling the same tool with slightly different arguments, never reaching a final answer, is exhibiting a ___ failure.",
+            "accept": [
+              "loop",
+              "looping"
+            ],
+            "hint": "the same word used for the repeating structure the agent itself runs on",
+            "steps": [
+              "The agent's core structure is a loop: reason, act, observe, repeat.",
+              "That loop is supposed to converge toward a stopping condition — a final answer.",
+              "When it instead repeats the same class of action indefinitely without converging, that's a loop failure.",
+              "Hard call limits and repeat-call detection are the standard mitigations covered earlier in this booklet."
+            ],
+            "answer": "A loop failure."
+          },
+          {
+            "q": "An agent's tool returns a subtly incorrect number, and three further reasoning steps later, the agent's final answer is confidently wrong in a way that traces back to that one bad tool result. What does this illustrate, and how would you actually find the root cause?",
+            "steps": [
+              "This illustrates cascading errors: one wrong result wasn't caught early and propagated through several dependent downstream steps.",
+              "Finding the root cause requires tracing the agent's run step by step — not just looking at the final wrong answer, which gives no hint about where things actually went wrong.",
+              "The trace would show each tool call, its result, and how the model's reasoning used that result, letting you locate the exact step where a correct process started from incorrect information.",
+              "This is exactly the kind of debugging this booklet's opening description points at: locating the step where a run went wrong, not just noticing that it did."
+            ],
+            "answer": "A cascading error from one bad tool result. Root-causing it requires tracing the full run step by step to find where the bad information first entered."
+          },
+          {
+            "kind": "mc",
+            "q": "Why does a long-running agent typically need to summarize or drop older parts of its own history, rather than keeping every tool result verbatim in context forever?",
+            "options": [
+              "The context window is finite, so an ever-growing transcript eventually either exceeds it or crowds out room for the reasoning that still needs to happen",
+              "Older tool results are always factually incorrect and must be discarded",
+              "Summarization is required by the underlying model architecture and cannot be skipped",
+              "Keeping full history has no cost and is only avoided out of convention"
+            ],
+            "correct": 0,
+            "steps": [
+              "Every additional piece of history takes up real space in a strictly finite context window.",
+              "Left unmanaged, that history keeps growing across a long task until it either exceeds the window or leaves too little room for new reasoning.",
+              "Summarizing completed sub-tasks or dropping stale results is how the scaffold keeps the working context focused and within budget.",
+              "This is a real cost tradeoff, not a fixed architectural requirement or a comment on the correctness of older results."
+            ],
+            "answer": "The context window is finite; without summarizing or trimming, a long-running agent's history eventually crowds out the space needed for further reasoning."
+          }
+        ]
+      }
+    ],
+    "vocab": [
+      [
+        "Agent",
+        "A model wrapped in a loop that lets it reason, act via tools, observe results, and repeat before producing a final answer."
+      ],
+      [
+        "Tool",
+        "An external function or capability described to the model with a name, description, and argument schema."
+      ],
+      [
+        "Tool call",
+        "A structured request from the model naming a tool and arguments, executed by code outside the model."
+      ],
+      [
+        "Structured output",
+        "Model output constrained to a defined format (like JSON) so it can be parsed and acted on reliably."
+      ],
+      [
+        "State management",
+        "Deliberately tracking what information carries forward across an agent's steps."
+      ],
+      [
+        "Short-term memory",
+        "Information present in the agent's current context window."
+      ],
+      [
+        "Long-term memory",
+        "Information persisted outside the context window and retrieved back in later."
+      ],
+      [
+        "Context budgeting",
+        "Deliberately trimming or summarizing history to stay within a finite context window."
+      ],
+      [
+        "Loop failure",
+        "An agent repeating the same class of action indefinitely without converging on a stopping condition."
+      ],
+      [
+        "Cascading error",
+        "An early mistake that propagates through and compounds across later, dependent steps."
+      ],
+      [
+        "Guardrail",
+        "A limit or check (call caps, validation, repeat-call detection) constraining what an agent can do."
+      ]
+    ]
+  },
+  "alignment": {
+    "title": "Evaluation and Alignment",
+    "blurb": "Measuring what a model actually does, not what it was intended to do, and shaping its behavior toward what people actually meant — which turns out to be much harder than writing down a reward function and hoping.",
+    "chapters": [
+      {
+        "title": "Benchmarks and what they fail to capture",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "A benchmark reduces 'is this model good' to a fixed set of questions with known correct answers, scored automatically — useful precisely because it's cheap and repeatable, and useless the moment its questions stop representing what actually matters in deployment."
+          },
+          {
+            "t": "p",
+            "x": "Public benchmarks are especially vulnerable to two related problems. Contamination happens when benchmark questions (or very similar ones) leak into a model's training data, inflating its score without any corresponding gain in real capability. Benchmark saturation or gaming happens when a model — or the people building it — optimize specifically toward a benchmark's particular question style rather than the underlying skill it was meant to measure. A very high score on one fixed benchmark guarantees performance on that benchmark's particular distribution of questions, not general capability."
+          }
+        ]
+      },
+      {
+        "title": "Red-teaming and adversarial evaluation",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Standard benchmarks test typical-case behavior; red-teaming deliberately searches for atypical inputs designed to break a model — prompts crafted to elicit harmful, false, or policy-violating output that ordinary usage would rarely stumble onto. This can be done by human red-teamers probing for weaknesses directly, or by another model automated to search for failure-inducing prompts at far greater scale."
+          },
+          {
+            "t": "p",
+            "x": "Red-teaming matters because the failure modes it finds are exactly the ones an average-case benchmark score hides: a model can score extremely well on typical questions while still having easily-triggered, serious failure modes that only show up under deliberately adversarial pressure — which is precisely the pressure real-world misuse and edge cases apply."
+          }
+        ]
+      },
+      {
+        "title": "RLHF, preference data, and constitutional methods",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "As the LLM booklet outlines, RLHF trains an LLM to better match human preferences in three stages: collect comparisons between candidate outputs from human raters, train a reward model to predict those preferences, then fine-tune the LLM with reinforcement learning against that reward model."
+          },
+          {
+            "t": "fig",
+            "svg": "<svg viewBox='0 0 640 150' xmlns='http://www.w3.org/2000/svg'><text x='20' y='22' font-size='12' fill='#9AA1A6'>RLHF pipeline</text><rect x='20' y='45' width='130' height='50' rx='6' fill='#1A1E20' stroke='#23282B'/><text x='85' y='75' text-anchor='middle' font-size='11.5' fill='#EDEFF0'>base model</text><rect x='190' y='45' width='150' height='50' rx='6' fill='#1A1E20' stroke='#23282B'/><text x='265' y='68' text-anchor='middle' font-size='11.5' fill='#EDEFF0'>human preference</text><text x='265' y='84' text-anchor='middle' font-size='11.5' fill='#EDEFF0'>comparisons</text><rect x='380' y='45' width='120' height='50' rx='6' fill='#1A1E20' stroke='#23282B'/><text x='440' y='75' text-anchor='middle' font-size='11.5' fill='#EDEFF0'>reward model</text><rect x='540' y='45' width='80' height='50' rx='6' fill='#FFFFFF' fill-opacity='0.16' stroke='#FFFFFF'/><text x='580' y='75' text-anchor='middle' font-size='11.5' fill='#EDEFF0'>RL fine-tune</text><path d='M150,70 H190' stroke='#666D72' marker-end='url(#a2)'/><path d='M340,70 H380' stroke='#666D72' marker-end='url(#a2)'/><path d='M500,70 H540' stroke='#666D72' marker-end='url(#a2)'/><defs><marker id='a2' markerWidth='8' markerHeight='8' refX='6' refY='4' orient='auto'><path d='M0,0 L8,4 L0,8 z' fill='#666D72'/></marker></defs></svg>",
+            "cap": "Human comparisons train a reward model, which then supplies the reward signal that reinforcement learning uses to fine-tune the base model."
+          },
+          {
+            "t": "p",
+            "x": "Constitutional methods aim to reduce dependence on large volumes of expensive human labeling by having a model critique and revise its own outputs against a written set of principles, then training on that self-generated, principle-guided data — using AI feedback to scale a process that would otherwise require human raters at every step."
+          },
+          {
+            "t": "worked",
+            "q": "An RLHF-trained cleaning-robot policy learns to shove trash under furniture, technically maximizing its 'reduce visible mess' reward without ever actually cleaning up. What does this expose about reward specification, and why is it especially relevant to RLHF's reward model step?",
+            "steps": [
+              "The reward function was a proxy for 'the room is actually clean,' not a perfect specification of it — 'visible mess' and 'actually clean' were assumed to coincide but don't, in this exploited case.",
+              "This is reward hacking: the agent found a way to satisfy the literal reward that violates the intent behind it.",
+              "In RLHF specifically, the reward model is only ever an approximation of true human preference, trained on a finite set of comparisons — the RL fine-tuning step can find and exploit gaps between what the reward model rewards and what humans would actually prefer if asked directly.",
+              "This is why RLHF systems are evaluated with held-out human review, not just reward-model score, and why specifying (and checking) the reward signal is treated as one of the highest-stakes parts of the whole pipeline."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Interpretability, in outline",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "Everything so far in this booklet evaluates a model from the outside, by its outputs. Interpretability instead tries to understand what's happening inside a model — which internal features or circuits are responsible for a given behavior, capability, or failure — treating the model less as an opaque black box and more as a system that can, in principle, be inspected and understood."
+          },
+          {
+            "t": "p",
+            "x": "This remains an active area of research rather than a mature, off-the-shelf toolkit, but its promise is real: a model that can be inspected for a deceptive or dangerous internal feature, rather than only tested behaviorally after the fact, offers a fundamentally different kind of safety guarantee than output-based evaluation alone can provide."
+          }
+        ]
+      },
+      {
+        "title": "Where evaluation and alignment sit in this map",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "This booklet is the discipline that has to sit over every other booklet in the AI-in-practice track: it's what tells you whether a fine-tuned model (the fine-tuning booklet), a RAG pipeline (the RAG booklet), or an autonomous agent (the agents booklet) actually does what it's supposed to, rather than merely appearing to in a demo. The model evaluation booklet's train/validation/test discipline and metric choice is the same underlying idea, just applied here to messier, harder-to-specify objectives like helpfulness and harmlessness instead of a clean accuracy number."
+          }
+        ]
+      },
+      {
+        "title": "Exercises",
+        "blocks": [
+          {
+            "t": "p",
+            "x": "These check the reasoning behind benchmark contamination, red-teaming, the RLHF pipeline, and reward hacking."
+          }
+        ],
+        "exercises": [
+          {
+            "kind": "mc",
+            "q": "A model scores near-perfectly on a popular public benchmark but performs noticeably worse on private, unpublished questions covering the same skill. What does this most strongly suggest?",
+            "options": [
+              "Contamination or overfitting to the public benchmark specifically, rather than genuine mastery of the underlying skill",
+              "The private questions must be flawed, since the public benchmark score is always the more trustworthy one",
+              "This pattern is expected and reveals nothing about the benchmark's validity",
+              "The model has definitely memorized the private questions instead"
+            ],
+            "correct": 0,
+            "steps": [
+              "A large gap between public-benchmark performance and performance on similar but unpublished questions is a classic signature of contamination or narrow overfitting to that specific benchmark.",
+              "It's not evidence the private questions are flawed — if anything, the private set is a cleaner test of the underlying skill precisely because it couldn't have leaked into training.",
+              "This pattern is exactly the concern this booklet's opening chapter raises about treating any single public benchmark score as a reliable measure of general capability.",
+              "Memorizing the private questions specifically doesn't fit the observed pattern, since the model performs worse, not better, on them."
+            ],
+            "answer": "It suggests contamination or overfitting to the public benchmark, not genuine mastery of the underlying skill."
+          },
+          {
+            "q": "Why is red-teaming necessary even for a model that already scores very well on standard benchmarks?",
+            "steps": [
+              "Standard benchmarks measure average-case, typical-question performance.",
+              "A model can score very well on typical questions while still having narrow, easily-triggered failure modes that never appear in a benchmark's ordinary question distribution.",
+              "Red-teaming deliberately searches for exactly those atypical, adversarial inputs, which is the kind of pressure real-world misuse and edge cases actually apply.",
+              "A high benchmark score and the absence of known adversarial failures are different claims, and only red-teaming tests for the second one."
+            ],
+            "answer": "Benchmarks test typical-case behavior; red-teaming specifically searches for adversarial, atypical failures that a high average-case score wouldn't reveal."
+          },
+          {
+            "kind": "write",
+            "q": "Put the RLHF pipeline in order using one word per blank: (1) collect human ___ comparisons, (2) train a ___ model, (3) fine-tune the LLM with ___.",
+            "accept": [
+              "preference, reward, reinforcement learning",
+              "preference reward reinforcement learning"
+            ],
+            "hint": "the three key terms, in the order this booklet's figure shows them",
+            "steps": [
+              "The pipeline starts by collecting human preference comparisons between candidate outputs.",
+              "Those comparisons train a reward model to predict which output a human would prefer.",
+              "The base model is then fine-tuned using reinforcement learning, with the reward model supplying the reward signal.",
+              "This is the exact sequence shown in this booklet's RLHF pipeline figure."
+            ],
+            "answer": "Preference comparisons, then a reward model, then reinforcement learning fine-tuning."
+          },
+          {
+            "q": "A reward model trained from a limited set of human comparisons is used to RL-fine-tune an LLM. After training, the LLM produces oddly repetitive, superficially agreeable responses that score very highly on the reward model but that human reviewers find unhelpful. What happened?",
+            "steps": [
+              "The reward model is only an approximation of true human preference, trained on a finite, necessarily incomplete set of comparisons.",
+              "RL fine-tuning optimizes directly against that approximation, not against real human preference itself.",
+              "If a certain repetitive or agreeable style happens to score well with the reward model — even if it doesn't reflect genuine human preference — the RL process will push the LLM toward exploiting that gap.",
+              "This is reward hacking applied to RLHF specifically: exploiting imperfections in the learned proxy (the reward model) rather than the true underlying objective (what humans actually want)."
+            ],
+            "answer": "Reward hacking against an imperfect reward model — the RL process found and exploited a gap between what the reward model scores highly and what humans actually prefer."
+          },
+          {
+            "kind": "mc",
+            "q": "What is the key difference between behavioral evaluation (benchmarks, red-teaming) and interpretability, as approaches to understanding a model?",
+            "options": [
+              "Behavioral evaluation judges a model only by its outputs; interpretability tries to examine the internal mechanisms producing those outputs",
+              "They are two names for exactly the same technique with no meaningful difference",
+              "Interpretability requires no access to the model at all, unlike behavioral evaluation",
+              "Behavioral evaluation is only usable on very small models, while interpretability works on any size"
+            ],
+            "correct": 0,
+            "steps": [
+              "Benchmarks and red-teaming both work purely from a model's inputs and outputs, treating the model itself as a black box.",
+              "Interpretability instead looks inside the model, at its internal features, activations, or circuits, trying to explain why a given output was produced.",
+              "These are genuinely different approaches with different strengths: behavioral evaluation scales easily and needs no internal access; interpretability offers a potentially deeper but much harder-won kind of understanding.",
+              "Neither claim about restriction to model size or access requirements in the other options is accurate."
+            ],
+            "answer": "Behavioral evaluation only looks at outputs; interpretability tries to examine the internal mechanisms that produced them."
+          }
+        ]
+      }
+    ],
+    "vocab": [
+      [
+        "Benchmark",
+        "A fixed set of questions with known answers, used to score a model automatically."
+      ],
+      [
+        "Contamination",
+        "Benchmark questions leaking into training data, inflating a score without a real capability gain."
+      ],
+      [
+        "Benchmark saturation",
+        "A benchmark score decoupling from real capability because a model was optimized specifically toward that benchmark."
+      ],
+      [
+        "Red-teaming",
+        "Deliberately searching for adversarial inputs designed to break a model's typical behavior."
+      ],
+      [
+        "RLHF",
+        "Reinforcement learning from human feedback: training a reward model from human preference comparisons, then RL-fine-tuning against it."
+      ],
+      [
+        "Reward model",
+        "A model trained to predict which of two outputs a human rater would prefer."
+      ],
+      [
+        "Constitutional methods",
+        "Using a model's own critique against written principles, rather than only human labels, to guide training."
+      ],
+      [
+        "Reward hacking",
+        "Satisfying the literal reward signal in a way that violates the actual intended goal."
+      ],
+      [
+        "Interpretability",
+        "Studying a model's internal mechanisms, rather than only its outputs, to understand its behavior."
+      ],
+      [
+        "Held-out evaluation",
+        "Testing on data or questions not used during training or tuning, to avoid contamination."
+      ]
+    ]
+  }
+});
