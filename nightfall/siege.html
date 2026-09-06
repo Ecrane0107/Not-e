@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nightfall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="back-btn" href="../index.html">
+  <svg viewBox="0 0 12 12" width="10" height="10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  Menu
+</a>
+
+<div class="stage">
+  <canvas id="game" width="384" height="216"></canvas>
+</div>
+
+<div class="hud" id="hud" hidden>
+  <div class="hud-top">
+    <div class="chip day"><span class="ic">&#127769;</span><span id="hudDay">Night 1</span></div>
+    <div class="chip"><span class="ic">&#128100;</span><span id="hudSurvivors">1</span><span class="lbl">/20</span></div>
+    <div class="chip"><span class="ic">&#127831;</span><span id="hudFood">10</span><span class="lbl">food</span></div>
+    <div class="chip"><span class="ic">&#128299;</span><span id="hudAmmo">30</span><span class="lbl">ammo</span></div>
+  </div>
+  <div class="timerwrap" id="timerWrap" hidden><div class="timerbar" id="timerBar"></div></div>
+
+  <div class="wallbar n" id="wallN"><span>N</span><div class="hp"><i style="width:100%"></i></div></div>
+  <div class="wallbar e" id="wallE"><span>E</span><div class="hp"><i style="width:100%"></i></div></div>
+  <div class="wallbar s" id="wallS"><span>S</span><div class="hp"><i style="width:100%"></i></div></div>
+  <div class="wallbar w" id="wallW"><span>W</span><div class="hp"><i style="width:100%"></i></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- menu -->
+<div class="overlay" id="menuOverlay">
+  <div class="panel">
+    <p class="eyebrow">Project</p>
+    <h1>Nightfall</h1>
+    <p class="lead">One house, one survivor, and every night after this one gets worse. Assign your people to the walls, hold until dawn, and spend what you loot from the dead however you think will keep you alive longest.</p>
+    <button class="primary-btn" id="btnStart">Begin</button>
+  </div>
+</div>
+
+<!-- day / assignment -->
+<div class="overlay" id="dayOverlay" hidden>
+  <div class="panel">
+    <p class="eyebrow" id="dayEyebrow">Before nightfall</p>
+    <h1 id="dayTitle">Night 1</h1>
+    <p class="lead" id="dayLead">Put your people where you think the horde will hit hardest. Whoever isn't on a wall isn't shooting tonight.</p>
+
+    <div class="stat-row">
+      <div class="s"><b id="dayFood">10</b>food</div>
+      <div class="s"><b id="dayAmmo">30</b>ammo</div>
+      <div class="s"><b id="dayWeapon">Tier 1</b>weapon</div>
+    </div>
+
+    <div class="assign-list" id="assignList"></div>
+    <div class="pool-row">Unassigned <b id="poolCount">1</b></div>
+
+    <button class="primary-btn" id="btnStartNight">Start night</button>
+  </div>
+</div>
+
+<!-- reward -->
+<div class="overlay" id="rewardOverlay" hidden>
+  <div class="panel">
+    <p class="eyebrow">Dawn</p>
+    <h1>You held the line</h1>
+    <p class="lead" id="rewardLead">Night 1 is over. Pick one — you can't take them all.</p>
+    <div class="cards" id="rewardCards"></div>
+  </div>
+</div>
+
+<!-- game over -->
+<div class="overlay" id="overOverlay" hidden>
+  <div class="panel">
+    <p class="eyebrow">The house has fallen</p>
+    <h1>Game over</h1>
+    <p class="lead" id="overLead">You held for 0 nights.</p>
+    <button class="primary-btn" id="btnRetry">Try again</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
