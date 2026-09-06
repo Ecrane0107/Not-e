@@ -8,6 +8,7 @@
   --ink-dim:#666D72;
   --focus:#8fd6ff;
   --glow:#8fd6ff;
+  --theme-h:205; /* set from JS to match this load's random spiral color */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -38,7 +39,7 @@ body{
   inset:0;
   pointer-events:none;
   background:
-    radial-gradient(ellipse 70% 60% at 50% 46%, rgba(30,45,70,.35) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 50% 46%, hsla(var(--theme-h),45%,22%,.35) 0%, transparent 60%),
     radial-gradient(ellipse 120% 100% at 50% 50%, transparent 40%, rgba(0,0,0,.7) 100%);
 }
 
@@ -91,13 +92,13 @@ body{
 }
 
 .time{
-  font:700 clamp(3.2rem, 11vw, 8.5rem) "Space Grotesk", sans-serif;
-  letter-spacing:.02em;
-  color:#f2f8ff;
+  font:400 clamp(3.2rem, 11vw, 8.5rem) "Share Tech Mono", "Space Grotesk", monospace;
+  letter-spacing:.03em;
+  color:#f8fafc;
   text-shadow:
-    0 0 12px rgba(143,214,255,.9),
-    0 0 40px rgba(90,160,255,.5),
-    0 0 90px rgba(60,120,220,.35);
+    0 0 12px hsla(var(--theme-h),85%,78%,.9),
+    0 0 40px hsla(var(--theme-h),90%,65%,.5),
+    0 0 90px hsla(var(--theme-h),85%,55%,.35);
   font-variant-numeric: tabular-nums;
   display:flex;
   align-items:baseline;
@@ -105,17 +106,18 @@ body{
 }
 .time .sec{
   font-size:0.42em;
-  color:#bfe4ff;
+  color:hsl(var(--theme-h),70%,84%);
   opacity:.85;
   min-width:1.6em;
 }
 .date{
   margin-top:14px;
-  font-family:"Newsreader",Georgia,serif;
-  font-style:italic;
-  font-size:clamp(.85rem,1.6vw,1.1rem);
+  font-family:"Share Tech Mono", "Space Grotesk", monospace;
+  font-style:normal;
+  text-transform:uppercase;
+  font-size:clamp(.75rem,1.4vw,.95rem);
   color:var(--ink-mid);
-  letter-spacing:.02em;
+  letter-spacing:.14em;
 }
 
 .hint{

@@ -6,7 +6,7 @@
 <title>Standby</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -31,9 +31,9 @@
 </div>
 
 
-<script src="../assets/spiral-bg.js"></script>
+<script src="../assets/spiral-bg.js?v=2"></script>
 <script>
-  initSpiralBackground(document.getElementById("bg"), {
+  const spiral = initSpiralBackground(document.getElementById("bg"), {
     intensity: 1,
     radiusScale: 0.26,
     barCount: 14,
@@ -41,6 +41,8 @@
     cubeCount: 12,
     fps: 30,
   });
+  // tint the vignette and the clock's own glow to match this load's random theme
+  document.documentElement.style.setProperty("--theme-h", spiral.hue);
 
   const hmEl = document.getElementById("hm");
   const secEl = document.getElementById("sec");
