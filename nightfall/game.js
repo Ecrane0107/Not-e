@@ -12,7 +12,8 @@ import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
 // ---------------------------------------------------------------
 // gameplay constants
 // ---------------------------------------------------------------
-const MAX_SURVIVORS = 20;
+const BASE_MAX_SURVIVORS = 24; // the house alone can shelter this many
+const TOWER_GARRISON_CAP = 5; // and each built tower can hold 5 more, both as a garrison limit and as extra population capacity
 const WALL_IDS = ["N", "E", "S", "W"];
 const BASE_WALL_HP = 100;
 
@@ -123,6 +124,7 @@ const canvas = document.getElementById("game");
 const hud = document.getElementById("hud");
 const hudDay = document.getElementById("hudDay");
 const hudSurvivors = document.getElementById("hudSurvivors");
+const hudSurvivorsCap = document.getElementById("hudSurvivorsCap");
 const hudFood = document.getElementById("hudFood");
 const hudAmmo = document.getElementById("hudAmmo");
 const hudSupplies = document.getElementById("hudSupplies");
@@ -495,8 +497,12 @@ function createSurvivorMesh() {
 const WALL_FACE_ANGLE = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 };
 
 // each pool entry walks from wherever it is toward its assigned window
-// station instead of snapping there — real (if simple) movement
-const survivorPool = Array.from({ length: MAX_SURVIVORS }, () => ({
+// station instead of snapping there — real (if simple) movement. Sized to
+// the most that could ever be stationed at house windows at once (every
+// wall fully garrisoned), independent of the overall population cap —
+// most of the population beyond this is in towers, not at a window.
+const HOUSE_STATION_POOL_SIZE = WALL_IDS.length * STATION_CAP;
+const survivorPool = Array.from({ length: HOUSE_STATION_POOL_SIZE }, () => ({
   mesh: createSurvivorMesh(),
   target: { x: 0, z: 0 },
   facing: 0,
@@ -644,11 +650,17 @@ function clearBullets() {
 // across these each dawn; the more you put on one task, the more it
 // yields, so it's a real trade-off rather than a single free pick
 // ---------------------------------------------------------------
+// a 30-ammo base haul, each survivor beyond the first compounding it by 5%
+// (1 survivor = 30, 2 = 30*1.05 = 31.5, 3 = 30*1.05^2, and so on)
+function ammoScavengeAmount(n) {
+  return n <= 0 ? 0 : Math.round(30 * Math.pow(1.05, n - 1));
+}
+
 const TASKS = [
   {
     id: "ammo", icon: "\u{1F9F0}", title: "Scavenge ammo", unit: "ammo",
-    gain: n => n * 15,
-    apply: (s, n) => { s.ammo += n * 15; },
+    gain: n => ammoScavengeAmount(n),
+    apply: (s, n) => { s.ammo += ammoScavengeAmount(n); },
   },
   {
     id: "food", icon: "\u{1F96B}", title: "Scavenge food", unit: "food",
@@ -783,7 +795,17 @@ function housePersonnel() {
   return S.survivors - TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
 }
 
+// total population capacity: the house's base capacity, plus 5 more for
+// every tower built (a tower can garrison up to 5 on its own)
+function maxSurvivorCap() {
+  return BASE_MAX_SURVIVORS + TOWER_GARRISON_CAP * S.towers.length;
+}
+
 function clampTowerAssignment() {
+  // no single tower holds more than TOWER_GARRISON_CAP
+  TOWER_IDS.forEach(id => {
+    if (S.towerAssignment[id] > TOWER_GARRISON_CAP) S.towerAssignment[id] = TOWER_GARRISON_CAP;
+  });
   let total = TOWER_IDS.reduce((a, id) => a + (S.towerAssignment[id] || 0), 0);
   const order = [...TOWER_IDS].reverse();
   let i = 0;
@@ -810,16 +832,16 @@ function renderTowerAssignUI() {
         <div class="task-title">${TOWER_LABEL[id]}</div>
       </div>
       <div class="task-stepper">
-        <button type="button" data-tower="${id}" data-d="-1">&minus;</button>
+        <button type="button" data-tower="${id}" data-d="-1" ${S.towerAssignment[id] <= 0 ? "disabled" : ""}>&minus;</button>
         <span class="task-count" id="towerCount-${id}">${S.towerAssignment[id]}</span>
-        <button type="button" data-tower="${id}" data-d="1">+</button>
+        <button type="button" data-tower="${id}" data-d="1" ${(S.towerAssignment[id] >= TOWER_GARRISON_CAP || housePersonnel() <= 0) ? "disabled" : ""}>+</button>
       </div>
     </div>
   `).join("");
   listEl.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.tower, d = Number(btn.dataset.d);
-      if (d > 0 && housePersonnel() <= 0) return;
+      if (d > 0 && (S.towerAssignment[id] >= TOWER_GARRISON_CAP || housePersonnel() <= 0)) return;
       if (d < 0 && S.towerAssignment[id] <= 0) return;
       S.towerAssignment[id] += d;
       renderTowerAssignUI();
@@ -848,6 +870,7 @@ function updateDayScreen() {
 function updateHud() {
   hudDay.textContent = "Night " + S.day;
   hudSurvivors.textContent = S.survivors;
+  hudSurvivorsCap.textContent = maxSurvivorCap();
   hudFood.textContent = S.food;
   hudAmmo.textContent = S.ammo;
   hudSupplies.textContent = S.supplies;
@@ -934,7 +957,7 @@ function endNightSuccess() {
     let recruits = Math.floor(S.reputation / 100);
     const chance = S.reputation % 100;
     if (Math.random() * 100 < chance) recruits += 1;
-    const actual = Math.min(recruits, MAX_SURVIVORS - S.survivors);
+    const actual = Math.min(recruits, maxSurvivorCap() - S.survivors);
     if (actual > 0) {
       S.survivors += actual;
       showToast(actual === 1 ? "Word got around — a new survivor joined you." : actual + " new survivors joined you.");
@@ -1108,18 +1131,21 @@ function updateTurrets(dt) {
     }
     if (!best) { wallMeleeMode[w] = false; return; }
 
-    // out of ammo, or the target's already at the wall clawing at it —
-    // either way, spears instead of guns
-    const useMelee = S.ammo <= 0 || best.arrived;
-    wallMeleeMode[w] = useMelee;
-
-    if (useMelee) {
+    // spears only ever reach something already at the wall — ammo status
+    // has no bearing on that. A zombie still approaching can only ever be
+    // shot, never stabbed, and simply isn't engaged at all if there's no
+    // ammo for it yet.
+    if (best.arrived) {
+      wallMeleeMode[w] = true;
       best.hp -= MELEE_DMG;
       if (best.hp <= 0) currentTarget[w] = null;
       spawnMeleeStab(DEFENSE_POINT[w], best);
       fireCooldown[w] = Math.max(0.15, MELEE_INTERVAL_BASE / Math.min(crew, 6));
       return;
     }
+
+    wallMeleeMode[w] = false;
+    if (S.ammo <= 0) return; // nothing to shoot with, and it's not close enough to stab
 
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
