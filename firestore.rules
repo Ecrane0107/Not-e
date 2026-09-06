@@ -1,0 +1,21 @@
+// Firestore security rules for this site.
+//
+// This isn't deployed automatically by git -- paste it into the Firebase
+// console: Build > Firestore Database > Rules tab > replace the contents
+// > Publish. Keep this file in sync with whatever you actually publish
+// there, so the repo always reflects the real rules.
+//
+// The data shape (see assets/auth.js): every signed-in user gets their
+// own document tree at /users/{their uid}/data/{project}, e.g.
+// /users/abc123/data/nightfall holds whatever Nightfall's save state
+// looks like. These rules say: a user can read and write anything under
+// their own uid, and nothing under anyone else's -- there is no way for
+// one visitor to see or touch another visitor's saved data.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
