@@ -89,11 +89,11 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .grid-orbs--front{z-index:2}
 
 /* each tile is a real 3D box (front/right/bottom faces with actual
-   thickness, not a flat card faking rotation) — a permanent slight tilt
-   keeps the depth visible at rest, and JS nudges it a little further
-   toward the cursor on hover */
+   thickness, not a flat card faking rotation) — it sits perfectly flat,
+   facing the viewer, and only tilts (as if turning to face the cursor)
+   while the mouse is over it; JS resets it to flat on mouseleave */
 .tile{
-  --depth:16px;
+  --depth:22px;
   position:relative;
   z-index:1;
   aspect-ratio:1/1;
@@ -101,7 +101,10 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   color:var(--ink);
   cursor:pointer;
   transform-style:preserve-3d;
-  transition:transform .1s linear;
+  transform:perspective(800px) rotateX(0) rotateY(0);
+  /* JS drives this: no transition while actively tracking the cursor,
+     an eased one when settling back to flat on mouseleave */
+  transition:none;
 }
 .tile:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
 
@@ -113,7 +116,8 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   border:1px solid rgba(255,255,255,.16);
   backdrop-filter:blur(8px) saturate(1.05);
   -webkit-backdrop-filter:blur(8px) saturate(1.05);
-  transition:background .18s ease, border-color .18s ease, opacity .16s ease;
+  transition:background .18s ease, border-color .18s ease, opacity .16s ease,
+             transform .5s cubic-bezier(.2,.8,.2,1);
 }
 .tile-face--front{
   display:flex;
@@ -147,11 +151,17 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.3));
 }
 
-/* shattering into glass shards on click, before the real navigation */
+/* shattering into glass shards on click, before the real navigation —
+   the whole cube breaks apart: the front pane's own glass disappears
+   behind its flung shards, and JS sends the right/bottom faces flying
+   off along their own plane so all three faces come apart together */
 .tile--breaking{pointer-events:none}
-.tile--breaking .tile-face--front > *:not(.tile-shard),
-.tile--breaking .tile-face--right,
-.tile--breaking .tile-face--bottom{
+.tile--breaking .tile-face--front{
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+}
+.tile--breaking .tile-face--front > *:not(.tile-shard){
   opacity:0;
 }
 .tile-shard{

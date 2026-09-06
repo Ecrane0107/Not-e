@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <canvas id="bg"></canvas>
@@ -224,15 +224,12 @@
     fps: 24,
   });
 
-  // tiles are real 3d boxes: a permanent slight resting tilt keeps the
-  // side faces visible, and the cursor only nudges it a little further —
-  // never a big swing
-  const REST_X = -6, REST_Y = 9;
-  const HOVER_RANGE = 5;
+  // tiles are real 3d boxes that sit perfectly flat, facing the viewer —
+  // they only tilt while the mouse is over them, turning to face the
+  // cursor, then ease straight back to flat on mouseleave
+  const TILT_MAX = 16;
   const tiles = document.querySelectorAll("a.tile");
   tiles.forEach((tile) => {
-    tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
-
     tile.addEventListener("mouseenter", () => {
       tile.style.transition = "none";
     });
@@ -240,13 +237,13 @@
       const r = tile.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
-      const rx = REST_X - py * HOVER_RANGE;
-      const ry = REST_Y + px * HOVER_RANGE;
+      const rx = -py * TILT_MAX;
+      const ry = px * TILT_MAX;
       tile.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
     });
     tile.addEventListener("mouseleave", () => {
       tile.style.transition = "transform .35s ease";
-      tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
+      tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
     });
 
     tile.addEventListener("click", (e) => {
@@ -258,11 +255,17 @@
     });
   });
 
+  // the whole cube breaks apart: the front face shatters into glass
+  // shards while the right/bottom faces fly outward along their own
+  // plane, so all three faces come apart together
   function shatterTile(tile, onDone) {
-    tile.style.transition = "none";
-    tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
+    tile.style.transition = "transform .35s ease";
+    tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
     tile.classList.add("tile--breaking");
+
     const front = tile.querySelector(".tile-face--front");
+    const right = tile.querySelector(".tile-face--right");
+    const bottom = tile.querySelector(".tile-face--bottom");
     const shardCount = 9;
     const shards = [];
     for (let i = 0; i < shardCount; i += 1) {
@@ -280,7 +283,7 @@
       shards.push(shard);
     }
     // eslint-disable-next-line no-unused-expressions
-    tile.offsetHeight; // force layout so the fly-out transition below actually animates
+    tile.offsetHeight; // force layout so the fly-out transitions below actually animate
     requestAnimationFrame(() => {
       shards.forEach((shard) => {
         const angle = Math.random() * Math.PI * 2;
@@ -288,6 +291,17 @@
         const spin = (Math.random() - 0.5) * 260;
         shard.style.transform = `translate(${(Math.cos(angle) * dist).toFixed(0)}px, ${(Math.sin(angle) * dist - 40).toFixed(0)}px) rotate(${spin.toFixed(0)}deg) scale(.35)`;
         shard.style.opacity = "0";
+      });
+      // send the two side faces flying off along their own local plane —
+      // composed with the tile's own 3d rotation this reads as the cube's
+      // sides blowing outward, not just fading in place
+      [right, bottom].forEach((face) => {
+        const base = face === right ? "rotateY(90deg)" : "rotateX(-90deg)";
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 60 + Math.random() * 100;
+        const spin = (Math.random() - 0.5) * 200;
+        face.style.transform = `${base} translate(${(Math.cos(angle) * dist).toFixed(0)}px, ${(Math.sin(angle) * dist).toFixed(0)}px) rotate(${spin.toFixed(0)}deg) scale(.3)`;
+        face.style.opacity = "0";
       });
     });
     setTimeout(onDone, 500);
