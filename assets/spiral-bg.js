@@ -4,6 +4,14 @@
  * through the center trailing light, and small glowing cubes drifting
  * through the dark behind everything.
  *
+ * Perf notes (this got slow once, so worth keeping in mind before adding
+ * more): no ctx.shadowBlur and no per-frame gradient allocation anywhere
+ * in the draw loop — both are expensive compositor work and this file
+ * used to call them a couple dozen times a frame. "Glow" is faked with a
+ * few cheap layered strokes/fills at different alpha instead. The loop
+ * also caps devicePixelRatio at 1, throttles to ~30fps, and stops
+ * entirely while the tab is hidden.
+ *
  * Usage:
  *   <canvas id="bg"></canvas>
  *   <script src="assets/spiral-bg.js"></script>
@@ -14,22 +22,24 @@
 function initSpiralBackground(canvas, options) {
   const opts = Object.assign(
     {
-      barCount: 16,
-      intensity: 1,     // 0..1, scales opacity/glow — turn down for busy pages
-      centerX: 0.5,     // fraction of width
-      centerY: 0.5,      // fraction of height
-      radiusScale: 0.16, // ring radius as a fraction of min(width,height)
-      spin: 0.05,        // radians per second
-      particleCount: 4,
-      cubeCount: 14,
+      barCount: 14,
+      intensity: 1,      // 0..1, scales opacity/glow — turn down for busy pages
+      centerX: 0.5,       // fraction of width
+      centerY: 0.5,        // fraction of height
+      radiusScale: 0.16,    // ring radius as a fraction of min(width,height)
+      spin: 0.05,            // radians per second
+      particleCount: 3,
+      cubeCount: 10,
       reverse: false,
+      fps: 30,
     },
     options || {},
   );
 
   const ctx = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let width = 0, height = 0, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = 1; // this is a soft blurry background — full retina density buys nothing
+  let width = 0, height = 0;
 
   function resize() {
     width = canvas.clientWidth;
@@ -43,7 +53,12 @@ function initSpiralBackground(canvas, options) {
 
   // --- particles: small glow points that spiral around the ring, trailing light ---
   const particles = [];
-  const particleColors = ["#eaf6ff", "#8fd6ff", "#ffb9c9", "#b6ffcf"];
+  const particleColors = [
+    [234, 246, 255],
+    [143, 214, 255],
+    [255, 185, 201],
+    [182, 255, 207],
+  ];
   for (let i = 0; i < opts.particleCount; i += 1) {
     particles.push({
       angle: (i / opts.particleCount) * Math.PI * 2,
@@ -69,13 +84,47 @@ function initSpiralBackground(canvas, options) {
       vy: -0.008 - Math.random() * 0.014,
       spin: (Math.random() - 0.5) * 0.6,
       rot: Math.random() * Math.PI,
-      hue: Math.random() < 0.7 ? "#dfeaff" : "#9fd0ff",
       twinkle: Math.random() * Math.PI * 2,
     };
   }
 
   let raf = 0;
-  let start = performance.now();
+  const start = performance.now();
+
+  // Cheap "glow": a few strokes of increasing width and decreasing alpha,
+  // instead of ctx.shadowBlur (which forces a real per-call blur pass).
+  function glowLine(x1, y1, x2, y2, thickness, rgb, alpha) {
+    ctx.lineCap = "round";
+    ctx.strokeStyle = `rgba(${rgb},${0.1 * alpha})`;
+    ctx.lineWidth = thickness * 2.6;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(${rgb},${0.28 * alpha})`;
+    ctx.lineWidth = thickness * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(${rgb},${alpha})`;
+    ctx.lineWidth = thickness;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  function glowDot(x, y, r, rgb, alpha) {
+    ctx.fillStyle = `rgba(${rgb},${0.12 * alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(${rgb},${0.9 * alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   function drawBars(t, cx, cy, radius) {
     const rotation = (opts.reverse ? -1 : 1) * t * opts.spin;
@@ -88,24 +137,13 @@ function initSpiralBackground(canvas, options) {
       const r2 = r1 + barLength;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
-      const x1 = cx + cos * r1;
-      const y1 = cy + sin * r1;
-      const x2 = cx + cos * r2;
-      const y2 = cy + sin * r2;
       const tint = i % 3 === 0 ? "170,215,255" : "236,244,255";
       const alpha = (0.55 + 0.25 * Math.sin(t * 0.8 + i)) * opts.intensity;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = `rgba(${tint},${Math.max(0, alpha)})`;
-      ctx.lineWidth = barThickness;
-      ctx.lineCap = "round";
-      ctx.shadowColor = `rgba(${tint},0.9)`;
-      ctx.shadowBlur = 16 * opts.intensity;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-      ctx.restore();
+      glowLine(
+        cx + cos * r1, cy + sin * r1,
+        cx + cos * r2, cy + sin * r2,
+        barThickness, tint, Math.max(0, alpha),
+      );
     }
   }
 
@@ -116,27 +154,19 @@ function initSpiralBackground(canvas, options) {
       const x = cx + Math.cos(p.angle) * r;
       const y = cy + Math.sin(p.angle) * r * 0.94;
       p.trail.push({ x, y });
-      if (p.trail.length > 26) p.trail.shift();
+      if (p.trail.length > 10) p.trail.shift();
 
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      for (let i = 0; i < p.trail.length; i += 1) {
-        const point = p.trail[i];
-        const a = (i / p.trail.length) * 0.5 * opts.intensity;
+      const rgb = p.color.join(",");
+      if (p.trail.length > 1) {
+        ctx.strokeStyle = `rgba(${rgb},${0.35 * opts.intensity})`;
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = a;
-        ctx.arc(point.x, point.y, 1.6, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(p.trail[0].x, p.trail[0].y);
+        for (let i = 1; i < p.trail.length; i += 1) ctx.lineTo(p.trail[i].x, p.trail[i].y);
+        ctx.stroke();
       }
-      ctx.globalAlpha = 0.9 * opts.intensity;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 12 * opts.intensity;
-      ctx.beginPath();
-      ctx.fillStyle = p.color;
-      ctx.arc(x, y, 2.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      glowDot(x, y, 2.2, rgb, opts.intensity);
     });
   }
 
@@ -152,28 +182,33 @@ function initSpiralBackground(canvas, options) {
       const x = cube.x * width;
       const y = cube.y * height;
       const s = cube.size;
-      const glow = 0.4 + 0.3 * Math.sin(cube.twinkle);
+      const glow = (0.55 + 0.3 * Math.sin(cube.twinkle)) * opts.intensity;
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(cube.rot);
-      ctx.globalCompositeOperation = "lighter";
-      ctx.shadowColor = cube.hue;
-      ctx.shadowBlur = 10 * opts.intensity;
-      const grad = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
-      grad.addColorStop(0, `rgba(255,255,255,${0.85 * glow * opts.intensity})`);
-      grad.addColorStop(1, `rgba(120,160,220,${0.25 * glow * opts.intensity})`);
-      ctx.fillStyle = grad;
+      ctx.fillStyle = `rgba(140,175,230,${0.18 * glow})`;
+      ctx.fillRect(-s, -s, s * 2, s * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.8 * glow})`;
       ctx.fillRect(-s / 2, -s / 2, s, s);
       ctx.restore();
     });
   }
 
   let lastFrame = performance.now();
+  let lastDraw = 0;
+  const frameBudget = 1000 / opts.fps;
+
   function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (now - lastDraw < frameBudget) return;
+    lastDraw = now;
+
     const t = (now - start) / 1000;
-    const dt = now - lastFrame;
+    const dt = Math.min(64, now - lastFrame);
     lastFrame = now;
+
     ctx.clearRect(0, 0, width, height);
+    ctx.globalCompositeOperation = "lighter";
 
     const cx = width * opts.centerX;
     const cy = height * opts.centerY;
@@ -182,15 +217,31 @@ function initSpiralBackground(canvas, options) {
     drawCubes(dt);
     drawBars(t, cx, cy, radius);
     drawParticles(t, cx, cy, radius);
-
-    raf = requestAnimationFrame(frame);
   }
 
-  if (reduceMotion) {
-    // Draw a single still frame instead of a continuous loop.
+  function drawStill() {
+    ctx.clearRect(0, 0, width, height);
+    ctx.globalCompositeOperation = "lighter";
+    const cx = width * opts.centerX;
+    const cy = height * opts.centerY;
+    const radius = Math.min(width, height) * opts.radiusScale;
     drawCubes(0);
-    drawBars(0, width * opts.centerX, height * opts.centerY, Math.min(width, height) * opts.radiusScale);
-    drawParticles(0, width * opts.centerX, height * opts.centerY, Math.min(width, height) * opts.radiusScale);
+    drawBars(0, cx, cy, radius);
+    drawParticles(0, cx, cy, radius);
+  }
+
+  function handleVisibility() {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+    } else if (!reduceMotion) {
+      lastFrame = performance.now();
+      raf = requestAnimationFrame(frame);
+    }
+  }
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  if (reduceMotion) {
+    drawStill();
   } else {
     raf = requestAnimationFrame(frame);
   }
@@ -199,6 +250,7 @@ function initSpiralBackground(canvas, options) {
     stop() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibility);
     },
   };
 }
