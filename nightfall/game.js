@@ -355,26 +355,46 @@ function flatMaterial(color) {
   return new THREE.MeshLambertMaterial({ color, flatShading: true });
 }
 
+// a patch of actual grass, not a gridded floor tile: a mottled green
+// base, soft patches of lighter/darker green for natural variation, then
+// hundreds of short angled strokes standing in for individual blades
 function makeGroundTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const cx = c.getContext("2d");
-  cx.fillStyle = "#1b2410";
+
+  cx.fillStyle = "#233318";
   cx.fillRect(0, 0, 256, 256);
-  cx.strokeStyle = "rgba(255,255,255,0.035)";
-  cx.lineWidth = 1;
-  for (let i = 0; i <= 256; i += 16) {
-    cx.beginPath(); cx.moveTo(i, 0); cx.lineTo(i, 256); cx.stroke();
-    cx.beginPath(); cx.moveTo(0, i); cx.lineTo(256, i); cx.stroke();
-  }
-  cx.fillStyle = "rgba(0,0,0,0.12)";
-  for (let i = 0; i < 40; i++) {
-    const x = Math.random() * 256, y = Math.random() * 256, r = 6 + Math.random() * 14;
+
+  for (let i = 0; i < 35; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256, r = 18 + Math.random() * 38;
+    const lighten = Math.random() < 0.5;
+    cx.fillStyle = lighten ? "rgba(96,140,60,0.18)" : "rgba(15,25,10,0.22)";
     cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
   }
+
+  const bladeColors = ["#3a5323", "#4a6b2c", "#2e4419", "#5c8236", "#243a15", "#43602a"];
+  for (let i = 0; i < 1100; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const len = 3 + Math.random() * 6;
+    const angle = Math.PI / 2 + (Math.random() - 0.5) * 1.1; // mostly upright, some lean
+    cx.strokeStyle = bladeColors[(Math.random() * bladeColors.length) | 0];
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(angle) * len, y - Math.sin(angle) * len);
+    cx.stroke();
+  }
+
+  cx.fillStyle = "rgba(0,0,0,0.14)";
+  for (let i = 0; i < 22; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256, r = 4 + Math.random() * 9;
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(6, 6);
+  tex.repeat.set(10, 10);
   return tex;
 }
 
@@ -479,7 +499,16 @@ function buildHouse() {
   group.add(floor);
 
   const wallMat = flatMaterial(0x8a7a5a);
-  const windowMat = new THREE.MeshBasicMaterial({ color: 0xd8a24a, side: THREE.DoubleSide });
+  // actual glass, not a solid amber pane -- barely tinted and mostly
+  // transparent so the survivors stationed behind it (and their muzzle
+  // flashes/spears) stay clearly visible from outside
+  const windowMat = new THREE.MeshBasicMaterial({
+    color: 0xdcE8f0,
+    transparent: true,
+    opacity: 0.16,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
   WALL_IDS.forEach(w => group.add(buildWall(w, wallMat, windowMat)));
 
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.05), flatMaterial(0x2c1d12));
@@ -723,6 +752,7 @@ function createZombieMesh(isBrute) {
   fg.position.set(-0.4, barY + 0.001, 0);
   group.add(fg);
   group.userData.hpFg = fg;
+  group.userData.hpBg = bg;
 
   scene.add(group);
   return group;
@@ -868,7 +898,7 @@ function updateSurvivorAiming() {
     if (!p.mesh.visible || p.wall == null) return;
     let best = null, bestDist = Infinity;
     for (const z of zombies) {
-      if (z.wall !== p.wall) continue;
+      if (z.wall !== p.wall || z.dying) continue;
       const d = Math.hypot(z.x - p.mesh.position.x, z.z - p.mesh.position.z);
       if (d < bestDist) { bestDist = d; best = z; }
     }
@@ -990,7 +1020,7 @@ function updateTrenchSurvivorAiming() {
     if (!p.mesh.visible || p.trench == null) return;
     let best = null, bestDist = Infinity;
     for (const z of zombies) {
-      if (z.wall !== p.trench || !z.stageTrench) continue;
+      if (z.wall !== p.trench || !z.stageTrench || z.dying) continue;
       const d = Math.hypot(z.x - p.mesh.position.x, z.z - p.mesh.position.z);
       if (d < bestDist) { bestDist = d; best = z; }
     }
@@ -1210,7 +1240,12 @@ function totalZombiesForNight(day) {
 // whatever's left over defends the house via the usual auto-assignment
 // ---------------------------------------------------------------
 function housePersonnel() {
-  return S.survivors - WALL_IDS.reduce((a, id) => a + (S.trenchAssignment[id] || 0), 0);
+  // never negative -- if trenchAssignment is ever stale relative to a
+  // survivor count that just dropped (starvation, etc.) this would
+  // otherwise feed a negative "crew" into the auto-assignment math below,
+  // which zeroed every wall's station list and read as the whole
+  // garrison vanishing and popping back in a moment later
+  return Math.max(0, S.survivors - WALL_IDS.reduce((a, id) => a + (S.trenchAssignment[id] || 0), 0));
 }
 
 // total population capacity: the house's base capacity, plus 10 more for
@@ -1399,6 +1434,10 @@ function startNight() {
   autoAssignTimer = 0;
   zombiesSpawnedThisNight = 0;
   zombiesTotalThisNight = totalZombiesForNight(S.day);
+  // re-clamp here too (belt and suspenders alongside housePersonnel's own
+  // floor) so trench garrisons can never outnumber actual survivors
+  // going into a fight, whatever route got us to this point
+  clampTrenchAssignment();
   assignTrenchStations();
   updateHud();
 }
@@ -1543,9 +1582,28 @@ function spawnZombie() {
   });
 }
 
+const DEATH_FALL_TIME = 0.45; // seconds to topple over
+const DEATH_LINGER_TIME = 1.4; // seconds the body stays down before it's cleared
+
 function updateZombies(dt) {
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i];
+
+    if (z.dying) {
+      z.deathTimer -= dt;
+      if (z.fallProgress < 1) {
+        z.fallProgress = Math.min(1, z.fallProgress + dt / DEATH_FALL_TIME);
+        // ease-out so it drops fast then settles, not a linear tip
+        const eased = 1 - Math.pow(1 - z.fallProgress, 2);
+        z.mesh.quaternion.setFromAxisAngle(z.fallAxis, (Math.PI / 2) * eased);
+      }
+      if (z.deathTimer <= 0) {
+        scene.remove(z.mesh);
+        disposeZombieMesh(z.mesh);
+        zombies.splice(i, 1);
+      }
+      continue;
+    }
 
     // a trench this zombie was still fighting can fall mid-fight (someone
     // else finished it off) -- push on to the house wall instead
@@ -1577,9 +1635,16 @@ function updateZombies(dt) {
     z.mesh.position.set(z.x, bobY, z.z);
 
     if (z.hp <= 0) {
-      scene.remove(z.mesh);
-      disposeZombieMesh(z.mesh);
-      zombies.splice(i, 1);
+      // topples over instead of just vanishing -- picks a random
+      // horizontal axis to fall around (pivoting at its own feet, since
+      // the mesh's origin already sits at ground level) so it reads as
+      // an actual death, not a despawn
+      z.dying = true;
+      z.deathTimer = DEATH_FALL_TIME + DEATH_LINGER_TIME;
+      z.fallProgress = 0;
+      z.fallAxis = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+      z.mesh.userData.hpFg.visible = false;
+      z.mesh.userData.hpBg.visible = false;
       S.kills += 1;
     } else {
       const frac = Math.max(0, z.hp / z.maxHp);
@@ -1621,14 +1686,15 @@ function updateTurrets(dt) {
     if (crew <= 0) { wallMeleeMode[w] = false; return; }
     if (fireCooldown[w] > 0) return;
 
-    // keep firing at whatever's already locked in until it's dead (removed
-    // from the zombies array); only pick a new target once it's gone
+    // keep firing at whatever's already locked in until it dies; only pick
+    // a new target once it's gone (a dead one still lingers in the array
+    // while it falls, so this also has to skip anyone already dying)
     let best = currentTarget[w];
-    if (!best || !zombies.includes(best)) {
+    if (!best || !zombies.includes(best) || best.dying) {
       best = null;
       let bestDist = Infinity;
       for (const z of zombies) {
-        if (z.wall !== w) continue;
+        if (z.wall !== w || z.dying) continue;
         const d = Math.hypot(z.x - DEFENSE_POINT[w].x, z.z - DEFENSE_POINT[w].z);
         if (d < bestDist) { bestDist = d; best = z; }
       }
@@ -1696,11 +1762,11 @@ function updateTrenches(dt) {
     if (trenchFireCooldown[id] > 0) return;
 
     let best = currentTrenchTarget[id];
-    if (!best || !zombies.includes(best) || best.wall !== id) {
+    if (!best || !zombies.includes(best) || best.wall !== id || best.dying) {
       best = null;
       let bestDist = Infinity;
       for (const z of zombies) {
-        if (z.wall !== id) continue;
+        if (z.wall !== id || z.dying) continue;
         const d = Math.hypot(z.x - TRENCH_POS[id].x, z.z - TRENCH_POS[id].z);
         if (d < bestDist) { bestDist = d; best = z; }
       }
