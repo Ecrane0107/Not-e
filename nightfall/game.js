@@ -650,10 +650,11 @@ function clearBullets() {
 // across these each dawn; the more you put on one task, the more it
 // yields, so it's a real trade-off rather than a single free pick
 // ---------------------------------------------------------------
-// a 30-ammo base haul, each survivor beyond the first compounding it by 5%
-// (1 survivor = 30, 2 = 30*1.05 = 31.5, 3 = 30*1.05^2, and so on)
+// a 30-ammo base haul, scaled by headcount and then compounded another 5%
+// per survivor beyond the first: 1 survivor = 1x = 30, 2 = 2x1.05 = 63,
+// 3 = 3x1.05^2 = ~99, and so on — genuinely scales, not just a small bonus
 function ammoScavengeAmount(n) {
-  return n <= 0 ? 0 : Math.round(30 * Math.pow(1.05, n - 1));
+  return n <= 0 ? 0 : Math.round(30 * n * Math.pow(1.05, n - 1));
 }
 
 const TASKS = [
