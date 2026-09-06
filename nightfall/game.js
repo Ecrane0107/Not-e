@@ -65,7 +65,7 @@ function freshState() {
     survivors: 1,
     assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
     food: 10,
-    ammo: 30,
+    ammo: 200,
     weaponTier: 1,
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
@@ -99,6 +99,7 @@ const hudDay = document.getElementById("hudDay");
 const hudSurvivors = document.getElementById("hudSurvivors");
 const hudFood = document.getElementById("hudFood");
 const hudAmmo = document.getElementById("hudAmmo");
+const wallBars = { N: document.getElementById("wallN"), E: document.getElementById("wallE"), S: document.getElementById("wallS"), W: document.getElementById("wallW") };
 const toast = document.getElementById("toast");
 
 const menuOverlay = document.getElementById("menuOverlay");
@@ -500,23 +501,23 @@ function clearBullets() {
 // ---------------------------------------------------------------
 const REWARDS = [
   {
-    id: "survivor", icon: "\u{1F464}", title: "New survivor",
+    id: "survivor", icon: "\u{1F464}", title: "Look for more survivors",
     desc: "A stranger made it to your door. +1 survivor.",
     canApply: s => s.survivors < MAX_SURVIVORS,
     apply: s => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + 1); },
   },
   {
-    id: "ammo", icon: "\u{1F9F0}", title: "Ammo crate",
+    id: "ammo", icon: "\u{1F9F0}", title: "Scavenge ammo",
     desc: "+25 rounds for the whole house.",
     apply: s => { s.ammo += 25; },
   },
   {
-    id: "food", icon: "\u{1F96B}", title: "Food supplies",
+    id: "food", icon: "\u{1F96B}", title: "Scavenge food",
     desc: "+12 food. Keeps everyone standing a while longer.",
     apply: s => { s.food += 12; },
   },
   {
-    id: "weapon", icon: "\u{1F52B}", title: "Weapon upgrade",
+    id: "weapon", icon: "\u{1F52B}", title: "Upgrade weapons",
     desc: "Every shot hits harder, permanently.",
     apply: s => { s.weaponTier += 1; },
   },
@@ -526,7 +527,7 @@ const REWARDS = [
     apply: s => { WALL_IDS.forEach(w => { s.walls[w].max += 20; s.walls[w].hp = s.walls[w].max; }); },
   },
   {
-    id: "medkit", icon: "⚕️", title: "Field repairs",
+    id: "medkit", icon: "⚕️", title: "Repair walls",
     desc: "Fully repair every wall to its current max HP.",
     canApply: s => WALL_IDS.some(w => s.walls[w].hp < s.walls[w].max),
     apply: s => { WALL_IDS.forEach(w => { s.walls[w].hp = s.walls[w].max; }); },
@@ -583,6 +584,12 @@ function updateHud() {
   hudSurvivors.textContent = S.survivors;
   hudFood.textContent = S.food;
   hudAmmo.textContent = S.ammo;
+  WALL_IDS.forEach(w => {
+    const pct = Math.max(0, S.walls[w].hp / S.walls[w].max) * 100;
+    const bar = wallBars[w];
+    bar.querySelector(".hp i").style.width = pct + "%";
+    bar.classList.toggle("low", pct < 30);
+  });
   updateWallGlow();
 }
 
@@ -781,10 +788,22 @@ function updateBullets(dt) {
   }
 }
 
+// how many survivors assigned to a wall have actually reached their window
+// — someone still walking over doesn't get to shoot yet
+function arrivedCrewCount(wall) {
+  let n = 0;
+  for (const p of survivorPool) {
+    if (p.wall !== wall || !p.mesh.visible) continue;
+    const dx = p.target.x - p.mesh.position.x, dz = p.target.z - p.mesh.position.z;
+    if (Math.hypot(dx, dz) < 0.05) n++;
+  }
+  return n;
+}
+
 function updateTurrets(dt) {
   WALL_IDS.forEach(w => {
     fireCooldown[w] = Math.max(0, fireCooldown[w] - dt);
-    const crew = S.assignment[w];
+    const crew = arrivedCrewCount(w);
     if (crew <= 0 || S.ammo <= 0) return;
     if (fireCooldown[w] > 0) return;
 

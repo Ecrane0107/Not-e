@@ -96,6 +96,27 @@ body{
 .chip.day{color:var(--accent);border-color:var(--accent-dim)}
 .chip .lbl{color:var(--ink-dim);font-weight:500;margin-left:2px}
 
+.wallbar{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 8px;
+  background:rgba(10,12,8,.72);
+  border:1px solid var(--line);
+  border-radius:7px;
+  font-size:11px;
+  font-weight:600;
+  backdrop-filter:blur(3px);
+}
+.wallbar .hp{width:56px;height:6px;background:#241f14;border-radius:3px;overflow:hidden;border:1px solid var(--line)}
+.wallbar .hp i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
+.wallbar.low .hp i{background:var(--blood)}
+.wallbar.n{top:76px;left:50%;transform:translateX(-50%)}
+.wallbar.s{bottom:14px;left:50%;transform:translateX(-50%)}
+.wallbar.e{top:50%;right:14px;transform:translateY(-50%)}
+.wallbar.w{top:50%;left:14px;transform:translateY(-50%)}
+
 /* ---------- overlays (day / reward / menu / gameover) ---------- */
 .overlay{
   position:fixed;
@@ -194,7 +215,7 @@ body{
 .card:focus-visible{outline:2px solid var(--focus)}
 .card .cico{font-size:22px;line-height:1;flex:0 0 auto}
 .card .ctitle{font-weight:700;font-size:14px;margin-bottom:2px}
-.card .cdesc{font-size:12.5px;color:var(--ink-dim);line-height:1.4}
+.card .cdesc{font-size:12.5px;color:var(--ink);line-height:1.4}
 
 .toast{
   position:fixed;
