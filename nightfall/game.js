@@ -115,6 +115,194 @@ function freshState() {
 }
 let S = freshState();
 
+// ---------------------------------------------------------------
+// progress codes — a self-contained "password save" with no server and
+// no account: beating a night hands you a code; pasting it back in on
+// the menu, a day screen, or the game-over screen restores that state.
+// This is obfuscation, not real security -- the decode key ships in
+// this same file, so it only stops casual eyeballing/hand-editing, not
+// someone reading the source. It's there so a code isn't just a plain
+// readable dump of your stats, not to make it tamper-proof.
+// ---------------------------------------------------------------
+const SAVE_VERSION = 1;
+const SAVE_KEY = "NIGHTFALL-DAWN-SIGNAL";
+const B32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; // RFC4648, no 0/1/8/9 to cut down on lookalikes
+
+function base32Encode(bytes) {
+  let bits = 0, value = 0, out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8) | bytes[i];
+    bits += 8;
+    while (bits >= 5) {
+      out += B32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += B32_ALPHABET[(value << (5 - bits)) & 31];
+  return out;
+}
+function base32Decode(str) {
+  const clean = str.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0, value = 0;
+  const bytes = [];
+  for (let i = 0; i < clean.length; i++) {
+    const idx = B32_ALPHABET.indexOf(clean[i]);
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return bytes;
+}
+
+// simple running checksum over the payload numbers -- not for security,
+// just to catch a mistyped or truncated code and reject it cleanly
+// instead of loading garbage state
+function progressChecksum(nums) {
+  let sum = 7;
+  nums.forEach((n, i) => { sum = (sum * 31 + (n + 1) * (i + 3)) % 1000003; });
+  return sum;
+}
+
+function encodeProgress(s) {
+  const nums = [
+    SAVE_VERSION,
+    s.day, s.survivors, s.food, s.ammo, s.supplies, s.reputation, s.weaponTier,
+    s.kills, s.nightsSurvived,
+    Math.round(s.walls.N.hp), Math.round(s.walls.E.hp), Math.round(s.walls.S.hp), Math.round(s.walls.W.hp),
+    WALL_IDS.reduce((mask, id, i) => (s.trenches.includes(id) ? mask | (1 << i) : mask), 0),
+    Math.round(s.trenchHp.N.hp), Math.round(s.trenchHp.E.hp), Math.round(s.trenchHp.S.hp), Math.round(s.trenchHp.W.hp),
+    s.trenchAssignment.N, s.trenchAssignment.E, s.trenchAssignment.S, s.trenchAssignment.W,
+  ];
+  nums.push(progressChecksum(nums));
+  const json = JSON.stringify(nums);
+  const bytes = Array.from(new TextEncoder().encode(json));
+  const keyBytes = Array.from(new TextEncoder().encode(SAVE_KEY));
+  const scrambled = bytes.map((b, i) => b ^ keyBytes[i % keyBytes.length]);
+  const b32 = base32Encode(scrambled);
+  return (b32.match(/.{1,5}/g) || [b32]).join("-");
+}
+
+// returns the restored fields on success, or null (with a reason) on
+// any failure -- a hand-typed or corrupted code should never throw or
+// half-apply, just cleanly refuse
+function decodeProgress(code) {
+  try {
+    const bytes = base32Decode(code);
+    if (bytes.length === 0) return { error: "That doesn't look like a code." };
+    const keyBytes = Array.from(new TextEncoder().encode(SAVE_KEY));
+    const unscrambled = bytes.map((b, i) => b ^ keyBytes[i % keyBytes.length]);
+    const json = new TextDecoder().decode(new Uint8Array(unscrambled));
+    const nums = JSON.parse(json);
+    if (!Array.isArray(nums) || nums.length !== 24) return { error: "Code is incomplete or corrupted." }; // 23 data values + 1 checksum
+    const cs = nums.pop();
+    if (progressChecksum(nums) !== cs) return { error: "Code is incomplete or corrupted." };
+    const [
+      version, day, survivors, food, ammo, supplies, reputation, weaponTier,
+      kills, nightsSurvived, wallN, wallE, wallS, wallW, trenchMask,
+      thN, thE, thS, thW, taN, taE, taS, taW,
+    ] = nums;
+    if (version !== SAVE_VERSION) return { error: "That code is from a different version of the game." };
+    return {
+      day, survivors, food, ammo, supplies, reputation, weaponTier, kills, nightsSurvived,
+      walls: { N: wallN, E: wallE, S: wallS, W: wallW },
+      trenchMask,
+      trenchHp: { N: thN, E: thE, S: thS, W: thW },
+      trenchAssignment: { N: taN, E: taE, S: taS, W: taW },
+    };
+  } catch (err) {
+    return { error: "That doesn't look like a valid code." };
+  }
+}
+
+// applies a decoded progress object onto a fresh state and lands on the
+// day screen for that point -- shared by every "load code" entry point
+// (menu, day screen, game over)
+function loadProgress(loaded) {
+  S = freshState();
+  S.phase = "day";
+  S.day = Math.max(1, Math.round(loaded.day) || 1);
+  S.survivors = Math.max(1, Math.round(loaded.survivors) || 1);
+  S.food = Math.max(0, Math.round(loaded.food) || 0);
+  S.ammo = Math.max(0, Math.round(loaded.ammo) || 0);
+  S.supplies = Math.max(0, Math.round(loaded.supplies) || 0);
+  S.reputation = Math.max(0, Math.round(loaded.reputation) || 0);
+  S.weaponTier = Math.max(1, Math.round(loaded.weaponTier) || 1);
+  S.kills = Math.max(0, Math.round(loaded.kills) || 0);
+  S.nightsSurvived = Math.max(0, Math.round(loaded.nightsSurvived) || 0);
+  WALL_IDS.forEach((id) => {
+    S.walls[id].hp = Math.min(S.walls[id].max, Math.max(0, Math.round(loaded.walls[id]) || 0));
+  });
+  S.trenches = WALL_IDS.filter((id, i) => (loaded.trenchMask & (1 << i)) !== 0);
+  S.trenches.forEach((id) => ensureTrenchBuilt(id)); // creates the mesh + hud row; resets hp to full first
+  WALL_IDS.forEach((id) => {
+    if (S.trenches.includes(id)) {
+      S.trenchHp[id].hp = Math.min(S.trenchHp[id].max, Math.max(0, Math.round(loaded.trenchHp[id]) || 0));
+    }
+    S.trenchAssignment[id] = Math.max(0, Math.min(TRENCH_GARRISON_CAP, Math.round(loaded.trenchAssignment[id]) || 0));
+  });
+  assignTrenchStations();
+  clearZombies();
+  clearBullets();
+  goToDay();
+}
+
+// fills in a code-display <code> element (id "<baseId>") with the
+// current state's code -- used on both the day screen (always current)
+// and the reward screen (frozen at the moment the night was won)
+function renderCodeBox(baseId, snapshot) {
+  const el = document.getElementById(baseId);
+  if (!el) return;
+  el.textContent = encodeProgress(snapshot || S);
+  const copyBtn = document.getElementById(baseId + "Copy");
+  if (copyBtn && !copyBtn.dataset.wired) {
+    copyBtn.dataset.wired = "1";
+    copyBtn.addEventListener("click", () => {
+      const text = el.textContent;
+      const done = () => { copyBtn.textContent = "Copied"; setTimeout(() => { copyBtn.textContent = "Copy"; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => { selectText(el); });
+      } else {
+        selectText(el);
+      }
+    });
+  }
+}
+function selectText(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// wires an "Enter code" input+button pair (ids "<baseId>Input",
+// "<baseId>Btn", "<baseId>Error") to decode and load a progress code --
+// shared by the menu, day, and game-over screens
+function wireCodeLoader(baseId) {
+  const input = document.getElementById(baseId + "Input");
+  const btn = document.getElementById(baseId + "Btn");
+  const errorEl = document.getElementById(baseId + "Error");
+  if (!input || !btn) return;
+  function attempt() {
+    const code = input.value.trim();
+    if (!code) return;
+    const result = decodeProgress(code);
+    if (result.error) {
+      errorEl.textContent = result.error;
+      errorEl.hidden = false;
+      return;
+    }
+    errorEl.hidden = true;
+    input.value = "";
+    loadProgress(result);
+  }
+  btn.addEventListener("click", attempt);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") attempt();
+  });
+  input.addEventListener("input", () => { errorEl.hidden = true; });
+}
+
 // runtime-only (not persisted between nights)
 let zombies = [];
 let bullets = [];
@@ -1092,6 +1280,7 @@ function updateDayScreen() {
   document.getElementById("dayReputation").textContent = S.reputation + "%";
   document.getElementById("dayWeapon").textContent = "Tier " + S.weaponTier;
   renderTrenchAssignUI();
+  renderCodeBox("dayCode");
 }
 
 // ---------------------------------------------------------------
@@ -1162,6 +1351,7 @@ function goToMenu() {
 function goToDay() {
   S.phase = "day";
   hud.hidden = true;
+  menuOverlay.hidden = true;
   dayOverlay.hidden = false;
   rewardOverlay.hidden = true;
   trenchPickOverlay.hidden = true;
@@ -1253,6 +1443,7 @@ function endNightSuccess() {
   document.getElementById("rewardLead").textContent =
     "Night " + S.day + " is over. Send your people out to work before the next one.";
   renderTaskAllocation();
+  renderCodeBox("rewardCode");
   rewardOverlay.hidden = false;
 
   // keep the HUD panel up (survivors/food/ammo/weapon/wall hp) while
@@ -1615,5 +1806,13 @@ hudToggle.addEventListener("click", (e) => {
   hudToggle.setAttribute("aria-expanded", String(expanded));
   hudToggle.innerHTML = expanded ? "&#9652;" : "&#9662;";
 });
+
+// progress-code loading is available from the menu (start of the game),
+// the day screen (start of any night -- also always shows the current
+// code there), and the game-over screen (resume instead of starting
+// completely over)
+wireCodeLoader("menuLoad");
+wireCodeLoader("dayLoad");
+wireCodeLoader("overLoad");
 
 requestAnimationFrame(frame);

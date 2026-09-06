@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -50,6 +50,14 @@
     <h1>Nightfall</h1>
     <p class="lead">One house, one survivor, and every night after this one gets worse. Your people defend wherever the horde actually hits — hold until dawn, and spend what you loot from the dead however you think will keep you alive longest.</p>
     <button class="primary-btn" id="btnStart">Begin</button>
+    <div class="code-load">
+      <p class="code-load-label">Have a progress code?</p>
+      <div class="code-load-row">
+        <input type="text" id="menuLoadInput" class="code-input" placeholder="Paste your code" autocomplete="off" spellcheck="false">
+        <button type="button" class="ghost-btn" id="menuLoadBtn">Load</button>
+      </div>
+      <p class="code-error" id="menuLoadError" hidden></p>
+    </div>
   </div>
 </div>
 
@@ -75,6 +83,22 @@
       <p class="alloc-remaining" id="houseRemaining"></p>
     </div>
 
+    <div class="code-section">
+      <p class="alloc-remaining">Your progress code</p>
+      <div class="code-display-row">
+        <code class="code-display" id="dayCode"></code>
+        <button type="button" class="ghost-btn" id="dayCodeCopy">Copy</button>
+      </div>
+      <details class="code-load-details">
+        <summary>Load a different code</summary>
+        <div class="code-load-row">
+          <input type="text" id="dayLoadInput" class="code-input" placeholder="Paste a code" autocomplete="off" spellcheck="false">
+          <button type="button" class="ghost-btn" id="dayLoadBtn">Load</button>
+        </div>
+        <p class="code-error" id="dayLoadError" hidden></p>
+      </details>
+    </div>
+
     <button class="primary-btn" id="btnStartNight">Start night</button>
   </div>
 </div>
@@ -85,6 +109,16 @@
     <p class="eyebrow">Dawn</p>
     <h1>You held the line</h1>
     <p class="lead" id="rewardLead">Night 1 is over. Send your people out to work before the next one.</p>
+
+    <div class="code-section">
+      <p class="alloc-remaining">Your progress code</p>
+      <div class="code-display-row">
+        <code class="code-display" id="rewardCode"></code>
+        <button type="button" class="ghost-btn" id="rewardCodeCopy">Copy</button>
+      </div>
+      <p class="code-hint">Save this if you want to pick up from right here later — paste it back in on the menu or any day screen.</p>
+    </div>
+
     <p class="alloc-remaining" id="allocRemaining">1 survivor to assign</p>
     <div class="tasks" id="taskList"></div>
     <button class="primary-btn" id="btnConfirmTasks" disabled>Confirm</button>
@@ -109,9 +143,17 @@
     <h1>Game over</h1>
     <p class="lead" id="overLead">You held for 0 nights.</p>
     <button class="primary-btn" id="btnRetry">Try again</button>
+    <div class="code-load">
+      <p class="code-load-label">Load a progress code instead?</p>
+      <div class="code-load-row">
+        <input type="text" id="overLoadInput" class="code-input" placeholder="Paste your code" autocomplete="off" spellcheck="false">
+        <button type="button" class="ghost-btn" id="overLoadBtn">Load</button>
+      </div>
+      <p class="code-error" id="overLoadError" hidden></p>
+    </div>
   </div>
 </div>
 
-<script type="module" src="game.js?v=11"></script>
+<script type="module" src="game.js?v=16"></script>
 </body>
 </html>

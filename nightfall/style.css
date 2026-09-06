@@ -260,6 +260,52 @@ body{
 .side-pick-btn:hover{border-color:var(--accent-dim);background:var(--panel-hi)}
 .side-pick-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
+/* progress codes -- shown on the day/reward screens, loaded on the
+   menu/day/game-over screens (see the code comments in game.js) */
+.code-section{margin:0 0 18px}
+.code-display-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.code-display{
+  flex:1;
+  min-width:0;
+  padding:9px 12px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--ink);
+  font:600 12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.03em;
+  word-break:break-all;
+  user-select:all;
+}
+.code-hint{margin:8px 0 0;font-size:11.5px;color:var(--ink-dim);line-height:1.4}
+
+.code-load{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.code-load-label{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--ink-mid)}
+.code-load-row{display:flex;gap:8px}
+.code-input{
+  flex:1;
+  min-width:0;
+  padding:9px 12px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--ink);
+  font:500 13px "Space Grotesk",sans-serif;
+}
+.code-input::placeholder{color:var(--ink-dim)}
+.code-input:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
+.code-error{margin:8px 0 0;font-size:12px;color:var(--blood)}
+
+.code-load-details{margin-top:14px}
+.code-load-details summary{
+  font-size:12px;
+  color:var(--ink-dim);
+  cursor:pointer;
+}
+.code-load-details summary:hover{color:var(--ink-mid)}
+.code-load-details .code-load-row{margin-top:10px}
+.code-load-details .code-error{margin-top:8px}
+
 .toast{
   position:fixed;
   top:70px;
