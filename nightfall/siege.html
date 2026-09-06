@@ -19,7 +19,7 @@
 </a>
 
 <div class="stage">
-  <canvas id="game" width="384" height="216"></canvas>
+  <canvas id="game"></canvas>
 </div>
 
 <div class="hud" id="hud" hidden>
@@ -44,26 +44,24 @@
   <div class="panel">
     <p class="eyebrow">Project</p>
     <h1>Nightfall</h1>
-    <p class="lead">One house, one survivor, and every night after this one gets worse. Assign your people to the walls, hold until dawn, and spend what you loot from the dead however you think will keep you alive longest.</p>
+    <p class="lead">One house, one survivor, and every night after this one gets worse. Your people defend wherever the horde actually hits — hold until dawn, and spend what you loot from the dead however you think will keep you alive longest.</p>
     <button class="primary-btn" id="btnStart">Begin</button>
   </div>
 </div>
 
-<!-- day / assignment -->
+<!-- day -->
 <div class="overlay" id="dayOverlay" hidden>
   <div class="panel">
     <p class="eyebrow" id="dayEyebrow">Before nightfall</p>
     <h1 id="dayTitle">Night 1</h1>
-    <p class="lead" id="dayLead">Put your people where you think the horde will hit hardest. Whoever isn't on a wall isn't shooting tonight.</p>
+    <p class="lead" id="dayLead">Everyone in the house will move to whichever side the horde is actually attacking tonight.</p>
 
     <div class="stat-row">
+      <div class="s"><b id="daySurvivors">1</b>survivors</div>
       <div class="s"><b id="dayFood">10</b>food</div>
       <div class="s"><b id="dayAmmo">30</b>ammo</div>
       <div class="s"><b id="dayWeapon">Tier 1</b>weapon</div>
     </div>
-
-    <div class="assign-list" id="assignList"></div>
-    <div class="pool-row">Unassigned <b id="poolCount">1</b></div>
 
     <button class="primary-btn" id="btnStartNight">Start night</button>
   </div>
@@ -89,6 +87,6 @@
   </div>
 </div>
 
-<script src="game.js"></script>
+<script type="module" src="game.js"></script>
 </body>
 </html>

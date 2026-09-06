@@ -1,96 +1,36 @@
 /*
- * Nightfall — a top-down zombie-siege tower defense.
- * The "tower" is a house with four walls (N/E/S/W). Survivors assigned
- * to a wall auto-fire at zombies approaching it. Hold until dawn, then
- * pick one reward and do it again, harder.
- *
- * Everything renders at a fixed low internal resolution (384x216) which
- * is then scaled up in CSS with pixelated rendering — the classic trick
- * for crisp pixel art at any screen size, and it also keeps the amount
- * of actual pixel-fill work tiny. Sprites are pre-rendered once onto
- * small offscreen canvases and blitted with drawImage from then on —
- * no shadowBlur, no per-frame gradients, nothing that fights the GPU.
+ * Nightfall — a top-down zombie-siege tower defense, rendered in basic
+ * flat-shaded 3D (same low-poly spirit as Dead Static) instead of a
+ * pixel-art 2D canvas. The house still has four walls (N/E/S/W) that
+ * take damage independently, but there's no manual crew assignment
+ * anymore — survivors automatically split up to defend whichever
+ * wall(s) are actually under attack each night.
  */
 
-const CW = 384, CH = 216;
+import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+
+// ---------------------------------------------------------------
+// gameplay constants
+// ---------------------------------------------------------------
 const MAX_SURVIVORS = 20;
 const WALL_IDS = ["N", "E", "S", "W"];
 const BASE_WALL_HP = 100;
 const NIGHT_DURATION = 42; // seconds
 
-const HOUSE = { x: 150, y: 88, w: 84, h: 46 };
+// world space: the house sits at the origin on a flat ground plane
+const GROUND_SIZE = 44;
+const HOUSE_HALF_X = 4;
+const HOUSE_HALF_Z = 3;
+const HOUSE_HEIGHT = 2.6;
+const SPAWN_EDGE = 19;
+
 const DEFENSE_POINT = {
-  N: { x: 192, y: HOUSE.y - 8 },
-  S: { x: 192, y: HOUSE.y + HOUSE.h + 8 },
-  E: { x: HOUSE.x + HOUSE.w + 8, y: 111 },
-  W: { x: HOUSE.x - 8, y: 111 },
+  N: { x: 0, z: -(HOUSE_HALF_Z + 1.4) },
+  S: { x: 0, z: HOUSE_HALF_Z + 1.4 },
+  E: { x: HOUSE_HALF_X + 1.4, z: 0 },
+  W: { x: -(HOUSE_HALF_X + 1.4), z: 0 },
 };
-const WALL_AXIS = { N: "x", S: "x", E: "y", W: "y" }; // which coordinate zombies spread along
-
-// ---------------------------------------------------------------
-// pixel sprites: tiny ASCII grids rendered once to an offscreen canvas
-// ---------------------------------------------------------------
-function makeSprite(rows, palette) {
-  const h = rows.length, w = rows[0].length;
-  const c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  const cx = c.getContext("2d");
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const ch = rows[y][x];
-      const color = palette[ch];
-      if (color) { cx.fillStyle = color; cx.fillRect(x, y, 1, 1); }
-    }
-  }
-  return c;
-}
-
-const SPR_SURVIVOR = makeSprite(
-  [
-    "..HHH..",
-    ".HFFFH.",
-    ".HFFFH.",
-    "..FFF..",
-    ".JJJJJ.",
-    ".JJJJJ.",
-    ".JJJJJ.",
-    "..P.P..",
-    "..P.P..",
-  ],
-  { H: "#2b2117", F: "#d8a97a", J: "#3f6fa8", P: "#20242b" },
-);
-
-const SPR_ZOMBIE = makeSprite(
-  [
-    "..hhh..",
-    ".hzrzh.",
-    ".hzzzh.",
-    "..zzz..",
-    ".jjjjj.",
-    ".jjjjj.",
-    ".jj.jj.",
-    "..p.p..",
-    "..p.p..",
-  ],
-  { h: "#241f14", z: "#6b8f3a", r: "#c0392b", j: "#4a4a34", p: "#1c1c14" },
-);
-
-const SPR_BRUTE = makeSprite(
-  [
-    "...HHH...",
-    "..HZZZH..",
-    ".HZZrZZH.",
-    ".HZZZZZH.",
-    "..ZZZZZ..",
-    ".JJJJJJJ.",
-    ".JJJJJJJ.",
-    ".JJJJJJJ.",
-    ".JJ.J.JJ.",
-    "..P...P..",
-    "..P...P..",
-  ],
-  { H: "#241f14", Z: "#4f6b28", r: "#c0392b", J: "#3a3a28", P: "#17170f" },
-);
+const WALL_AXIS = { N: "x", S: "x", E: "z", W: "z" }; // which coordinate zombies spread along
 
 // ---------------------------------------------------------------
 // state
@@ -100,8 +40,7 @@ function freshState() {
     phase: "menu", // menu | day | night | reward | gameover
     day: 1,
     survivors: 1,
-    unassigned: 1,
-    assignment: { N: 0, E: 0, S: 0, W: 0 },
+    assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
     food: 10,
     ammo: 30,
     weaponTier: 1,
@@ -124,13 +63,12 @@ let fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
 let spawnTimer = 0;
 let nightClock = 0;
 let breached = false;
+let autoAssignTimer = 0;
 
 // ---------------------------------------------------------------
 // DOM
 // ---------------------------------------------------------------
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
 
 const hud = document.getElementById("hud");
 const hudDay = document.getElementById("hudDay");
@@ -147,21 +85,236 @@ const dayOverlay = document.getElementById("dayOverlay");
 const rewardOverlay = document.getElementById("rewardOverlay");
 const overOverlay = document.getElementById("overOverlay");
 
-function resizeCanvas() {
-  const ratio = CW / CH;
-  let w = window.innerWidth, h = window.innerHeight;
-  if (w / h > ratio) w = h * ratio; else h = w / ratio;
-  canvas.style.width = Math.floor(w) + "px";
-  canvas.style.height = Math.floor(h) + "px";
-}
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
 let toastTimer = 0;
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add("show");
   toastTimer = 2.4;
+}
+
+// ---------------------------------------------------------------
+// three.js scene
+// ---------------------------------------------------------------
+function flatMaterial(color) {
+  return new THREE.MeshLambertMaterial({ color, flatShading: true });
+}
+
+function makeGroundTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const cx = c.getContext("2d");
+  cx.fillStyle = "#1b2410";
+  cx.fillRect(0, 0, 256, 256);
+  cx.strokeStyle = "rgba(255,255,255,0.035)";
+  cx.lineWidth = 1;
+  for (let i = 0; i <= 256; i += 16) {
+    cx.beginPath(); cx.moveTo(i, 0); cx.lineTo(i, 256); cx.stroke();
+    cx.beginPath(); cx.moveTo(0, i); cx.lineTo(256, i); cx.stroke();
+  }
+  cx.fillStyle = "rgba(0,0,0,0.12)";
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256, r = 6 + Math.random() * 14;
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 6);
+  return tex;
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070a);
+scene.fog = new THREE.Fog(0x05070a, 28, 58);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 26, 13);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+scene.add(new THREE.HemisphereLight(0x9fb0c0, 0x1a1610, 0.9));
+const sun = new THREE.DirectionalLight(0xfff2d8, 0.7);
+sun.position.set(8, 16, 6);
+scene.add(sun);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+  new THREE.MeshLambertMaterial({ map: makeGroundTexture() }),
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+function buildHouse() {
+  const group = new THREE.Group();
+
+  const walls = new THREE.Mesh(
+    new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, HOUSE_HALF_Z * 2),
+    flatMaterial(0x8a7a5a),
+  );
+  walls.position.y = HOUSE_HEIGHT / 2;
+  group.add(walls);
+
+  const roofHeight = 1.6;
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(Math.hypot(HOUSE_HALF_X, HOUSE_HALF_Z) * 1.05, roofHeight, 4),
+    flatMaterial(0x5a3a2a),
+  );
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = HOUSE_HEIGHT + roofHeight / 2 - 0.05;
+  group.add(roof);
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.15), flatMaterial(0x2c1d12));
+  door.position.set(0, 0.75, HOUSE_HALF_Z + 0.02);
+  group.add(door);
+
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0xd8a24a });
+  [-1, 1].forEach(side => {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.1), windowMat);
+    win.position.set(side * 2.2, 1.5, HOUSE_HALF_Z + 0.02);
+    group.add(win);
+  });
+
+  return group;
+}
+scene.add(buildHouse());
+
+// damage glow discs on the ground at each defense point
+const wallGlow = {};
+WALL_IDS.forEach(w => {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xc0392b, transparent: true, opacity: 0 });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.6, 16), mat);
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.set(DEFENSE_POINT[w].x, 0.02, DEFENSE_POINT[w].z);
+  scene.add(disc);
+  wallGlow[w] = mat;
+});
+function updateWallGlow() {
+  WALL_IDS.forEach(w => {
+    const pct = S.walls[w].hp / S.walls[w].max;
+    wallGlow[w].opacity = pct >= 1 ? 0 : 0.5 * (1 - pct);
+  });
+}
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", onResize);
+onResize();
+
+// ---------------------------------------------------------------
+// entity models (shared geometries/materials, built once)
+// ---------------------------------------------------------------
+const zombieBodyGeo = new THREE.CylinderGeometry(0.32, 0.4, 1.1, 6);
+const zombieHeadGeo = new THREE.SphereGeometry(0.28, 6, 5);
+const bruteBodyGeo = new THREE.CylinderGeometry(0.52, 0.64, 1.6, 6);
+const bruteHeadGeo = new THREE.SphereGeometry(0.42, 6, 5);
+const survivorBodyGeo = new THREE.CylinderGeometry(0.26, 0.32, 1.0, 6);
+const survivorHeadGeo = new THREE.SphereGeometry(0.22, 6, 5);
+
+const zombieBodyMat = flatMaterial(0x5f7a34);
+const zombieHeadMat = flatMaterial(0x6b5f3a);
+const bruteBodyMat = flatMaterial(0x3a4f22);
+const bruteHeadMat = flatMaterial(0x33301c);
+const survivorBodyMat = flatMaterial(0x3f6fa8);
+const survivorHeadMat = flatMaterial(0xd8a97a);
+
+const hpBarBgGeo = new THREE.PlaneGeometry(0.8, 0.12);
+hpBarBgGeo.rotateX(-Math.PI / 2);
+const hpBarBgMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const hpBarFgGeo = new THREE.PlaneGeometry(0.8, 0.12);
+hpBarFgGeo.translate(0.4, 0, 0); // pivot at left edge
+hpBarFgGeo.rotateX(-Math.PI / 2);
+
+function disposeZombieMesh(group) {
+  const fg = group.userData.hpFg;
+  if (fg) fg.material.dispose();
+}
+
+function createZombieMesh(isBrute) {
+  const group = new THREE.Group();
+  const bodyGeo = isBrute ? bruteBodyGeo : zombieBodyGeo;
+  const headGeo = isBrute ? bruteHeadGeo : zombieHeadGeo;
+  const bodyMat = isBrute ? bruteBodyMat : zombieBodyMat;
+  const headMat = isBrute ? bruteHeadMat : zombieHeadMat;
+  const bodyH = bodyGeo.parameters.height;
+
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = bodyH / 2;
+  group.add(body);
+
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.y = bodyH + headGeo.parameters.radius * 0.9;
+  group.add(head);
+
+  const barY = bodyH + headGeo.parameters.radius * 2 + 0.35;
+  const bg = new THREE.Mesh(hpBarBgGeo, hpBarBgMat);
+  bg.position.set(0, barY, 0);
+  group.add(bg);
+  const fg = new THREE.Mesh(hpBarFgGeo, new THREE.MeshBasicMaterial({ color: 0x9ACD32 }));
+  fg.position.set(-0.4, barY + 0.001, 0);
+  group.add(fg);
+  group.userData.hpFg = fg;
+
+  scene.add(group);
+  return group;
+}
+
+function createSurvivorMesh() {
+  const group = new THREE.Group();
+  const bodyH = survivorBodyGeo.parameters.height;
+  const body = new THREE.Mesh(survivorBodyGeo, survivorBodyMat);
+  body.position.y = bodyH / 2;
+  group.add(body);
+  const head = new THREE.Mesh(survivorHeadGeo, survivorHeadMat);
+  head.position.y = bodyH + survivorHeadGeo.parameters.radius * 0.9;
+  group.add(head);
+  group.visible = false;
+  scene.add(group);
+  return group;
+}
+const survivorPool = Array.from({ length: MAX_SURVIVORS }, createSurvivorMesh);
+
+function layoutSurvivors() {
+  let idx = 0;
+  WALL_IDS.forEach(w => {
+    const crew = Math.min(S.assignment[w], 5);
+    if (crew <= 0) return;
+    const p = DEFENSE_POINT[w];
+    const axis = WALL_AXIS[w];
+    const spacing = 0.85;
+    for (let i = 0; i < crew; i++) {
+      const mesh = survivorPool[idx++];
+      if (!mesh) return;
+      const off = (i - (crew - 1) / 2) * spacing;
+      mesh.position.set(axis === "x" ? p.x + off : p.x, 0, axis === "z" ? p.z + off : p.z);
+      mesh.visible = true;
+    }
+  });
+  for (; idx < survivorPool.length; idx++) survivorPool[idx].visible = false;
+}
+
+const bulletMaterial = new THREE.LineBasicMaterial({ color: 0xf4e6b8 });
+function spawnBullet(from, target) {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(from.x, 0.9, from.z),
+    new THREE.Vector3(target.x, 0.6, target.z),
+  ]);
+  const line = new THREE.Line(geo, bulletMaterial);
+  scene.add(line);
+  bullets.push({ line, geo, life: 0.08 });
+}
+
+function clearZombies() {
+  zombies.forEach(z => { scene.remove(z.mesh); disposeZombieMesh(z.mesh); });
+  zombies = [];
+}
+function clearBullets() {
+  bullets.forEach(b => { scene.remove(b.line); b.geo.dispose(); });
+  bullets = [];
 }
 
 // ---------------------------------------------------------------
@@ -172,7 +325,7 @@ const REWARDS = [
     id: "survivor", icon: "\u{1F464}", title: "New survivor",
     desc: "A stranger made it to your door. +1 survivor.",
     canApply: s => s.survivors < MAX_SURVIVORS,
-    apply: s => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + 1); s.unassigned += 1; },
+    apply: s => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + 1); },
   },
   {
     id: "ammo", icon: "\u{1F9F0}", title: "Ammo crate",
@@ -214,53 +367,29 @@ function rollRewards() {
 }
 
 // ---------------------------------------------------------------
-// difficulty curve
+// difficulty curve (speeds rescaled from the old pixel-canvas space
+// into world units; damage-over-time and hp values are unaffected
+// by the coordinate-space change)
 // ---------------------------------------------------------------
 function difficultyForDay(day) {
   return {
     spawnInterval: Math.max(0.35, 1.9 - day * 0.09),
     zombieHp: 8 + day * 1.6,
-    zombieSpeed: 15 + day * 0.7,
+    zombieSpeed: (15 + day * 0.7) / 9.6,
     zombieDamage: 5 + day * 0.5,
     bruteChance: Math.min(0.35, Math.max(0, (day - 3) * 0.05)),
   };
 }
 
 // ---------------------------------------------------------------
-// UI: day (assignment) screen
+// UI: day screen
 // ---------------------------------------------------------------
-const assignList = document.getElementById("assignList");
-const poolCount = document.getElementById("poolCount");
-
-function renderAssignScreen() {
+function updateDayScreen() {
   document.getElementById("dayTitle").textContent = "Night " + S.day;
+  document.getElementById("daySurvivors").textContent = S.survivors;
   document.getElementById("dayFood").textContent = S.food;
   document.getElementById("dayAmmo").textContent = S.ammo;
   document.getElementById("dayWeapon").textContent = "Tier " + S.weaponTier;
-  document.getElementById("dayLead").textContent = S.day === 1
-    ? "Put your one survivor on a wall. Whoever isn't posted isn't shooting tonight."
-    : "Put your people where you think the horde will hit hardest.";
-
-  assignList.innerHTML = WALL_IDS.map(w => `
-    <div class="assign-row">
-      <div class="side"><span class="dot"></span>${w === "N" ? "North" : w === "E" ? "East" : w === "S" ? "South" : "West"} wall</div>
-      <div class="stepper">
-        <button data-w="${w}" data-d="-1" ${S.assignment[w] <= 0 ? "disabled" : ""}>&minus;</button>
-        <span class="count">${S.assignment[w]}</span>
-        <button data-w="${w}" data-d="1" ${S.unassigned <= 0 ? "disabled" : ""}>+</button>
-      </div>
-    </div>
-  `).join("");
-  poolCount.textContent = S.unassigned;
-
-  assignList.querySelectorAll("button").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const w = btn.dataset.w, d = Number(btn.dataset.d);
-      if (d > 0 && S.unassigned > 0) { S.assignment[w] += 1; S.unassigned -= 1; }
-      else if (d < 0 && S.assignment[w] > 0) { S.assignment[w] -= 1; S.unassigned += 1; }
-      renderAssignScreen();
-    });
-  });
 }
 
 // ---------------------------------------------------------------
@@ -277,6 +406,7 @@ function updateHud() {
     bar.querySelector(".hp i").style.width = pct + "%";
     bar.classList.toggle("low", pct < 30);
   });
+  updateWallGlow();
 }
 
 // ---------------------------------------------------------------
@@ -284,6 +414,9 @@ function updateHud() {
 // ---------------------------------------------------------------
 function goToMenu() {
   S = freshState();
+  clearZombies();
+  clearBullets();
+  layoutSurvivors();
   hud.hidden = true;
   menuOverlay.hidden = false;
   dayOverlay.hidden = true;
@@ -297,19 +430,20 @@ function goToDay() {
   dayOverlay.hidden = false;
   rewardOverlay.hidden = true;
   overOverlay.hidden = true;
-  renderAssignScreen();
+  updateDayScreen();
 }
 
 function startNight() {
   S.phase = "night";
   dayOverlay.hidden = true;
   hud.hidden = false;
-  zombies = [];
-  bullets = [];
+  clearZombies();
+  clearBullets();
   spawnTimer = 0.6;
   nightClock = NIGHT_DURATION;
   breached = false;
   fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
+  autoAssignTimer = 0;
   timerWrap.hidden = false;
   updateHud();
 }
@@ -318,6 +452,8 @@ function endNightSuccess() {
   S.phase = "reward";
   S.nightsSurvived += 1;
   timerWrap.hidden = true;
+  clearZombies();
+  clearBullets();
 
   // food upkeep: each survivor eats after a night of work
   const need = S.survivors;
@@ -329,7 +465,6 @@ function endNightSuccess() {
     const starved = Math.min(S.survivors - 1, Math.ceil(deficit / 3));
     if (starved > 0) {
       S.survivors -= starved;
-      rebalanceAfterLoss();
       showToast(starved === 1 ? "A survivor starved overnight." : starved + " survivors starved overnight.");
     }
   }
@@ -357,23 +492,12 @@ function endNightSuccess() {
   rewardOverlay.hidden = false;
 }
 
-function rebalanceAfterLoss() {
-  // if losses left more people assigned than exist, pull them back to the pool
-  let assigned = WALL_IDS.reduce((a, w) => a + S.assignment[w], 0);
-  let total = S.survivors;
-  while (assigned > total) {
-    const w = WALL_IDS.find(w => S.assignment[w] > 0);
-    if (!w) break;
-    S.assignment[w] -= 1;
-    assigned -= 1;
-  }
-  S.unassigned = Math.max(0, total - assigned);
-}
-
 function gameOver() {
   S.phase = "gameover";
   hud.hidden = true;
   timerWrap.hidden = true;
+  clearZombies();
+  clearBullets();
   document.getElementById("overLead").textContent =
     "You held for " + S.nightsSurvived + (S.nightsSurvived === 1 ? " night." : " nights.") +
     " " + S.kills + " kills.";
@@ -381,62 +505,89 @@ function gameOver() {
 }
 
 // ---------------------------------------------------------------
+// automatic defense assignment — survivors go wherever the horde
+// is actually hitting, split evenly across the active walls
+// ---------------------------------------------------------------
+function updateAutoAssignment(dt) {
+  autoAssignTimer -= dt;
+  if (autoAssignTimer > 0) return;
+  autoAssignTimer = 0.5;
+
+  const activeWalls = WALL_IDS.filter(w => zombies.some(z => z.wall === w));
+  WALL_IDS.forEach(w => { S.assignment[w] = 0; });
+  if (activeWalls.length === 0) return;
+
+  const per = Math.floor(S.survivors / activeWalls.length);
+  const remainder = S.survivors - per * activeWalls.length;
+  activeWalls.forEach((w, i) => { S.assignment[w] = per + (i < remainder ? 1 : 0); });
+}
+
+// ---------------------------------------------------------------
 // entities
 // ---------------------------------------------------------------
 function jitterTarget(wall) {
   const p = DEFENSE_POINT[wall];
-  const spread = wall === "N" || wall === "S" ? 26 : 20;
+  const spread = wall === "N" || wall === "S" ? 2.6 : 2.0;
   const axis = WALL_AXIS[wall];
   const j = (Math.random() * 2 - 1) * spread;
-  return axis === "x" ? { x: p.x + j, y: p.y } : { x: p.x, y: p.y + j };
+  return axis === "x" ? { x: p.x + j, z: p.z } : { x: p.x, z: p.z + j };
 }
 
 function spawnZombie() {
   const diff = difficultyForDay(S.day);
   const wall = WALL_IDS[Math.floor(Math.random() * 4)];
   const isBrute = Math.random() < diff.bruteChance;
-  let x, y;
-  const along = (Math.random() - 0.5) * 160;
-  if (wall === "N") { x = 192 + along; y = -12; }
-  else if (wall === "S") { x = 192 + along; y = CH + 12; }
-  else if (wall === "E") { x = CW + 12; y = 108 + along * 0.5; }
-  else { x = -12; y = 108 + along * 0.5; }
+  const along = (Math.random() - 0.5) * 16;
+  let x, z;
+  if (wall === "N") { x = along; z = -SPAWN_EDGE; }
+  else if (wall === "S") { x = along; z = SPAWN_EDGE; }
+  else if (wall === "E") { x = SPAWN_EDGE; z = along * 0.6; }
+  else { x = -SPAWN_EDGE; z = along * 0.6; }
 
   const target = jitterTarget(wall);
+  const mesh = createZombieMesh(isBrute);
+  mesh.position.set(x, 0, z);
   zombies.push({
-    x, y, wall, target,
+    x, z, wall, target,
     hp: isBrute ? diff.zombieHp * 3 : diff.zombieHp,
     maxHp: isBrute ? diff.zombieHp * 3 : diff.zombieHp,
     speed: isBrute ? diff.zombieSpeed * 0.6 : diff.zombieSpeed,
     dmg: isBrute ? diff.zombieDamage * 2 : diff.zombieDamage,
-    sprite: isBrute ? SPR_BRUTE : SPR_ZOMBIE,
     arrived: false,
     bob: Math.random() * Math.PI * 2,
+    mesh,
   });
 }
 
 function updateZombies(dt) {
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i];
-    const dx = z.target.x - z.x, dy = z.target.y - z.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 2) {
+    const dx = z.target.x - z.x, dz = z.target.z - z.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 0.15) {
       z.arrived = false;
       z.x += (dx / dist) * z.speed * dt;
-      z.y += (dy / dist) * z.speed * dt;
+      z.z += (dz / dist) * z.speed * dt;
     } else {
       z.arrived = true;
       const wallHp = S.walls[z.wall];
       wallHp.hp -= z.dmg * dt;
-      if (wallHp.hp <= 0) {
-        wallHp.hp = 0;
-        breached = true;
-      }
+      if (wallHp.hp <= 0) { wallHp.hp = 0; breached = true; }
     }
     z.bob += dt * 6;
+    const bobY = z.arrived ? Math.sin(z.bob) * 0.08 : 0;
+    z.mesh.position.set(z.x, bobY, z.z);
+
     if (z.hp <= 0) {
+      scene.remove(z.mesh);
+      disposeZombieMesh(z.mesh);
       zombies.splice(i, 1);
       S.kills += 1;
+    } else {
+      const frac = Math.max(0, z.hp / z.maxHp);
+      const fg = z.mesh.userData.hpFg;
+      fg.scale.x = frac;
+      fg.material.color.setHex(frac > 0.4 ? 0x9ACD32 : 0xc0392b);
     }
   }
 }
@@ -444,8 +595,12 @@ function updateZombies(dt) {
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
-    b.t += dt / b.dur;
-    if (b.t >= 1) bullets.splice(i, 1);
+    b.life -= dt;
+    if (b.life <= 0) {
+      scene.remove(b.line);
+      b.geo.dispose();
+      bullets.splice(i, 1);
+    }
   }
 }
 
@@ -456,11 +611,11 @@ function updateTurrets(dt) {
     if (crew <= 0 || S.ammo <= 0) return;
     if (fireCooldown[w] > 0) return;
 
-    // nearest zombie assigned to (approaching) this wall
+    // nearest zombie approaching this wall
     let best = null, bestDist = Infinity;
     for (const z of zombies) {
       if (z.wall !== w) continue;
-      const d = Math.hypot(z.x - DEFENSE_POINT[w].x, z.y - DEFENSE_POINT[w].y);
+      const d = Math.hypot(z.x - DEFENSE_POINT[w].x, z.z - DEFENSE_POINT[w].z);
       if (d < bestDist) { bestDist = d; best = z; }
     }
     if (!best) return;
@@ -468,117 +623,11 @@ function updateTurrets(dt) {
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
     S.ammo -= 1;
-    bullets.push({ x1: DEFENSE_POINT[w].x, y1: DEFENSE_POINT[w].y, x2: best.x, y2: best.y, t: 0, dur: 0.08 });
+    spawnBullet(DEFENSE_POINT[w], best);
 
     const interval = Math.max(0.12, 0.85 / Math.min(crew, 6));
     fireCooldown[w] = interval;
   });
-}
-
-// ---------------------------------------------------------------
-// rendering
-// ---------------------------------------------------------------
-function drawBackground() {
-  ctx.fillStyle = "#141a10";
-  ctx.fillRect(0, 0, CW, CH);
-  ctx.strokeStyle = "rgba(255,255,255,0.03)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x <= CW; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
-  for (let y = 0; y <= CH; y += 16) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
-  // vignette-ish darker border, drawn as flat rects (cheap, no gradients)
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(0, 0, CW, 10);
-  ctx.fillRect(0, CH - 10, CW, 10);
-  ctx.fillRect(0, 0, 10, CH);
-  ctx.fillRect(CW - 10, 0, 10, CH);
-}
-
-function drawHouse() {
-  const { x, y, w, h } = HOUSE;
-  // roof
-  ctx.fillStyle = "#5a3a2a";
-  ctx.beginPath();
-  ctx.moveTo(x - 8, y);
-  ctx.lineTo(x + w / 2, y - 22);
-  ctx.lineTo(x + w + 8, y);
-  ctx.closePath();
-  ctx.fill();
-  // walls
-  ctx.fillStyle = "#8a7a5a";
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = "#6d6045";
-  ctx.fillRect(x, y, w, 4);
-  // door
-  ctx.fillStyle = "#2c1d12";
-  ctx.fillRect(x + w / 2 - 6, y + h - 20, 12, 20);
-  // windows
-  ctx.fillStyle = "#d8a24a";
-  ctx.fillRect(x + 10, y + 14, 10, 8);
-  ctx.fillRect(x + w - 20, y + 14, 10, 8);
-}
-
-function drawWallGlow(w) {
-  const pct = S.walls[w].hp / S.walls[w].max;
-  if (pct >= 1) return;
-  const p = DEFENSE_POINT[w];
-  const alpha = 0.35 * (1 - pct);
-  ctx.fillStyle = `rgba(192,57,43,${alpha})`;
-  const r = 18;
-  ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-}
-
-function drawSurvivors() {
-  WALL_IDS.forEach(w => {
-    const crew = Math.min(S.assignment[w], 5);
-    if (crew <= 0) return;
-    const p = DEFENSE_POINT[w];
-    const axis = WALL_AXIS[w];
-    const spacing = 9;
-    for (let i = 0; i < crew; i++) {
-      const off = (i - (crew - 1) / 2) * spacing;
-      const sx = axis === "x" ? p.x + off - 3 : p.x - 3;
-      const sy = axis === "y" ? p.y + off - 4 : p.y - 4;
-      ctx.drawImage(SPR_SURVIVOR, Math.round(sx), Math.round(sy));
-    }
-  });
-}
-
-function drawZombies() {
-  for (const z of zombies) {
-    const bobY = z.arrived ? Math.sin(z.bob) * 1 : 0;
-    const w = z.sprite.width, h = z.sprite.height;
-    ctx.drawImage(z.sprite, Math.round(z.x - w / 2), Math.round(z.y - h / 2 + bobY));
-    // hp sliver above
-    if (z.hp < z.maxHp) {
-      const pct = Math.max(0, z.hp / z.maxHp);
-      ctx.fillStyle = "#000";
-      ctx.fillRect(Math.round(z.x - 6), Math.round(z.y - h / 2 - 4), 12, 2);
-      ctx.fillStyle = pct > 0.4 ? "#9ACD32" : "#c0392b";
-      ctx.fillRect(Math.round(z.x - 6), Math.round(z.y - h / 2 - 4), Math.round(12 * pct), 2);
-    }
-  }
-}
-
-function drawBullets() {
-  ctx.strokeStyle = "#f4e6b8";
-  ctx.lineWidth = 1;
-  for (const b of bullets) {
-    const x = b.x1 + (b.x2 - b.x1) * b.t;
-    const y = b.y1 + (b.y2 - b.y1) * b.t;
-    ctx.beginPath();
-    ctx.moveTo(b.x1, b.y1);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  }
-}
-
-function render() {
-  drawBackground();
-  WALL_IDS.forEach(drawWallGlow);
-  drawHouse();
-  drawSurvivors();
-  drawZombies();
-  drawBullets();
 }
 
 // ---------------------------------------------------------------
@@ -601,8 +650,10 @@ function frame(now) {
     if (spawnTimer <= 0) { spawnZombie(); spawnTimer = diff.spawnInterval; }
 
     updateZombies(dt);
+    updateAutoAssignment(dt);
     updateTurrets(dt);
     updateBullets(dt);
+    layoutSurvivors();
     updateHud();
 
     nightClock -= dt;
@@ -615,7 +666,7 @@ function frame(now) {
     }
   }
 
-  render();
+  renderer.render(scene, camera);
 }
 
 // ---------------------------------------------------------------
