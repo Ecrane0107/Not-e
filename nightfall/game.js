@@ -656,6 +656,14 @@ const TASKS = [
     apply: (s, n) => { s.food += n * 8; },
   },
   {
+    // reputation also builds automatically just for surviving each night
+    // (see endNightSuccess) — this is the deliberate, chosen way to grow
+    // it faster instead of leaving it to chance
+    id: "recruit", icon: "\u{1F4E3}", title: "Go out and recruit", unit: "% reputation",
+    gain: n => n * 5,
+    apply: (s, n) => { s.reputation += n * 5; },
+  },
+  {
     id: "supplies", icon: "\u{1F4E6}", title: "Scavenge building supplies", unit: "supplies",
     gain: n => n * 5,
     apply: (s, n) => { s.supplies += n * 5; },
@@ -916,10 +924,10 @@ function endNightSuccess() {
     }
   }
 
-  // reputation: +10% just for surviving the night, on top of whatever
-  // sending people out on chores built up (+5% per survivor sent, applied
-  // when tasks were confirmed). Every 100% is a guaranteed recruit; the
-  // leftover is a straight percent chance at one more. Spent either way.
+  // reputation: +10% just for surviving the night, on top of whatever the
+  // "Go out and recruit" task built up when tasks were confirmed. Every
+  // 100% is a guaranteed recruit; the leftover is a straight percent
+  // chance at one more. Spent either way.
   S.reputation += 10;
   {
     let recruits = Math.floor(S.reputation / 100);
@@ -1213,7 +1221,6 @@ document.getElementById("btnStartNight").addEventListener("click", startNight);
 document.getElementById("btnRetry").addEventListener("click", goToMenu);
 document.getElementById("btnConfirmTasks").addEventListener("click", () => {
   TASKS.forEach(t => t.apply(S, taskAlloc[t.id]));
-  S.reputation += 5 * S.survivors; // everyone sent out today spreads the word
   S.day += 1;
   goToDay();
 });
