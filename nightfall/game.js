@@ -15,7 +15,6 @@ import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
 const MAX_SURVIVORS = 20;
 const WALL_IDS = ["N", "E", "S", "W"];
 const BASE_WALL_HP = 100;
-const NIGHT_DURATION = 42; // seconds
 
 // world space: the house sits at the origin on a flat ground plane
 const GROUND_SIZE = 44;
@@ -85,7 +84,6 @@ let zombies = [];
 let bullets = [];
 let fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
 let spawnTimer = 0;
-let nightClock = 0;
 let breached = false;
 let autoAssignTimer = 0;
 let zombiesSpawnedThisNight = 0;
@@ -101,9 +99,6 @@ const hudDay = document.getElementById("hudDay");
 const hudSurvivors = document.getElementById("hudSurvivors");
 const hudFood = document.getElementById("hudFood");
 const hudAmmo = document.getElementById("hudAmmo");
-const timerWrap = document.getElementById("timerWrap");
-const timerBar = document.getElementById("timerBar");
-const wallBars = { N: document.getElementById("wallN"), E: document.getElementById("wallE"), S: document.getElementById("wallS"), W: document.getElementById("wallW") };
 const toast = document.getElementById("toast");
 
 const menuOverlay = document.getElementById("menuOverlay");
@@ -176,7 +171,66 @@ scene.add(ground);
 // open-top shell: a floor plus four thin perimeter walls, dollhouse-style,
 // so the survivors stationed inside stay visible
 const WALL_THICKNESS = 0.25;
-const WALL_OUTWARD = { N: -1, S: 1, E: 1, W: -1 }; // which way each wall faces away from the house
+
+// each wall is built as three solid segments with real gaps left open at
+// the two window spans — actual cutouts, not a decal, so they read from
+// both outside and inside
+const WINDOW_W = WINDOW_SLOT_SPACING * 3;
+const WINDOW_H = 0.95;
+const WINDOW_Y = 1.35;
+
+function buildWall(wall, wallMat, windowMat) {
+  const group = new THREE.Group();
+  const axis = WALL_AXIS[wall];
+  const half = axis === "x" ? HOUSE_HALF_X : HOUSE_HALF_Z;
+  const outer = WALL_OUTER[wall];
+  const centers = [-half * 0.5, half * 0.5];
+  const spans = centers.map(c => [c - WINDOW_W / 2, c + WINDOW_W / 2]).sort((a, b) => a[0] - b[0]);
+  const cuts = [-half, spans[0][0], spans[0][1], spans[1][0], spans[1][1], half];
+
+  // three solid segments: left of both windows, between them, right of both
+  for (let i = 0; i < cuts.length; i += 2) {
+    const a = cuts[i], b = cuts[i + 1];
+    const len = b - a;
+    if (len <= 0.02) continue;
+    const mid = (a + b) / 2;
+    const geo = axis === "x"
+      ? new THREE.BoxGeometry(len, HOUSE_HEIGHT, WALL_THICKNESS)
+      : new THREE.BoxGeometry(WALL_THICKNESS, HOUSE_HEIGHT, len);
+    const seg = new THREE.Mesh(geo, wallMat);
+    seg.position.set(axis === "x" ? mid : outer, HOUSE_HEIGHT / 2, axis === "x" ? outer : mid);
+    group.add(seg);
+  }
+
+  // a lintel above and a sill below each window, so the opening reads as
+  // an actual window cut into the wall rather than a floor-to-ceiling gap
+  spans.forEach(([a, b]) => {
+    const mid = (a + b) / 2, w = b - a;
+    const lintelH = HOUSE_HEIGHT - (WINDOW_Y + WINDOW_H / 2);
+    const sillH = WINDOW_Y - WINDOW_H / 2;
+    [
+      { h: lintelH, y: WINDOW_Y + WINDOW_H / 2 + lintelH / 2 },
+      { h: sillH, y: sillH / 2 },
+    ].forEach(({ h, y }) => {
+      if (h <= 0.02) return;
+      const geo = axis === "x"
+        ? new THREE.BoxGeometry(w, h, WALL_THICKNESS)
+        : new THREE.BoxGeometry(WALL_THICKNESS, h, w);
+      const seg = new THREE.Mesh(geo, wallMat);
+      seg.position.set(axis === "x" ? mid : outer, y, axis === "x" ? outer : mid);
+      group.add(seg);
+    });
+
+    // the window pane itself, double-sided so it reads from inside and out
+    const paneGeo = new THREE.PlaneGeometry(w, WINDOW_H);
+    const pane = new THREE.Mesh(paneGeo, windowMat);
+    pane.position.set(axis === "x" ? mid : outer, WINDOW_Y, axis === "x" ? outer : mid);
+    if (axis === "z") pane.rotation.y = Math.PI / 2;
+    group.add(pane);
+  });
+
+  return group;
+}
 
 function buildHouse() {
   const group = new THREE.Group();
@@ -190,40 +244,12 @@ function buildHouse() {
   group.add(floor);
 
   const wallMat = flatMaterial(0x8a7a5a);
-  const wallMeshes = {
-    N: new THREE.Mesh(new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, WALL_THICKNESS), wallMat),
-    S: new THREE.Mesh(new THREE.BoxGeometry(HOUSE_HALF_X * 2, HOUSE_HEIGHT, WALL_THICKNESS), wallMat),
-    E: new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, HOUSE_HEIGHT, HOUSE_HALF_Z * 2), wallMat),
-    W: new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, HOUSE_HEIGHT, HOUSE_HALF_Z * 2), wallMat),
-  };
-  WALL_IDS.forEach(w => {
-    const axis = WALL_AXIS[w];
-    wallMeshes[w].position.set(axis === "z" ? WALL_OUTER[w] : 0, HOUSE_HEIGHT / 2, axis === "x" ? WALL_OUTER[w] : 0);
-    group.add(wallMeshes[w]);
-  });
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0xd8a24a, side: THREE.DoubleSide });
+  WALL_IDS.forEach(w => group.add(buildWall(w, wallMat, windowMat)));
 
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.05), flatMaterial(0x2c1d12));
   door.position.set(0, 0.75, HOUSE_HALF_Z + WALL_THICKNESS / 2 + 0.03);
   group.add(door);
-
-  // two windows per wall, six shooting slots total — these are the
-  // stations survivors actually fire from
-  const windowMat = new THREE.MeshBasicMaterial({ color: 0xd8a24a });
-  const windowW = WINDOW_SLOT_SPACING * 3;
-  WALL_IDS.forEach(w => {
-    const axis = WALL_AXIS[w];
-    const outward = WALL_OUTWARD[w];
-    const faceCoord = WALL_OUTER[w] + outward * (WALL_THICKNESS / 2 + 0.03);
-    const centers = axis === "x" ? [-HOUSE_HALF_X * 0.5, HOUSE_HALF_X * 0.5] : [-HOUSE_HALF_Z * 0.5, HOUSE_HALF_Z * 0.5];
-    centers.forEach(c => {
-      const win = new THREE.Mesh(
-        new THREE.BoxGeometry(axis === "x" ? windowW : 0.06, 0.7, axis === "x" ? 0.06 : windowW),
-        windowMat,
-      );
-      win.position.set(axis === "x" ? c : faceCoord, 1.4, axis === "x" ? faceCoord : c);
-      group.add(win);
-    });
-  });
 
   return group;
 }
@@ -369,14 +395,19 @@ function createSurvivorMesh() {
   return group;
 }
 
+// which way a survivor faces at rest, straight out through their window
+const WALL_FACE_ANGLE = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 };
+
 // each pool entry walks from wherever it is toward its assigned window
 // station instead of snapping there — real (if simple) movement
 const survivorPool = Array.from({ length: MAX_SURVIVORS }, () => ({
   mesh: createSurvivorMesh(),
   target: { x: 0, z: 0 },
   facing: 0,
+  wall: null,
 }));
 const SURVIVOR_SPEED = 3.4; // units/sec walking inside the house
+const AIM_TURN_SPEED = 6; // rad/sec — how fast a stationed survivor swings to track a target
 
 function assignSurvivorStations() {
   let idx = 0;
@@ -386,21 +417,21 @@ function assignSurvivorStations() {
     const slots = WINDOW_SLOTS[w];
     const fixedVal = WALL_INNER[w];
     const axis = WALL_AXIS[w];
-    const faceAngle = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 }[w];
     for (let i = 0; i < crew; i++) {
       const p = survivorPool[idx++];
       if (!p) return;
       const off = slots[i];
       p.target.x = axis === "x" ? off : fixedVal;
       p.target.z = axis === "z" ? off : fixedVal;
-      p.facing = faceAngle;
+      p.wall = w;
       if (!p.mesh.visible) {
         p.mesh.visible = true;
         p.mesh.position.set(0, 0, 0); // start from the house's center and walk out
+        p.facing = WALL_FACE_ANGLE[w];
       }
     }
   });
-  for (; idx < survivorPool.length; idx++) survivorPool[idx].mesh.visible = false;
+  for (; idx < survivorPool.length; idx++) { survivorPool[idx].mesh.visible = false; survivorPool[idx].wall = null; }
 }
 
 function updateSurvivorMovement(dt) {
@@ -415,7 +446,31 @@ function updateSurvivorMovement(dt) {
       p.mesh.position.z += (dz / dist) * step;
       p.mesh.rotation.y = Math.atan2(dx, dz);
     } else {
-      p.mesh.rotation.y = p.facing;
+      // ease toward the desired facing rather than snapping, so tracking
+      // a moving zombie reads as an actual turn
+      let delta = p.facing - p.mesh.rotation.y;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta)); // shortest way around
+      const step = Math.max(-AIM_TURN_SPEED * dt, Math.min(AIM_TURN_SPEED * dt, delta));
+      p.mesh.rotation.y += step;
+    }
+  });
+}
+
+// once a survivor is at their window, aim them at whatever zombie is
+// actually threatening their wall instead of always facing dead ahead
+function updateSurvivorAiming() {
+  survivorPool.forEach(p => {
+    if (!p.mesh.visible || p.wall == null) return;
+    let best = null, bestDist = Infinity;
+    for (const z of zombies) {
+      if (z.wall !== p.wall) continue;
+      const d = Math.hypot(z.x - p.mesh.position.x, z.z - p.mesh.position.z);
+      if (d < bestDist) { bestDist = d; best = z; }
+    }
+    if (best) {
+      p.facing = Math.atan2(best.x - p.mesh.position.x, best.z - p.mesh.position.z);
+    } else {
+      p.facing = WALL_FACE_ANGLE[p.wall];
     }
   });
 }
@@ -528,12 +583,6 @@ function updateHud() {
   hudSurvivors.textContent = S.survivors;
   hudFood.textContent = S.food;
   hudAmmo.textContent = S.ammo;
-  WALL_IDS.forEach(w => {
-    const pct = Math.max(0, S.walls[w].hp / S.walls[w].max) * 100;
-    const bar = wallBars[w];
-    bar.querySelector(".hp i").style.width = pct + "%";
-    bar.classList.toggle("low", pct < 30);
-  });
   updateWallGlow();
 }
 
@@ -568,20 +617,17 @@ function startNight() {
   clearZombies();
   clearBullets();
   spawnTimer = 0.6;
-  nightClock = NIGHT_DURATION;
   breached = false;
   fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
   autoAssignTimer = 0;
   zombiesSpawnedThisNight = 0;
   zombiesTotalThisNight = totalZombiesForNight(S.day);
-  timerWrap.hidden = false;
   updateHud();
 }
 
 function endNightSuccess() {
   S.phase = "reward";
   S.nightsSurvived += 1;
-  timerWrap.hidden = true;
   clearZombies();
   clearBullets();
 
@@ -625,7 +671,6 @@ function endNightSuccess() {
 function gameOver() {
   S.phase = "gameover";
   hud.hidden = true;
-  timerWrap.hidden = true;
   clearZombies();
   clearBullets();
   document.getElementById("overLead").textContent =
@@ -795,15 +840,14 @@ function frame(now) {
     updateAutoAssignment(dt);
     updateTurrets(dt);
     updateBullets(dt);
+    updateSurvivorAiming();
     updateSurvivorMovement(dt);
     updateHud();
 
-    nightClock -= dt;
-    timerBar.style.width = Math.max(0, (nightClock / NIGHT_DURATION) * 100) + "%";
-
+    const allSpawned = zombiesSpawnedThisNight >= zombiesTotalThisNight;
     if (breached) {
       gameOver();
-    } else if (nightClock <= 0) {
+    } else if (allSpawned && zombies.length === 0) {
       endNightSuccess();
     }
   }
