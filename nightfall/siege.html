@@ -161,17 +161,19 @@
 
 <script src="../assets/spiral-bg.js?v=7"></script>
 <script>
-  // the same ambient rig the main menu uses (glowing rod ring, comet-trail
-  // "flying lights", drifting cubes) -- sized up and centered higher so it
-  // reads as something happening up in the night sky above the siege,
-  // random theme color and shot pattern picked fresh on every load
+  // the same ambient rig the main menu uses (glowing rod ring + comet-
+  // trail "flying lights") -- tucked into a back corner of the sky, small
+  // and distant, instead of sitting dead center over the house. No
+  // drifting glow cubes here (cubeCount:0) -- at this scale they read as
+  // falling hail, not ambient sparkle. Random theme color and shot
+  // pattern picked fresh on every load, same as everywhere else it's used.
   initSpiralBackground(document.getElementById("skyFx"), {
-    intensity: 0.55,
-    radiusScale: 0.2,
-    centerX: 0.5,
-    centerY: 0.24,
-    barCount: 16,
-    cubeCount: 16,
+    intensity: 0.4,
+    radiusScale: 0.09,
+    centerX: 0.86,
+    centerY: 0.14,
+    barCount: 14,
+    cubeCount: 0,
     fps: 24,
   });
 </script>
