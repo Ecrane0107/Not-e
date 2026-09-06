@@ -243,6 +243,31 @@ body{
 .task-stepper button:disabled{opacity:.3;cursor:default}
 .task-stepper .task-count{min-width:20px;text-align:center;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 
+/* the "dig a trench" task's side picker -- shown instead of a stepper
+   until a side is actually chosen */
+.side-menu{display:flex;gap:6px;flex:0 0 auto}
+.side-btn{
+  width:30px;height:30px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--panel-hi);
+  color:var(--ink);
+  font:700 12px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.side-btn:hover{border-color:var(--accent-dim)}
+.side-change{
+  margin-left:6px;
+  padding:0;
+  background:none;
+  border:0;
+  color:var(--ink-dim);
+  font:500 11px "Space Grotesk",sans-serif;
+  text-decoration:underline;
+  cursor:pointer;
+}
+.side-change:hover{color:var(--ink-mid)}
+
 .toast{
   position:fixed;
   top:70px;
