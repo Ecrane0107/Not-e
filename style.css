@@ -77,50 +77,81 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 }
 
 /* flying orbs looping around the panels, sized/positioned from JS to the
-   grid's own footprint plus a margin — above the tiles but click-through */
+   grid's own footprint plus a margin. Two layers, one behind the tiles
+   and one in front, so they can actually pass behind and over the boxes
+   instead of always sitting on top of everything. */
 .grid-orbs{
   position:absolute;
-  z-index:2;
   pointer-events:none;
   display:block;
 }
+.grid-orbs--back{z-index:0}
+.grid-orbs--front{z-index:2}
 
+/* each tile is a real 3D box (front/right/bottom faces with actual
+   thickness, not a flat card faking rotation) — a permanent slight tilt
+   keeps the depth visible at rest, and JS nudges it a little further
+   toward the cursor on hover */
 .tile{
+  --depth:16px;
   position:relative;
   z-index:1;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
   aspect-ratio:1/1;
-  padding:20px;
-  border-radius:6px;
-  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.16);
-  box-shadow:
-    inset 1px 1px 0 rgba(255,255,255,.25),
-    inset -1px -1px 0 rgba(0,0,0,.45);
-  backdrop-filter:blur(8px) saturate(1.05);
-  -webkit-backdrop-filter:blur(8px) saturate(1.05);
   text-decoration:none;
   color:var(--ink);
   cursor:pointer;
-  transition:transform .18s ease, border-color .18s ease, background .18s ease;
+  transform-style:preserve-3d;
+  transition:transform .1s linear;
 }
-.tile:hover{
+.tile:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
+
+.tile-face{
+  position:absolute;
+  inset:0;
+  border-radius:6px;
+  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.16);
+  backdrop-filter:blur(8px) saturate(1.05);
+  -webkit-backdrop-filter:blur(8px) saturate(1.05);
+  transition:background .18s ease, border-color .18s ease, opacity .16s ease;
+}
+.tile-face--front{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:20px;
+  transform:translateZ(var(--depth));
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.25),
+    inset -1px -1px 0 rgba(0,0,0,.45);
+}
+.tile:hover .tile-face--front{
   background:linear-gradient(135deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
   border-color:rgba(255,255,255,.32);
 }
-.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* the two side faces are just thin slabs of the same glass, revealed by
+   the tilt — this is what actually reads as "real depth" rather than a
+   rotated flat rectangle */
+.tile-face--right{
+  width:var(--depth);
+  left:auto;
+  transform-origin:0 50%;
+  transform:rotateY(90deg);
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.25));
+}
+.tile-face--bottom{
+  height:var(--depth);
+  top:auto;
+  transform-origin:50% 0;
+  transform:rotateX(-90deg);
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.3));
+}
 
 /* shattering into glass shards on click, before the real navigation */
-.tile--breaking{
-  border-color:transparent;
-  background:transparent;
-  box-shadow:none;
-  pointer-events:none;
-}
-.tile--breaking > *:not(.tile-shard){
-  transition:opacity .16s ease;
+.tile--breaking{pointer-events:none}
+.tile--breaking .tile-face--front > *:not(.tile-shard),
+.tile--breaking .tile-face--right,
+.tile--breaking .tile-face--bottom{
   opacity:0;
 }
 .tile-shard{
@@ -165,16 +196,9 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile .go svg{width:11px;height:11px}
 
 /* placeholder / coming-soon tiles */
-.tile.placeholder{
-  cursor:default;
-  border-style:dashed;
-  color:var(--ink-dim);
-}
-.tile.placeholder:hover{
-  background:var(--panel);
-  border-color:var(--line);
-  transform:none;
-}
+.tile.placeholder{cursor:default; color:var(--ink-dim)}
+.tile.placeholder .tile-face{border-style:dashed}
+.tile.placeholder:hover .tile-face--front{background:var(--panel);border-color:var(--line)}
 .tile.placeholder .icon{color:var(--ink-dim)}
 .tile.placeholder .go{display:none}
 .tile.placeholder .label{color:var(--ink-mid)}

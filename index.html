@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <canvas id="bg"></canvas>
@@ -19,137 +19,166 @@
     <p class="blurb">A small collection of interactive things. Click a tile to open it.</p>
   </header>
 
-  <canvas id="gridOrbs" class="grid-orbs" aria-hidden="true"></canvas>
+  <canvas id="gridOrbsBack" class="grid-orbs grid-orbs--back" aria-hidden="true"></canvas>
   <div class="grid">
 
     <a class="tile" href="from-bits-to-models/map.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="5" cy="19" r="2.4" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="12" cy="12" r="2.4" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="19" cy="19" r="2.4" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="12" cy="4" r="2.4" stroke="currentColor" stroke-width="1.6"/>
-          <path d="M6.9 17.6 10.3 13.6M13.7 13.6 17.1 17.6M12 9.6V6.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="5" cy="19" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="12" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="19" cy="19" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="4" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M6.9 17.6 10.3 13.6M13.7 13.6 17.1 17.6M12 9.6V6.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">From bits to models</div>
+          <div class="sub">A map of computer science</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">From bits to models</div>
-        <div class="sub">A map of computer science</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <a class="tile" href="tic-tac-toe/game.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Tic-tac-toe</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">Tic-tac-toe</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <a class="tile" href="dead-static/game.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3 20 7.5V16.5L12 21 4 16.5V7.5L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <path d="M4 7.5 12 12M12 12 20 7.5M12 12V21" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3 20 7.5V16.5L12 21 4 16.5V7.5L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M4 7.5 12 12M12 12 20 7.5M12 12V21" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Dead Static</div>
+          <div class="sub">In progress</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">Dead Static</div>
-        <div class="sub">In progress</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <a class="tile" href="keep-awake/screen.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M5 20c3-5 3.5-8 1.5-12.5C10 9 11 11.5 10 15c3-1 4.5-4 3.8-7.5C17 9.5 18 13 15.5 17c1.5-.3 2.7-1.2 3.3-2.3-.2 3.6-2.8 6.3-6.3 6.3-3.7 0-7-2.3-7.5-6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 20c3-5 3.5-8 1.5-12.5C10 9 11 11.5 10 15c3-1 4.5-4 3.8-7.5C17 9.5 18 13 15.5 17c1.5-.3 2.7-1.2 3.3-2.3-.2 3.6-2.8 6.3-6.3 6.3-3.7 0-7-2.3-7.5-6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Cig</div>
+          <div class="sub">A slow burn</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">Cig</div>
-        <div class="sub">A slow burn</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <a class="tile" href="ps2-clock/clock.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
-          <path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Standby</div>
+          <div class="sub">An ambient spiral clock</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">Standby</div>
-        <div class="sub">An ambient spiral clock</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <a class="tile" href="nightfall/siege.html">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 21V10.5L12 4l8 6.5V21" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <path d="M9 21v-7h6v7" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 21V10.5L12 4l8 6.5V21" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M9 21v-7h6v7" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Nightfall</div>
+          <div class="sub">Zombie siege tower defense</div>
+        </div>
+        <span class="go" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
-      <div>
-        <div class="label">Nightfall</div>
-        <div class="sub">Zombie siege tower defense</div>
-      </div>
-      <span class="go" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 9 9 3M4 3h5v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </a>
 
     <div class="tile placeholder" aria-disabled="true">
-      <div class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 18V9l8-5 8 5v9" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-        </svg>
+      <div class="tile-face tile-face--front">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 18V9l8-5 8 5v9" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="label">Untitled project</div>
+          <div class="sub">Coming soon</div>
+        </div>
       </div>
-      <div>
-        <div class="label">Untitled project</div>
-        <div class="sub">Coming soon</div>
-      </div>
+      <div class="tile-face tile-face--right"></div>
+      <div class="tile-face tile-face--bottom"></div>
     </div>
 
   </div>
+  <canvas id="gridOrbsFront" class="grid-orbs grid-orbs--front" aria-hidden="true"></canvas>
 
   <footer>Created by Eastland Crane</footer>
 
 </div>
 
-<script src="assets/spiral-bg.js?v=6"></script>
+<script src="assets/spiral-bg.js?v=7"></script>
 <script>
   initSpiralBackground(document.getElementById("bg"), {
     intensity: 0.32,
@@ -161,38 +190,64 @@
     fps: 24,
   });
 
-  // flying orbs looping around the project panels — no rods, no cubes,
-  // just the particle "flights" sized to the grid's own footprint
+  // flying orbs looping around the project panels, in two depth layers so
+  // they can actually pass behind AND over the 3d tile boxes rather than
+  // always sitting on top of everything
   const gridEl = document.querySelector(".grid");
-  const orbsCanvas = document.getElementById("gridOrbs");
+  const orbsBack = document.getElementById("gridOrbsBack");
+  const orbsFront = document.getElementById("gridOrbsFront");
   const ORB_MARGIN = 46;
-  function positionGridOrbs() {
-    orbsCanvas.style.left = (gridEl.offsetLeft - ORB_MARGIN) + "px";
-    orbsCanvas.style.top = (gridEl.offsetTop - ORB_MARGIN) + "px";
-    orbsCanvas.style.width = (gridEl.offsetWidth + ORB_MARGIN * 2) + "px";
-    orbsCanvas.style.height = (gridEl.offsetHeight + ORB_MARGIN * 2) + "px";
+  function positionGridOrbs(canvas) {
+    canvas.style.left = (gridEl.offsetLeft - ORB_MARGIN) + "px";
+    canvas.style.top = (gridEl.offsetTop - ORB_MARGIN) + "px";
+    canvas.style.width = (gridEl.offsetWidth + ORB_MARGIN * 2) + "px";
+    canvas.style.height = (gridEl.offsetHeight + ORB_MARGIN * 2) + "px";
   }
-  positionGridOrbs();
-  window.addEventListener("resize", positionGridOrbs);
-  initSpiralBackground(orbsCanvas, {
+  function positionAllGridOrbs() {
+    positionGridOrbs(orbsBack);
+    positionGridOrbs(orbsFront);
+  }
+  positionAllGridOrbs();
+  window.addEventListener("resize", positionAllGridOrbs);
+  initSpiralBackground(orbsBack, {
     barCount: 0,
     cubeCount: 0,
-    intensity: 0.75,
+    intensity: 0.7,
+    radiusScale: 0.5,
+    fps: 24,
+  });
+  initSpiralBackground(orbsFront, {
+    barCount: 0,
+    cubeCount: 0,
+    intensity: 0.5,
     radiusScale: 0.5,
     fps: 24,
   });
 
-  // tiles as glass blocks: tilt toward the cursor, and shatter before a
-  // real navigation happens on click
+  // tiles are real 3d boxes: a permanent slight resting tilt keeps the
+  // side faces visible, and the cursor only nudges it a little further —
+  // never a big swing
+  const REST_X = -6, REST_Y = 9;
+  const HOVER_RANGE = 5;
   const tiles = document.querySelectorAll("a.tile");
   tiles.forEach((tile) => {
+    tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
+
+    tile.addEventListener("mouseenter", () => {
+      tile.style.transition = "none";
+    });
     tile.addEventListener("mousemove", (e) => {
       const r = tile.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
-      tile.style.transform = `perspective(700px) rotateX(${(-py * 12).toFixed(2)}deg) rotateY(${(px * 12).toFixed(2)}deg)`;
+      const rx = REST_X - py * HOVER_RANGE;
+      const ry = REST_Y + px * HOVER_RANGE;
+      tile.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
     });
-    tile.addEventListener("mouseleave", () => { tile.style.transform = ""; });
+    tile.addEventListener("mouseleave", () => {
+      tile.style.transition = "transform .35s ease";
+      tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
+    });
 
     tile.addEventListener("click", (e) => {
       if (tile.dataset.breaking) return;
@@ -204,8 +259,10 @@
   });
 
   function shatterTile(tile, onDone) {
-    tile.style.transform = "";
+    tile.style.transition = "none";
+    tile.style.transform = `perspective(800px) rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`;
     tile.classList.add("tile--breaking");
+    const front = tile.querySelector(".tile-face--front");
     const shardCount = 9;
     const shards = [];
     for (let i = 0; i < shardCount; i += 1) {
@@ -219,7 +276,7 @@
       const pts = [];
       for (let p = 0; p < 4; p += 1) pts.push(`${Math.round(Math.random() * 100)}% ${Math.round(Math.random() * 100)}%`);
       shard.style.clipPath = `polygon(${pts.join(",")})`;
-      tile.appendChild(shard);
+      front.appendChild(shard);
       shards.push(shard);
     }
     // eslint-disable-next-line no-unused-expressions
