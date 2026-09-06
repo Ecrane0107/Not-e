@@ -193,13 +193,15 @@
     fps: 24,
   });
 
-  // tiles are real 3d boxes, resting at a true isometric angle (the same
-  // -35.264/45 pair any CSS isometric-cube recipe uses) so top + front +
-  // right are all clearly visible, undistorted, at all times — hovering
+  // tiles are real 3d boxes that face the user -- the front face stays
+  // the dominant, forward-facing surface, tilted just enough to reveal
+  // real top/right depth alongside it (a full isometric corner-on view
+  // has nothing actually facing the viewer, which reads as "not pointed
+  // at me" even though it's geometrically a cleaner cube) — hovering
   // adds a small further nudge toward the cursor on top of that resting
   // pose, like the cube is turning to face it
-  const REST_X = -35.264, REST_Y = 45;
-  const HOVER_RANGE = 5;
+  const REST_X = -16, REST_Y = 20;
+  const HOVER_RANGE = 6;
   // below this width the CSS flattens tiles into a plain row list (see
   // style.css) -- an inline transform here would fight that and force
   // the isometric tilt back on, so hand back nothing on mobile instead
