@@ -41,7 +41,7 @@ function initSpiralBackground(canvas, options) {
       centerY: 0.5,        // fraction of height
       radiusScale: 0.16,    // ring radius as a fraction of min(width,height)
       spin: 0.05,            // radians per second
-      particleCount: 3,
+      particleCount: null,   // 1-11, or null to pick a random count each load
       cubeCount: 10,
       reverse: false,
       fps: 30,
@@ -68,17 +68,51 @@ function initSpiralBackground(canvas, options) {
   resize();
   window.addEventListener("resize", resize);
 
-  // --- particles: small glow points that spiral around the ring, trailing light ---
-  const particles = [];
+  // --- particles: small glow "flying lights" grouped into 1-3 flights.
+  // Everyone in a flight shares the exact same path formula (same radius
+  // band, same speed, same radius rhythm) and only differs by a fixed
+  // angular offset, so they visibly trail one another nose-to-tail along
+  // one track. Each flight is also confined to its own non-overlapping
+  // radius band, so no flight can ever cross another's, and a constant
+  // angular gap within a flight means its own members can't collide
+  // either — no per-frame collision checking needed, just geometry.
   const particleHues = [hue, (hue + 12) % 360, (hue - 24 + 360) % 360, (hue + 40) % 360];
-  for (let i = 0; i < opts.particleCount; i += 1) {
-    particles.push({
-      angle: (i / opts.particleCount) * Math.PI * 2,
-      speed: 0.55 + Math.random() * 0.5,
+  const particleCount = typeof opts.particleCount === "number"
+    ? opts.particleCount
+    : 1 + Math.floor(Math.random() * 11); // 1-11
+  const flightCount = Math.max(1, Math.min(3, particleCount, 1 + Math.floor(Math.random() * 3)));
+  const particleSquish = 0.85 + Math.random() * 0.15; // shared by every flight so bands can't visually cross
+
+  const RING_MIN = 0.12, RING_MAX = 0.8;
+  const BAND_GAP = 0.05;
+  const bandSpan = (RING_MAX - RING_MIN - BAND_GAP * (flightCount - 1)) / flightCount;
+
+  const flights = [];
+  const per = Math.floor(particleCount / flightCount);
+  let remainder = particleCount - per * flightCount;
+  for (let g = 0; g < flightCount; g += 1) {
+    const bandMin = RING_MIN + g * (bandSpan + BAND_GAP);
+    const memberCount = per + (g < remainder ? 1 : 0);
+    // members sit at fixed multiples of angleGap around the same ring; cap
+    // the gap so a flight with many members can never span a full circle
+    // and wrap its last member back around into its first
+    const maxSpan = Math.PI * 1.6;
+    const angleGapWanted = 0.4 + Math.random() * 0.5;
+    const angleGap = memberCount > 1 ? Math.min(angleGapWanted, maxSpan / (memberCount - 1)) : angleGapWanted;
+    const flight = {
+      bandMin,
+      bandMax: bandMin + bandSpan,
+      dir: Math.random() < 0.5 ? -1 : 1,
+      speed: 0.35 + Math.random() * 0.5,
+      radiusFreq: 0.25 + Math.random() * 0.45,
       radiusPhase: Math.random() * Math.PI * 2,
-      hue: particleHues[i % particleHues.length],
-      trail: [],
-    });
+      baseAngle: Math.random() * Math.PI * 2,
+      angleGap,
+      hue: particleHues[g % particleHues.length],
+      members: [],
+    };
+    for (let m = 0; m < memberCount; m += 1) flight.members.push({ trail: [] });
+    flights.push(flight);
   }
 
   // --- cubes: small glowing squares drifting slowly through the dark ---
@@ -159,31 +193,40 @@ function initSpiralBackground(canvas, options) {
   }
 
   function drawParticles(t, cx, cy, radius) {
-    particles.forEach((p) => {
-      p.angle += p.speed * 0.016 * (opts.reverse ? -1 : 1);
-      const r = radius * (0.15 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.5 + p.radiusPhase)));
-      const x = cx + Math.cos(p.angle) * r;
-      const y = cy + Math.sin(p.angle) * r * 0.94;
-      p.trail.push({ x, y });
-      if (p.trail.length > 16) p.trail.shift();
+    const dirSign = opts.reverse ? -1 : 1;
+    flights.forEach((f) => {
+      // every member in a flight reads off the exact same radius formula
+      // at the same instant — that's the "shared flight path" — they just
+      // sit at different fixed angles around it, like beads on one ring
+      const rFrac = f.bandMin + (f.bandMax - f.bandMin) * (0.5 + 0.5 * Math.sin(f.radiusFreq * t + f.radiusPhase));
+      const r = radius * rFrac;
+      const angleBase = f.baseAngle + dirSign * f.dir * f.speed * t;
 
-      // comet tail: each segment fades and thins toward the older end
-      // instead of one uniform-alpha polyline
-      const n = p.trail.length;
-      for (let i = 1; i < n; i += 1) {
-        const f = i / n;
-        ctx.strokeStyle = `hsla(${p.hue},85%,82%,${f * f * 0.75 * opts.intensity})`;
-        ctx.lineWidth = 0.5 + f * 2.4;
-        ctx.lineCap = "round";
+      f.members.forEach((p, m) => {
+        const angle = angleBase - m * f.angleGap;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r * particleSquish;
+        p.trail.push({ x, y });
+        if (p.trail.length > 16) p.trail.shift();
+
+        // comet tail: each segment fades and thins toward the older end
+        // instead of one uniform-alpha polyline
+        const n = p.trail.length;
+        for (let i = 1; i < n; i += 1) {
+          const frac = i / n;
+          ctx.strokeStyle = `hsla(${f.hue},85%,82%,${frac * frac * 0.75 * opts.intensity})`;
+          ctx.lineWidth = 0.5 + frac * 2.4;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(p.trail[i - 1].x, p.trail[i - 1].y);
+          ctx.lineTo(p.trail[i].x, p.trail[i].y);
+          ctx.stroke();
+        }
+        ctx.fillStyle = `hsla(${f.hue},90%,88%,${0.95 * opts.intensity})`;
         ctx.beginPath();
-        ctx.moveTo(p.trail[i - 1].x, p.trail[i - 1].y);
-        ctx.lineTo(p.trail[i].x, p.trail[i].y);
-        ctx.stroke();
-      }
-      ctx.fillStyle = `hsla(${p.hue},90%,88%,${0.95 * opts.intensity})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 2.4, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      });
     });
   }
 
