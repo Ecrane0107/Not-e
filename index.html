@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <canvas id="bg"></canvas>
@@ -226,25 +226,31 @@
 
   // tiles are real 3d boxes that sit perfectly flat, facing the viewer —
   // they only tilt while the mouse is over them, turning to face the
-  // cursor, then ease straight back to flat on mouseleave
+  // cursor, then ease straight back to flat on mouseleave. Skip all of
+  // that on touch: there's no real hover there, and a stray synthetic
+  // mousemove on tap could otherwise leave a tile stuck mid-tilt with no
+  // mouseleave ever following to reset it.
   const TILT_MAX = 16;
+  const supportsHoverTilt = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const tiles = document.querySelectorAll("a.tile");
   tiles.forEach((tile) => {
-    tile.addEventListener("mouseenter", () => {
-      tile.style.transition = "none";
-    });
-    tile.addEventListener("mousemove", (e) => {
-      const r = tile.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width - 0.5;
-      const py = (e.clientY - r.top) / r.height - 0.5;
-      const rx = -py * TILT_MAX;
-      const ry = px * TILT_MAX;
-      tile.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
-    });
-    tile.addEventListener("mouseleave", () => {
-      tile.style.transition = "transform .35s ease";
-      tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
-    });
+    if (supportsHoverTilt) {
+      tile.addEventListener("mouseenter", () => {
+        tile.style.transition = "none";
+      });
+      tile.addEventListener("mousemove", (e) => {
+        const r = tile.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width - 0.5;
+        const py = (e.clientY - r.top) / r.height - 0.5;
+        const rx = -py * TILT_MAX;
+        const ry = px * TILT_MAX;
+        tile.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+      });
+      tile.addEventListener("mouseleave", () => {
+        tile.style.transition = "transform .35s ease";
+        tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
+      });
+    }
 
     tile.addEventListener("click", (e) => {
       if (tile.dataset.breaking) return;

@@ -227,14 +227,25 @@ footer{
   .blurb{font-size:14.5px}
 
   .grid{grid-template-columns:1fr;gap:10px}
+  .grid-orbs{display:none}
 
+  /* the 3d cube depends on a hover-driven tilt, which doesn't exist on
+     touch -- tiles fall back to a plain flat row (front face only) */
   .tile{
+    aspect-ratio:auto;
+    transform:none;
+  }
+  .tile-face--right,
+  .tile-face--bottom{display:none}
+  .tile-face--front{
+    position:relative;
+    inset:auto;
     flex-direction:row;
     align-items:center;
     justify-content:flex-start;
-    aspect-ratio:auto;
     gap:14px;
     padding:14px 46px 14px 14px;
+    transform:none;
   }
   .tile .icon{width:30px;height:30px;flex:0 0 auto}
   .tile .icon + div{flex:1;min-width:0}

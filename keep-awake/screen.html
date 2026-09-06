@@ -228,6 +228,20 @@
 
   smokeEls.forEach(el => el.style.display = "none");
   renderCigarette();
+
+  // the cigarette graphic is laid out in fixed pixels (filter + full paper
+  // length), which is wider than very narrow phone screens. Scale the
+  // whole stage down to fit instead of letting it overflow the page.
+  const cigStage = document.getElementById("cigStage");
+  const NATURAL_W = 40 + FILTER_W + PAPER_FULL; // stage's own left padding + the cig itself
+  function fitCigStage() {
+    const available = cigStage.parentElement.clientWidth;
+    const scale = Math.min(1, available / NATURAL_W);
+    cigStage.style.transform = scale < 1 ? `scale(${scale.toFixed(3)})` : "";
+    cigStage.style.height = (96 * scale) + "px";
+  }
+  fitCigStage();
+  window.addEventListener("resize", fitCigStage);
 </script>
 </body>
 </html>
