@@ -242,13 +242,21 @@
       function frame(now) {
         const dwell = Math.min(1, (now - enterTime) / RAMP_MS);
         const max = BASE_TILT_MAX + EXTRA_TILT_MAX * dwell;
-        // both axes tip the side under the cursor away/down (like it's
-        // being pressed), not toward the viewer -- rx used to be the
-        // opposite sign of ry, which read as the cursor "pulling" the
-        // near corner up on one axis while pushing it down on the other
-        const rx = py * max;
-        const ry = px * max;
-        tile.style.transform = `perspective(${PERSPECTIVE}px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+        // separate rotateX+rotateY tilts around the tile's fixed local
+        // axes, not around the actual line through the cursor -- at a
+        // corner (px and py both large) that combination tilts around
+        // the *opposite* diagonal, so the corner under the cursor barely
+        // moves while a different corner does. What's actually wanted is
+        // a single rotation around the axis perpendicular to the cursor
+        // direction, so the point under the cursor dips away and the
+        // point straight through the center rises -- that's rotate3d
+        // with axis (-py, px, 0): the cursor's own direction from center
+        // is the axis of maximum tilt, not the rotation axis itself.
+        const dist = Math.min(1, Math.hypot(px, py) * 2); // 0 at center, 1 at an edge midpoint or beyond
+        const angle = dist * max;
+        const axisLen = Math.hypot(px, py) || 1;
+        const ax = -py / axisLen, ay = px / axisLen;
+        tile.style.transform = `perspective(${PERSPECTIVE}px) rotate3d(${ax.toFixed(4)}, ${ay.toFixed(4)}, 0, ${angle.toFixed(2)}deg)`;
         rafId = requestAnimationFrame(frame);
       }
 
