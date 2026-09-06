@@ -29,6 +29,7 @@ body{
   height:100%;
   display:block;
   pointer-events:none;
+  filter:blur(1.5px);
 }
 
 .page{

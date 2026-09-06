@@ -4,13 +4,22 @@
  * through the center trailing light, and small glowing cubes drifting
  * through the dark behind everything.
  *
- * Perf notes (this got slow once, so worth keeping in mind before adding
- * more): no ctx.shadowBlur and no per-frame gradient allocation anywhere
- * in the draw loop — both are expensive compositor work and this file
- * used to call them a couple dozen times a frame. "Glow" is faked with a
- * few cheap layered strokes/fills at different alpha instead. The loop
- * also caps devicePixelRatio at 1, throttles to ~30fps, and stops
- * entirely while the tab is hidden.
+ * Perf notes (this got slow twice, so worth keeping in mind before
+ * touching it again):
+ *   1. No ctx.shadowBlur, ever. It's a real per-call blur pass.
+ *   2. No non-default ctx.globalCompositeOperation (e.g. "lighter").
+ *      Canvas2D contexts using additive/exotic blend modes can fall out
+ *      of the GPU-accelerated path entirely in some browsers and render
+ *      the whole canvas in software from then on - which is exactly why
+ *      a "simple" 2D effect was outrunning a full WebGL game on this
+ *      site. Plain source-over only.
+ *   3. One draw call per shape, not a hand-rolled multi-layer glow.
+ *      The glow look comes from a CSS `filter: blur()` on the <canvas>
+ *      element itself instead - that's a single GPU compositor pass over
+ *      the whole layer, not N extra draw calls every frame.
+ * On top of that: devicePixelRatio is capped at 1, the loop throttles to
+ * a configurable fps instead of drawing on every display refresh, and it
+ * stops entirely via visibilitychange while the tab is hidden.
  *
  * Usage:
  *   <canvas id="bg"></canvas>
@@ -91,45 +100,11 @@ function initSpiralBackground(canvas, options) {
   let raf = 0;
   const start = performance.now();
 
-  // Cheap "glow": a few strokes of increasing width and decreasing alpha,
-  // instead of ctx.shadowBlur (which forces a real per-call blur pass).
-  function glowLine(x1, y1, x2, y2, thickness, rgb, alpha) {
-    ctx.lineCap = "round";
-    ctx.strokeStyle = `rgba(${rgb},${0.1 * alpha})`;
-    ctx.lineWidth = thickness * 2.6;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(${rgb},${0.28 * alpha})`;
-    ctx.lineWidth = thickness * 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(${rgb},${alpha})`;
-    ctx.lineWidth = thickness;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
-  function glowDot(x, y, r, rgb, alpha) {
-    ctx.fillStyle = `rgba(${rgb},${0.12 * alpha})`;
-    ctx.beginPath();
-    ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = `rgba(${rgb},${0.9 * alpha})`;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   function drawBars(t, cx, cy, radius) {
     const rotation = (opts.reverse ? -1 : 1) * t * opts.spin;
     const barLength = radius * 0.95;
     const barThickness = Math.max(2, radius * 0.1);
+    ctx.lineCap = "round";
     for (let i = 0; i < opts.barCount; i += 1) {
       const angle = (i / opts.barCount) * Math.PI * 2 + rotation;
       const wobble = Math.sin(t * 0.6 + i * 0.7) * radius * 0.05;
@@ -138,12 +113,13 @@ function initSpiralBackground(canvas, options) {
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       const tint = i % 3 === 0 ? "170,215,255" : "236,244,255";
-      const alpha = (0.55 + 0.25 * Math.sin(t * 0.8 + i)) * opts.intensity;
-      glowLine(
-        cx + cos * r1, cy + sin * r1,
-        cx + cos * r2, cy + sin * r2,
-        barThickness, tint, Math.max(0, alpha),
-      );
+      const alpha = Math.max(0, (0.55 + 0.25 * Math.sin(t * 0.8 + i)) * opts.intensity);
+      ctx.strokeStyle = `rgba(${tint},${alpha})`;
+      ctx.lineWidth = barThickness;
+      ctx.beginPath();
+      ctx.moveTo(cx + cos * r1, cy + sin * r1);
+      ctx.lineTo(cx + cos * r2, cy + sin * r2);
+      ctx.stroke();
     }
   }
 
@@ -154,11 +130,11 @@ function initSpiralBackground(canvas, options) {
       const x = cx + Math.cos(p.angle) * r;
       const y = cy + Math.sin(p.angle) * r * 0.94;
       p.trail.push({ x, y });
-      if (p.trail.length > 10) p.trail.shift();
+      if (p.trail.length > 8) p.trail.shift();
 
       const rgb = p.color.join(",");
       if (p.trail.length > 1) {
-        ctx.strokeStyle = `rgba(${rgb},${0.35 * opts.intensity})`;
+        ctx.strokeStyle = `rgba(${rgb},${0.4 * opts.intensity})`;
         ctx.lineWidth = 1.4;
         ctx.lineCap = "round";
         ctx.beginPath();
@@ -166,7 +142,10 @@ function initSpiralBackground(canvas, options) {
         for (let i = 1; i < p.trail.length; i += 1) ctx.lineTo(p.trail[i].x, p.trail[i].y);
         ctx.stroke();
       }
-      glowDot(x, y, 2.2, rgb, opts.intensity);
+      ctx.fillStyle = `rgba(${rgb},${0.9 * opts.intensity})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
     });
   }
 
@@ -186,9 +165,7 @@ function initSpiralBackground(canvas, options) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(cube.rot);
-      ctx.fillStyle = `rgba(140,175,230,${0.18 * glow})`;
-      ctx.fillRect(-s, -s, s * 2, s * 2);
-      ctx.fillStyle = `rgba(255,255,255,${0.8 * glow})`;
+      ctx.fillStyle = `rgba(225,235,255,${0.75 * glow})`;
       ctx.fillRect(-s / 2, -s / 2, s, s);
       ctx.restore();
     });
@@ -208,7 +185,6 @@ function initSpiralBackground(canvas, options) {
     lastFrame = now;
 
     ctx.clearRect(0, 0, width, height);
-    ctx.globalCompositeOperation = "lighter";
 
     const cx = width * opts.centerX;
     const cy = height * opts.centerY;
@@ -221,7 +197,6 @@ function initSpiralBackground(canvas, options) {
 
   function drawStill() {
     ctx.clearRect(0, 0, width, height);
-    ctx.globalCompositeOperation = "lighter";
     const cx = width * opts.centerX;
     const cy = height * opts.centerY;
     const radius = Math.min(width, height) * opts.radiusScale;
