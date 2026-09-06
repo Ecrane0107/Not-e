@@ -43,6 +43,78 @@ body{
   flex-direction:column;
 }
 
+/* sitewide sign-in widget — fixed top-right, same pattern as the little
+   fixed "back to menu" buttons the individual project pages use. Any
+   page can drop <div id="authWidget"></div> and call initAuthWidget()
+   on it (see assets/auth-widget.js) to get the same signed-in state. */
+.auth-widget{
+  position:fixed;
+  top:24px;
+  right:32px;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  font-family:"Space Grotesk",sans-serif;
+}
+.auth-signin-btn{
+  padding:7px 14px;
+  background:var(--ink);
+  border:0;
+  border-radius:7px;
+  color:var(--ground-deep);
+  font:600 13px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.auth-signin-btn:hover{background:#fff}
+.auth-signin-btn:disabled{opacity:.5;cursor:default}
+.auth-signin-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.auth-user{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 6px 5px 12px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:20px;
+}
+.auth-user[hidden]{display:none} /* display:flex above otherwise ties with and beats the UA [hidden] rule */
+.auth-avatar{
+  width:22px;height:22px;
+  border-radius:50%;
+  display:block;
+}
+.auth-name{
+  font-size:12.5px;
+  font-weight:500;
+  color:var(--ink-mid);
+  max-width:120px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.auth-signout-btn{
+  padding:5px 10px;
+  background:var(--panel-hi);
+  border:1px solid var(--line);
+  border-radius:14px;
+  color:var(--ink-dim);
+  font:500 11.5px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.auth-signout-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+.auth-signout-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.auth-error{
+  margin:0;
+  font-size:11.5px;
+  color:var(--ink-dim);
+  max-width:180px;
+  text-align:right;
+}
+@media (max-width:560px){
+  .auth-widget{top:14px;right:16px}
+  .auth-name{max-width:70px}
+}
+
 header{margin-bottom:56px}
 .eyebrow{
   margin:0 0 12px;
@@ -76,14 +148,14 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   gap:16px;
 }
 
-/* each tile is a real 3D box (front/right/bottom faces with actual
-   thickness, not a flat card faking rotation) — it rests at a fixed
-   slight angle so the depth reads as an actual cube at all times, and
-   tilts a little further (as if turning to face the cursor) on hover;
-   JS sets the initial resting transform and eases back to it on
-   mouseleave */
+/* each tile is a real 3D box — front, right, and top faces, like an
+   actual cube viewed from above-and-to-the-side (not a flat card faking
+   rotation). Rests at a bold isometric-style angle so all three faces
+   are clearly visible at all times, and tilts a little further (as if
+   turning to face the cursor) on hover; JS sets the initial resting
+   transform and eases back to it on mouseleave */
 .tile{
-  --depth:28px;
+  --depth:56px;
   position:relative;
   z-index:1;
   aspect-ratio:1/1;
@@ -122,27 +194,27 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   background:linear-gradient(135deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
   border-color:rgba(255,255,255,.32);
 }
-/* the two side faces are just thin slabs of the same glass, revealed by
-   the tilt — this is what actually reads as "real depth" rather than a
-   rotated flat rectangle */
+/* the top and right faces are solid slabs of the same glass, shaded
+   like a lit cube (top brightest, right darkest) so the depth reads
+   immediately instead of needing to be discovered */
 .tile-face--right{
   width:var(--depth);
   left:auto;
-  transform-origin:0 50%;
+  transform-origin:100% 50%;
   transform:rotateY(90deg);
-  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.25));
+  background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.35));
 }
-.tile-face--bottom{
+.tile-face--top{
   height:var(--depth);
-  top:auto;
-  transform-origin:50% 0;
-  transform:rotateX(-90deg);
-  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.3));
+  bottom:auto;
+  transform-origin:50% 0%;
+  transform:rotateX(90deg);
+  background:linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.1));
 }
 
 /* shattering into glass shards on click, before the real navigation —
    the whole cube breaks apart: the front pane's own glass disappears
-   behind its flung shards, and JS sends the right/bottom faces flying
+   behind its flung shards, and JS sends the top/right faces flying
    off along their own plane so all three faces come apart together */
 .tile--breaking{pointer-events:none}
 .tile--breaking .tile-face--front{
@@ -224,7 +296,7 @@ footer{
     transform:none;
   }
   .tile-face--right,
-  .tile-face--bottom{display:none}
+  .tile-face--top{display:none}
   .tile-face--front{
     position:relative;
     inset:auto;
