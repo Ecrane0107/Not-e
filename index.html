@@ -306,6 +306,35 @@
     });
     setTimeout(onDone, 500);
   }
+
+  // if the user navigates away mid-break and then hits back, the browser
+  // can restore this exact page from its back/forward cache -- shards
+  // still in the DOM, faces still faded out. Put every tile back together
+  // whenever the page is (re)shown from that cache.
+  function resetAllTiles() {
+    tiles.forEach((tile) => {
+      delete tile.dataset.breaking;
+      tile.classList.remove("tile--breaking");
+      tile.style.transition = "none";
+      tile.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg)";
+      tile.querySelectorAll(".tile-shard").forEach((shard) => shard.remove());
+      const right = tile.querySelector(".tile-face--right");
+      const bottom = tile.querySelector(".tile-face--bottom");
+      [right, bottom].forEach((face) => {
+        face.style.transition = "none";
+        face.style.transform = "";
+        face.style.opacity = "";
+      });
+      // eslint-disable-next-line no-unused-expressions
+      tile.offsetHeight; // flush the "none" transition before handing control back to CSS/hover
+      tile.style.transition = "";
+      right.style.transition = "";
+      bottom.style.transition = "";
+    });
+  }
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) resetAllTiles();
+  });
 </script>
 </body>
 </html>
