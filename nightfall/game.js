@@ -925,9 +925,10 @@ function endNightSuccess() {
   }
 
   // reputation: +10% just for surviving the night, on top of whatever the
-  // "Go out and recruit" task built up when tasks were confirmed. Every
-  // 100% is a guaranteed recruit; the leftover is a straight percent
-  // chance at one more. Spent either way.
+  // "Go out and recruit" task built up when tasks were confirmed. It's a
+  // permanent, ever-growing stat — it never resets or gets spent. Every
+  // 100% you've built up is a guaranteed recruit *every* night from then
+  // on; the leftover percent is an additional straight chance at one more.
   S.reputation += 10;
   {
     let recruits = Math.floor(S.reputation / 100);
@@ -938,7 +939,6 @@ function endNightSuccess() {
       S.survivors += actual;
       showToast(actual === 1 ? "Word got around — a new survivor joined you." : actual + " new survivors joined you.");
     }
-    S.reputation = 0;
   }
 
   document.getElementById("rewardLead").textContent =
