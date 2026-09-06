@@ -398,6 +398,78 @@ function makeGroundTexture() {
   return tex;
 }
 
+// weathered horizontal siding for the house walls -- plank seams (a dark
+// line under each board, a thin highlight above it) plus light grain
+// streaks, instead of one flat tan box
+function makeSidingTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const cx = c.getContext("2d");
+
+  cx.fillStyle = "#8a7350";
+  cx.fillRect(0, 0, 128, 128);
+
+  const plankH = 16;
+  for (let y = 0; y < 128; y += plankH) {
+    cx.fillStyle = "rgba(0,0,0,0.18)";
+    cx.fillRect(0, y + plankH - 3, 128, 3);
+    cx.fillStyle = "rgba(255,255,255,0.07)";
+    cx.fillRect(0, y, 128, 2);
+  }
+  for (let i = 0; i < 100; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128, len = 5 + Math.random() * 12;
+    cx.strokeStyle = Math.random() < 0.5 ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.05)";
+    cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x, y + len); cx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 1.6);
+  return tex;
+}
+
+// packed dirt for the dug trenches -- a dark brown base with irregular
+// clumps and a scatter of scrape marks, distinct from the grass outside it
+function makeDirtTexture(repeatX, repeatY) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const cx = c.getContext("2d");
+
+  cx.fillStyle = "#352c1e";
+  cx.fillRect(0, 0, 128, 128);
+
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128, r = 3 + Math.random() * 8;
+    cx.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0,0.2)" : "rgba(130,108,74,0.16)";
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  for (let i = 0; i < 45; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    cx.strokeStyle = "rgba(0,0,0,0.22)";
+    cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + (Math.random() - 0.5) * 12, y + (Math.random() - 0.5) * 12); cx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  return tex;
+}
+
+// a small tint helper -- clones a base color with a random nudge to hue/
+// lightness so a crowd of the same low-poly mesh doesn't read as one
+// mesh copy-pasted a dozen times
+function tintedMaterial(baseColor, hueJitter, lightJitter) {
+  const hsl = { h: 0, s: 0, l: 0 };
+  new THREE.Color(baseColor).getHSL(hsl);
+  const color = new THREE.Color().setHSL(
+    (hsl.h + (Math.random() - 0.5) * hueJitter + 1) % 1,
+    THREE.MathUtils.clamp(hsl.s + (Math.random() - 0.5) * 0.1, 0, 1),
+    THREE.MathUtils.clamp(hsl.l + (Math.random() - 0.5) * lightJitter, 0.04, 0.95),
+  );
+  return new THREE.MeshLambertMaterial({ color, flatShading: true });
+}
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05070a);
 scene.fog = new THREE.Fog(0x05070a, 28, 58);
@@ -413,6 +485,46 @@ scene.add(new THREE.HemisphereLight(0x9fb0c0, 0x1a1610, 0.9));
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.7);
 sun.position.set(8, 16, 6);
 scene.add(sun);
+
+// a night sky dome instead of a flat background color -- dark navy overhead
+// fading toward the fog tone at the horizon, plus a scatter of faint stars
+// up top. Fog is disabled on both so they don't wash out with distance.
+function makeSkyDome() {
+  const radius = 70;
+  const geo = new THREE.SphereGeometry(radius, 20, 14);
+  const top = new THREE.Color(0x03040a), bottom = new THREE.Color(0x1c2534);
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = THREE.MathUtils.clamp((pos.getY(i) / radius + 0.2) / 1.0, 0, 1);
+    const c = bottom.clone().lerp(top, t);
+    colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+  const dome = new THREE.Mesh(geo, mat);
+  dome.renderOrder = -10;
+  return dome;
+}
+scene.add(makeSkyDome());
+
+function makeStars() {
+  const count = 240;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI * 0.4; // upper sky only
+    const r = 68;
+    positions[i * 3] = Math.sin(phi) * Math.cos(theta) * r;
+    positions[i * 3 + 1] = Math.cos(phi) * r;
+    positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * r;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({ color: 0xcfd8e8, size: 0.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85 });
+  return new THREE.Points(geo, mat);
+}
+scene.add(makeStars());
 
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
@@ -490,15 +602,20 @@ function buildWall(wall, wallMat, windowMat) {
 function buildHouse() {
   const group = new THREE.Group();
 
+  // interior floorboards -- the same plank-seam texture as the siding,
+  // just darker and laid out at a different scale so it doesn't read as
+  // the exact same material as the walls
+  const floorTex = makeSidingTexture();
+  floorTex.repeat.set(2, 2.6);
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(HOUSE_HALF_X * 2, HOUSE_HALF_Z * 2),
-    flatMaterial(0x4a3f2c),
+    new THREE.MeshLambertMaterial({ map: floorTex, color: 0x9a8f7a, flatShading: true }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.01;
   group.add(floor);
 
-  const wallMat = flatMaterial(0x8a7a5a);
+  const wallMat = new THREE.MeshLambertMaterial({ map: makeSidingTexture(), flatShading: true });
   // actual glass, not a solid amber pane -- barely tinted and mostly
   // transparent so the survivors stationed behind it (and their muzzle
   // flashes/spears) stay clearly visible from outside
@@ -511,7 +628,9 @@ function buildHouse() {
   });
   WALL_IDS.forEach(w => group.add(buildWall(w, wallMat, windowMat)));
 
-  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.05), flatMaterial(0x2c1d12));
+  const doorTex = makeSidingTexture();
+  doorTex.repeat.set(1, 3.4);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.05), new THREE.MeshLambertMaterial({ map: doorTex, color: 0x3a281a, flatShading: true }));
   door.position.set(0, 0.75, HOUSE_HALF_Z + WALL_THICKNESS / 2 + 0.03);
   group.add(door);
 
@@ -544,8 +663,8 @@ function updateWallGlow() {
 // ---------------------------------------------------------------
 const TRENCH_FLOOR_DEPTH = 1.3; // how wide the walkway is, across the wall's axis
 const TRENCH_PARAPET_OFFSET = 0.65; // how much further out the raised lip + wire sit, beyond the floor line
-const trenchFloorMat = flatMaterial(0x35301f);
-const trenchParapetMat = flatMaterial(0x5a4a30);
+const trenchFloorMat = new THREE.MeshLambertMaterial({ map: makeDirtTexture(5, 1.4), flatShading: true });
+const trenchParapetMat = new THREE.MeshLambertMaterial({ map: makeDirtTexture(6, 1), color: 0xa0906c, flatShading: true });
 const wireMat = new THREE.LineBasicMaterial({ color: 0x8a8a82 });
 const wirePostMat = flatMaterial(0x40382a);
 
@@ -685,15 +804,13 @@ const survivorGunGeo = new THREE.BoxGeometry(0.12, 0.1, 0.55);
 const survivorSpearShaftGeo = new THREE.CylinderGeometry(0.025, 0.03, 0.9, 5);
 const survivorSpearTipGeo = new THREE.ConeGeometry(0.05, 0.14, 5);
 
-const zombieLegsMat = flatMaterial(0x3a3a28);
-const zombieTorsoMat = flatMaterial(0x5f7a34);
-const zombieHeadMat = flatMaterial(0x6b5f3a);
-const bruteLegsMat = flatMaterial(0x262619);
-const bruteTorsoMat = flatMaterial(0x3a4f22);
-const bruteHeadMat = flatMaterial(0x33301c);
+// zombie legs/torso/head materials are created per-instance (see
+// tintedMaterial in createZombieMesh) so a horde doesn't look like the
+// same mesh copy-pasted -- no shared module-level materials for them
+// survivor jacket/skin materials are also created per-instance (see
+// createSurvivorMesh) for the same reason -- legs stay one shared color
+// since trousers barely show under the window sills anyway
 const survivorLegsMat = flatMaterial(0x24262b);
-const survivorTorsoMat = flatMaterial(0x3f6fa8);
-const survivorHeadMat = flatMaterial(0xd8a97a);
 const survivorGunMat = flatMaterial(0x1c1c1c);
 const survivorSpearShaftMat = flatMaterial(0x5a4632);
 const survivorSpearTipMat = flatMaterial(0xb9bec2);
@@ -708,6 +825,14 @@ hpBarFgGeo.rotateX(-Math.PI / 2);
 function disposeZombieMesh(group) {
   const fg = group.userData.hpFg;
   if (fg) fg.material.dispose();
+  // per-instance tinted materials (see tintedMaterial) -- unlike the
+  // survivor pool, zombies are created and thrown away constantly, so
+  // these actually need to be freed or a long session slowly piles up
+  // orphaned compiled materials
+  ["legsMat", "torsoMat", "headMat"].forEach(key => {
+    const mat = group.userData[key];
+    if (mat) mat.dispose();
+  });
 }
 
 function createZombieMesh(isBrute) {
@@ -716,9 +841,12 @@ function createZombieMesh(isBrute) {
   const torsoGeo = isBrute ? bruteTorsoGeo : zombieTorsoGeo;
   const headGeo = isBrute ? bruteHeadGeo : zombieHeadGeo;
   const armGeo = isBrute ? bruteArmGeo : zombieArmGeo;
-  const legsMat = isBrute ? bruteLegsMat : zombieLegsMat;
-  const torsoMat = isBrute ? bruteTorsoMat : zombieTorsoMat;
-  const headMat = isBrute ? bruteHeadMat : zombieHeadMat;
+  // each zombie gets its own slightly-off tint of the base rotting-flesh
+  // colors instead of sharing one material site-wide -- a horde reads as
+  // individuals, not one mesh copy-pasted
+  const legsMat = tintedMaterial(isBrute ? 0x262619 : 0x3a3a28, 0.03, 0.1);
+  const torsoMat = tintedMaterial(isBrute ? 0x3a4f22 : 0x5f7a34, 0.04, 0.12);
+  const headMat = tintedMaterial(isBrute ? 0x33301c : 0x6b5f3a, 0.03, 0.1);
 
   const legsH = legsGeo.parameters.height;
   const torsoH = torsoGeo.parameters.height;
@@ -727,20 +855,28 @@ function createZombieMesh(isBrute) {
   legs.position.y = legsH / 2;
   group.add(legs);
 
+  // a slight forward hunch on the torso and a tilted head -- reads as a
+  // shambling, half-broken posture instead of a stiff soldier stance
+  const hunch = 0.12 + Math.random() * 0.16;
   const torso = new THREE.Mesh(torsoGeo, torsoMat);
   torso.position.y = legsH + torsoH / 2;
+  torso.rotation.x = hunch;
   group.add(torso);
 
   const head = new THREE.Mesh(headGeo, headMat);
   head.position.y = legsH + torsoH + headGeo.parameters.radius * 0.9;
+  head.position.z = hunch * 0.3;
+  head.rotation.z = (Math.random() - 0.5) * 0.5;
   group.add(head);
 
-  // arms reaching forward, toward whatever they're attacking
+  // arms reaching forward at uneven angles -- one held higher/further out
+  // than the other -- instead of a perfectly symmetrical pair
   const armLen = armGeo.parameters.height;
   [-1, 1].forEach(side => {
     const arm = new THREE.Mesh(armGeo, torsoMat);
-    arm.position.set(side * (torsoGeo.parameters.width / 2 + 0.02), legsH + torsoH * 0.78, armLen * 0.32);
-    arm.rotation.x = Math.PI / 2.5;
+    const lift = side < 0 ? Math.random() * 0.3 : -Math.random() * 0.15;
+    arm.position.set(side * (torsoGeo.parameters.width / 2 + 0.02), legsH + torsoH * 0.78 + lift, armLen * 0.32);
+    arm.rotation.x = Math.PI / 2.5 + lift * 0.4;
     group.add(arm);
   });
 
@@ -753,10 +889,19 @@ function createZombieMesh(isBrute) {
   group.add(fg);
   group.userData.hpFg = fg;
   group.userData.hpBg = bg;
+  group.userData.legsMat = legsMat;
+  group.userData.torsoMat = torsoMat;
+  group.userData.headMat = headMat;
 
   scene.add(group);
   return group;
 }
+
+// a handful of distinct jacket colors instead of one uniform blue, so the
+// house crew and trench garrison read as a group of people, not clones --
+// picked (not hue-jittered) since a muddy random hue reads worse than a
+// small deliberate palette for clothing specifically
+const SURVIVOR_JACKET_COLORS = [0x3f6fa8, 0x5a4a3a, 0x4a5a3a, 0x6b3f3f, 0x3f5a5a];
 
 function createSurvivorMesh() {
   const group = new THREE.Group();
@@ -767,13 +912,25 @@ function createSurvivorMesh() {
   legs.position.y = legsH / 2;
   group.add(legs);
 
-  const torso = new THREE.Mesh(survivorTorsoGeo, survivorTorsoMat);
+  const jacket = SURVIVOR_JACKET_COLORS[(Math.random() * SURVIVOR_JACKET_COLORS.length) | 0];
+  const torso = new THREE.Mesh(survivorTorsoGeo, tintedMaterial(jacket, 0.02, 0.08));
   torso.position.y = legsH + torsoH / 2;
   group.add(torso);
 
-  const head = new THREE.Mesh(survivorHeadGeo, survivorHeadMat);
+  const head = new THREE.Mesh(survivorHeadGeo, tintedMaterial(0xd8a97a, 0.03, 0.14));
   head.position.y = legsH + torsoH + survivorHeadGeo.parameters.radius * 0.9;
   group.add(head);
+
+  // about half get a flat cap -- cheap silhouette variety against the
+  // ones going bare-headed
+  if (Math.random() < 0.5) {
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(survivorHeadGeo.parameters.radius * 1.7, 0.1, survivorHeadGeo.parameters.radius * 1.7),
+      tintedMaterial(0x2a2a2a, 0.05, 0.1),
+    );
+    cap.position.y = head.position.y + survivorHeadGeo.parameters.radius * 0.75;
+    group.add(cap);
+  }
 
   const gun = new THREE.Mesh(survivorGunGeo, survivorGunMat);
   gun.position.set(0.16, legsH + torsoH * 0.7, survivorGunGeo.parameters.depth / 2 + 0.1);
@@ -1797,6 +1954,169 @@ function updateTrenches(dt) {
 }
 
 // ---------------------------------------------------------------
+// cinematic camera -- during the fight, cut between a handful of
+// procedurally-framed angles every several seconds instead of sitting on
+// one fixed top-down view: a slow establishing drift around the house, an
+// over-the-shoulder "POV" close on whoever's actually firing, a low
+// trailing shot on an approaching zombie, and a wide off-angle shot
+// framing the house against the field. Purely a rendering concern --
+// nothing here reads mouse/touch input, so it can't interfere with the
+// HUD-driven gameplay, and the tactical top-down view is always one
+// button away if a player wants it back.
+// ---------------------------------------------------------------
+const TACTICAL_CAM = { pos: new THREE.Vector3(0, 26, 13), look: new THREE.Vector3(0, 0, 0), fov: 45 };
+let cinematicOn = true;
+let shot = null;
+const _camLook = new THREE.Vector3();
+const _camFwd = new THREE.Vector3();
+
+function applyTacticalCamera() {
+  camera.position.copy(TACTICAL_CAM.pos);
+  camera.lookAt(TACTICAL_CAM.look);
+  camera.fov = TACTICAL_CAM.fov;
+  camera.updateProjectionMatrix();
+}
+
+// survivor POV candidates come from both the house windows and the
+// trenches -- anyone currently posted somewhere with a live target on
+// their side, normalized to one shape so the shot code doesn't care which
+// pool they came from
+// only actually at their station, not still walking toward it -- mid-walk
+// their position isn't lined up with the window/trench gap yet, and the
+// POV camera (offset forward from their own position) can end up stuck
+// looking straight into a solid wall segment instead of out through it
+function hasArrived(p) {
+  return Math.hypot(p.mesh.position.x - p.target.x, p.mesh.position.z - p.target.z) < 0.1;
+}
+function pickSurvivorPovTarget() {
+  const houseCandidates = survivorPool
+    .filter(p => p.mesh.visible && p.wall != null && hasArrived(p) && zombies.some(z => z.wall === p.wall && !z.dying));
+  const trenchCandidates = trenchSurvivorPool
+    .filter(p => p.mesh.visible && p.trench != null && hasArrived(p) && zombies.some(z => z.wall === p.trench && z.stageTrench && !z.dying));
+  const all = houseCandidates.concat(trenchCandidates);
+  return all.length ? all[(Math.random() * all.length) | 0] : null;
+}
+function pickZombieTarget() {
+  const alive = zombies.filter(z => !z.dying);
+  return alive.length ? alive[(Math.random() * alive.length) | 0] : null;
+}
+function pickBusyWall() {
+  let best = null, bestCount = -1;
+  WALL_IDS.forEach(w => {
+    const count = zombies.filter(z => z.wall === w && !z.dying).length;
+    if (count > bestCount) { bestCount = count; best = w; }
+  });
+  return bestCount > 0 ? best : WALL_IDS[(Math.random() * WALL_IDS.length) | 0];
+}
+const WALL_OUTWARD = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+
+// tries each shot type in a shuffled order and commits to the first one
+// that actually has something to point at (overview never fails, so
+// there's always a fallback) -- deprioritizes, rather than forbids,
+// immediately repeating whatever shot is just ending
+function startCinematicShot() {
+  const prevType = shot && shot.type;
+  const order = ["survivorPov", "zombieApproach", "wideAngle", "overview"]
+    .sort(() => Math.random() - 0.5)
+    .sort((a, b) => (a === prevType ? 1 : 0) - (b === prevType ? 1 : 0));
+
+  for (const type of order) {
+    if (type === "survivorPov") {
+      const t = pickSurvivorPovTarget();
+      if (!t) continue;
+      shot = { type, start: performance.now(), duration: 5500 + Math.random() * 2500, target: t };
+      return;
+    }
+    if (type === "zombieApproach") {
+      const z = pickZombieTarget();
+      if (!z) continue;
+      shot = { type, start: performance.now(), duration: 5000 + Math.random() * 2500, zombie: z };
+      return;
+    }
+    if (type === "wideAngle") {
+      const wall = pickBusyWall();
+      const [dx, dz] = WALL_OUTWARD[wall];
+      shot = {
+        type, start: performance.now(),
+        duration: 6500 + Math.random() * 3000,
+        angle: Math.atan2(dx, dz) + (Math.random() - 0.5) * 1.1,
+        angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.03 + Math.random() * 0.05),
+        radius: 24 + Math.random() * 10,
+        height: 11 + Math.random() * 7,
+      };
+      return;
+    }
+    // overview -- the always-available fallback
+    shot = {
+      type: "overview", start: performance.now(),
+      duration: 7000 + Math.random() * 3000,
+      angle: Math.random() * Math.PI * 2,
+      angleDrift: (Math.random() < 0.5 ? -1 : 1) * (0.025 + Math.random() * 0.04),
+      radius: 15 + Math.random() * 6,
+      height: 9 + Math.random() * 5,
+    };
+    return;
+  }
+}
+
+function shotStillValid() {
+  if (!shot) return false;
+  if (shot.type === "survivorPov") return shot.target.mesh.visible && hasArrived(shot.target);
+  if (shot.type === "zombieApproach") return zombies.includes(shot.zombie) && !shot.zombie.dying;
+  return true;
+}
+
+function updateCinematicCamera(now) {
+  if (!shot || !shotStillValid() || now - shot.start > shot.duration) startCinematicShot();
+  const t = (now - shot.start) / 1000;
+
+  if (shot.type === "overview" || shot.type === "wideAngle") {
+    const angle = shot.angle + shot.angleDrift * t;
+    camera.position.set(Math.sin(angle) * shot.radius, shot.height, Math.cos(angle) * shot.radius);
+    _camLook.set(0, shot.type === "wideAngle" ? 1.5 : 0.6, 0);
+    camera.lookAt(_camLook);
+    camera.fov = shot.type === "wideAngle" ? 38 : 42;
+  } else if (shot.type === "survivorPov") {
+    const mesh = shot.target.mesh;
+    const rot = mesh.rotation.y;
+    _camFwd.set(Math.sin(rot), 0, Math.cos(rot));
+    const eyeY = 1.15;
+    // offset forward past the survivor's own gun model, not centered in
+    // their head, so the camera doesn't end up clipped through their own
+    // viewmodel -- reads as looking out over their shoulder down the sights
+    camera.position.set(
+      mesh.position.x + _camFwd.x * 0.85,
+      eyeY,
+      mesh.position.z + _camFwd.z * 0.85,
+    );
+    _camLook.set(
+      camera.position.x + _camFwd.x * 8,
+      eyeY - 0.05 + Math.sin(now * 0.004) * 0.02,
+      camera.position.z + _camFwd.z * 8,
+    );
+    camera.lookAt(_camLook);
+    camera.fov = 54;
+  } else if (shot.type === "zombieApproach") {
+    // trails well back and up rather than right on its heels -- close
+    // enough to read as "this one specifically", far enough to actually
+    // see it as a figure (not just fill the frame with its own head) and
+    // to catch the house looming in the distance ahead of it
+    const z = shot.zombie;
+    const rot = z.mesh.rotation.y;
+    _camFwd.set(Math.sin(rot), 0, Math.cos(rot));
+    camera.position.set(
+      z.x - _camFwd.x * 3.6 + Math.sin(now * 0.0005) * 0.4,
+      2.1,
+      z.z - _camFwd.z * 3.6 + Math.cos(now * 0.0005) * 0.4,
+    );
+    _camLook.set(z.x + _camFwd.x * 3, 0.9, z.z + _camFwd.z * 3);
+    camera.lookAt(_camLook);
+    camera.fov = 46;
+  }
+  camera.updateProjectionMatrix();
+}
+
+// ---------------------------------------------------------------
 // main loop
 // ---------------------------------------------------------------
 let last = performance.now();
@@ -1830,12 +2150,21 @@ function frame(now) {
     updateTrenchSurvivorWeaponVisual();
     updateHud();
 
+    if (cinematicOn) updateCinematicCamera(now);
+    else applyTacticalCamera();
+
     const allSpawned = zombiesSpawnedThisNight >= zombiesTotalThisNight;
     if (breached) {
       gameOver();
     } else if (allSpawned && zombies.length === 0) {
       endNightSuccess();
     }
+  } else if (shot) {
+    // left the fight mid-shot (breach, dawn, retreat to menu) -- drop it
+    // so the next night starts on a fresh cut instead of a camera aimed
+    // at a zombie/survivor that no longer exists
+    shot = null;
+    applyTacticalCamera();
   }
 
   renderer.render(scene, camera);
@@ -1873,6 +2202,16 @@ hudToggle.addEventListener("click", (e) => {
   hudToggle.innerHTML = expanded ? "&#9652;" : "&#9662;";
 });
 
+const camToggle = document.getElementById("camToggle");
+camToggle.addEventListener("click", () => {
+  cinematicOn = !cinematicOn;
+  camToggle.setAttribute("aria-pressed", String(cinematicOn));
+  camToggle.innerHTML = cinematicOn
+    ? '<span class="ic">&#127909;</span> Cinematic'
+    : '<span class="ic">&#127919;</span> Tactical';
+  if (!cinematicOn) { shot = null; applyTacticalCamera(); }
+});
+
 // progress-code loading is available from the menu (start of the game),
 // the day screen (start of any night -- also always shows the current
 // code there), and the game-over screen (resume instead of starting
@@ -1882,3 +2221,4 @@ wireCodeLoader("dayLoad");
 wireCodeLoader("overLoad");
 
 requestAnimationFrame(frame);
+

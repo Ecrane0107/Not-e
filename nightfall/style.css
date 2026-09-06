@@ -60,6 +60,28 @@ body{
 .back-btn:hover{color:var(--ink);border-color:var(--accent-dim)}
 .back-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
 
+.cam-toggle{
+  position:fixed;
+  top:14px;
+  right:14px;
+  z-index:20;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 11px;
+  background:rgba(6,8,5,.72);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 13px "Space Grotesk",sans-serif;
+  cursor:pointer;
+  backdrop-filter:blur(4px);
+}
+.cam-toggle .ic{font-size:12px;line-height:1}
+.cam-toggle:hover{color:var(--ink);border-color:var(--accent-dim)}
+.cam-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.cam-toggle[aria-pressed="false"]{color:var(--ink-dim);border-style:dashed}
+
 /* ---------- HUD ---------- */
 .hud{
   position:fixed;
@@ -327,6 +349,8 @@ body{
 @media (max-width:560px){
   .back-btn{padding:6px 9px;font-size:0}
   .back-btn svg{width:11px;height:11px}
+  .cam-toggle{padding:6px 8px;font-size:0}
+  .cam-toggle .ic{font-size:13px}
 
   .hud-panel{top:52px;left:10px;min-width:132px;padding:9px 10px;gap:5px}
   .hud-row{font-size:11.5px}
