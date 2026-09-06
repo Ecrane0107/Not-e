@@ -23,8 +23,9 @@ const BASE_WALL_HP = 100;
 // plane that stopped right at the edge of play used to leave them staring
 // into the empty void past it; this gives the tree line something to
 // stand on and fog (see scene.fog below) fades the far edge out cleanly
-// well before it's reached
-const GROUND_SIZE = 90;
+// well before it's reached. Sized to comfortably fit the sky beacon too,
+// which sits much further out than the tree line (see SPIRAL_POS below).
+const GROUND_SIZE = 170;
 const HOUSE_HALF_X = 4;
 const HOUSE_HALF_Z = 3;
 const HOUSE_HEIGHT = 2.6;
@@ -483,7 +484,10 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05070a);
 scene.fog = new THREE.Fog(0x05070a, 28, 58);
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+// far plane pushed out from 100 -- the sky beacon now sits much further
+// from the house than anything else in the scene, and needs to stay
+// inside it from every cinematic angle, including the widest orbits
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 26, 13);
 camera.lookAt(0, 0, 0);
 
@@ -576,7 +580,12 @@ function makeTree() {
   return group;
 }
 function scatterTrees(count) {
-  const outerEdge = GROUND_SIZE / 2 - 3;
+  // capped rather than scaling with GROUND_SIZE -- the ground plane is
+  // sized for the distant sky beacon now, way past where a tree ring
+  // needs to reach, and letting it track GROUND_SIZE would spread the
+  // same tree count thin across all that extra space instead of keeping
+  // a dense line close to the field
+  const outerEdge = Math.min(GROUND_SIZE / 2 - 3, 42);
   const innerEdge = SPAWN_EDGE + 2.5; // stay clear of the spawn ring itself
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -608,18 +617,21 @@ const SPIRAL_ROD_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 70%, 55%)`);
 const SPIRAL_CAP_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 80%, 72%)`);
 const SPIRAL_LIGHT_COLOR = new THREE.Color(`hsl(${SPIRAL_HUE}, 85%, 78%)`);
 
-const SPIRAL_POS = new THREE.Vector3(-38, 2, -38);
+const SPIRAL_POS = new THREE.Vector3(-70, 3, -70);
 const spiralGroup = new THREE.Group();
 spiralGroup.position.copy(SPIRAL_POS);
 scene.add(spiralGroup);
 
+// sized up a bit from the first pass since it now sits roughly twice as
+// far out -- without this it'd shrink to an indistinct speck instead of
+// still reading as an actual spiral shape on the horizon
 const SPIRAL_ROD_COUNT = 14;
-const SPIRAL_ROD_LEN = 5;
-const SPIRAL_ROD_INNER = 1.6;
+const SPIRAL_ROD_LEN = 7;
+const SPIRAL_ROD_INNER = 2.2;
 for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
   const angle = (i / SPIRAL_ROD_COUNT) * Math.PI * 2;
   const rod = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, 0.16, SPIRAL_ROD_LEN, 6),
+    new THREE.CylinderGeometry(0.22, 0.22, SPIRAL_ROD_LEN, 6),
     new THREE.MeshBasicMaterial({ color: SPIRAL_ROD_COLOR, fog: false }),
   );
   rod.rotation.z = Math.PI / 2; // lay it flat -- long axis now along local +x
@@ -631,7 +643,7 @@ for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
   // small bright cap at the outer tip, same hue but lighter -- reads as
   // a lit tip rather than a bare cylinder end
   const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.24, 6, 5),
+    new THREE.SphereGeometry(0.34, 6, 5),
     new THREE.MeshBasicMaterial({ color: SPIRAL_CAP_COLOR, fog: false }),
   );
   cap.position.set(Math.cos(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN), 0, Math.sin(angle) * (SPIRAL_ROD_INNER + SPIRAL_ROD_LEN));
@@ -641,13 +653,13 @@ for (let i = 0; i < SPIRAL_ROD_COUNT; i++) {
 const SPIRAL_LIGHT_COUNT = 4;
 const spiralLights = Array.from({ length: SPIRAL_LIGHT_COUNT }, () => {
   const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.28, 8, 6),
+    new THREE.SphereGeometry(0.38, 8, 6),
     new THREE.MeshBasicMaterial({ color: SPIRAL_LIGHT_COLOR, fog: false }),
   );
   spiralGroup.add(mesh);
   return {
     mesh,
-    radius: 3 + Math.random() * 4,
+    radius: 4 + Math.random() * 5,
     speed: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.4),
     phase: Math.random() * Math.PI * 2,
     lastTrailPos: null,
@@ -657,8 +669,22 @@ const spiralLights = Array.from({ length: SPIRAL_LIGHT_COUNT }, () => {
 let spiralTrails = [];
 const SPIRAL_TRAIL_LIFE = 0.6;
 
+// a genuine 3d tumble on top of the spin -- the rod ring rocks slowly on
+// two axes at its own independent periods, so it never repeats the same
+// tilt twice in a row. The orbiting lights and their tracers are children
+// of spiralGroup, so they tumble along with it for free.
+const SPIRAL_TILT_AMP_X = 0.22 + Math.random() * 0.16;
+const SPIRAL_TILT_AMP_Z = 0.18 + Math.random() * 0.14;
+const SPIRAL_TILT_PERIOD_X = 13 + Math.random() * 9;
+const SPIRAL_TILT_PERIOD_Z = 17 + Math.random() * 11;
+const SPIRAL_TILT_PHASE_X = Math.random() * Math.PI * 2;
+const SPIRAL_TILT_PHASE_Z = Math.random() * Math.PI * 2;
+
 function updateSpiralBeacon(now, dt) {
+  const tSec = now / 1000;
   spiralGroup.rotation.y += dt * 0.15;
+  spiralGroup.rotation.x = Math.sin((Math.PI * 2 / SPIRAL_TILT_PERIOD_X) * tSec + SPIRAL_TILT_PHASE_X) * SPIRAL_TILT_AMP_X;
+  spiralGroup.rotation.z = Math.sin((Math.PI * 2 / SPIRAL_TILT_PERIOD_Z) * tSec + SPIRAL_TILT_PHASE_Z) * SPIRAL_TILT_AMP_Z;
 
   spiralLights.forEach(l => {
     const angle = l.phase + now * 0.001 * l.speed;
