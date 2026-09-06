@@ -41,15 +41,16 @@ const WALL_INNER = {
   E: HOUSE_HALF_X - STATION_INSET, W: -(HOUSE_HALF_X - STATION_INSET),
 };
 
-// two windows per wall, three shooting slots per window — six stations a wall
+// two windows per wall, three shooting slots per window — six stations a
+// wall. Ordered so occupancy alternates between the two windows as crew
+// grows (center A, center B, left A, left B, right A, right B) instead of
+// filling window A completely before window B ever gets used.
 const WINDOW_SLOT_SPACING = 0.55;
 function computeWindowSlots(wall) {
   const axis = WALL_AXIS[wall];
   const half = axis === "x" ? HOUSE_HALF_X : HOUSE_HALF_Z;
-  const windowCenters = [-half * 0.5, half * 0.5];
-  const slots = [];
-  windowCenters.forEach(c => { for (let i = -1; i <= 1; i++) slots.push(c + i * WINDOW_SLOT_SPACING); });
-  return slots;
+  const [a, b] = [-half * 0.5, half * 0.5];
+  return [a, b, a - WINDOW_SLOT_SPACING, b - WINDOW_SLOT_SPACING, a + WINDOW_SLOT_SPACING, b + WINDOW_SLOT_SPACING];
 }
 const WINDOW_SLOTS = {};
 WALL_IDS.forEach(w => { WINDOW_SLOTS[w] = computeWindowSlots(w); });
@@ -62,10 +63,10 @@ function freshState() {
   return {
     phase: "menu", // menu | day | night | reward | gameover
     day: 1,
-    survivors: 3,
+    survivors: 1,
     assignment: { N: 0, E: 0, S: 0, W: 0 }, // recomputed automatically each night
-    food: 30,
-    ammo: 250,
+    food: 10,
+    ammo: 200,
     weaponTier: 1,
     walls: {
       N: { hp: BASE_WALL_HP, max: BASE_WALL_HP },
@@ -88,6 +89,7 @@ let breached = false;
 let autoAssignTimer = 0;
 let zombiesSpawnedThisNight = 0;
 let zombiesTotalThisNight = 0;
+let currentTarget = { N: null, E: null, S: null, W: null }; // per-wall target lock
 
 // ---------------------------------------------------------------
 // DOM
@@ -513,9 +515,23 @@ const TASKS = [
     apply: (s, n) => { s.food += n * 8; },
   },
   {
+    // every 4 survivors sent out guarantees 1 recruit; the remainder is a
+    // 25%-per-head chance at one more (1 sent = 25% chance, 4 = guaranteed
+    // 1, 5 = guaranteed 1 plus a 25% chance at a 2nd, and so on)
     id: "survivor", icon: "\u{1F464}", title: "Look for more survivors", unit: "new survivor",
-    gain: n => Math.floor(n / 2),
-    apply: (s, n) => { s.survivors = Math.min(MAX_SURVIVORS, s.survivors + Math.floor(n / 2)); },
+    preview: n => {
+      if (n <= 0) return "+0 new survivors";
+      const guaranteed = Math.floor(n / 4);
+      const chance = (n % 4) * 25;
+      let s = "+" + guaranteed + " guaranteed";
+      if (chance > 0) s += ", " + chance + "% chance of +1 more";
+      return s;
+    },
+    apply: (s, n) => {
+      let found = Math.floor(n / 4);
+      if (Math.random() < (n % 4) * 0.25) found += 1;
+      s.survivors = Math.min(MAX_SURVIVORS, s.survivors + found);
+    },
   },
   {
     id: "repair", icon: "\u{1F9F1}", title: "Repair walls", unit: "% hp, every wall",
@@ -572,7 +588,7 @@ function updateTaskUI() {
   TASKS.forEach(t => {
     const n = taskAlloc[t.id];
     document.getElementById(`taskCount-${t.id}`).textContent = n;
-    document.getElementById(`taskGain-${t.id}`).textContent = "+" + t.gain(n) + " " + t.unit;
+    document.getElementById(`taskGain-${t.id}`).textContent = t.preview ? t.preview(n) : "+" + t.gain(n) + " " + t.unit;
     const row = document.getElementById(`taskCount-${t.id}`).closest(".task-row");
     row.querySelector('button[data-d="-1"]').disabled = n <= 0;
     row.querySelector('button[data-d="1"]').disabled = remaining <= 0;
@@ -661,6 +677,7 @@ function startNight() {
   spawnTimer = 0.6;
   breached = false;
   fireCooldown = { N: 0, E: 0, S: 0, W: 0 };
+  currentTarget = { N: null, E: null, S: null, W: null };
   autoAssignTimer = 0;
   zombiesSpawnedThisNight = 0;
   zombiesTotalThisNight = totalZombiesForNight(S.day);
@@ -685,6 +702,13 @@ function endNightSuccess() {
       S.survivors -= starved;
       showToast(starved === 1 ? "A survivor starved overnight." : starved + " survivors starved overnight.");
     }
+  }
+
+  // a 10% chance, independent of anyone's assigned tasks, that a stranger
+  // finds the house overnight and joins up
+  if (S.survivors < MAX_SURVIVORS && Math.random() < 0.10) {
+    S.survivors += 1;
+    showToast("A stranger found your door overnight. +1 survivor.");
   }
 
   document.getElementById("rewardLead").textContent =
@@ -825,18 +849,25 @@ function updateTurrets(dt) {
     if (crew <= 0 || S.ammo <= 0) return;
     if (fireCooldown[w] > 0) return;
 
-    // nearest zombie approaching this wall
-    let best = null, bestDist = Infinity;
-    for (const z of zombies) {
-      if (z.wall !== w) continue;
-      const d = Math.hypot(z.x - DEFENSE_POINT[w].x, z.z - DEFENSE_POINT[w].z);
-      if (d < bestDist) { bestDist = d; best = z; }
+    // keep firing at whatever's already locked in until it's dead (removed
+    // from the zombies array); only pick a new target once it's gone
+    let best = currentTarget[w];
+    if (!best || !zombies.includes(best)) {
+      best = null;
+      let bestDist = Infinity;
+      for (const z of zombies) {
+        if (z.wall !== w) continue;
+        const d = Math.hypot(z.x - DEFENSE_POINT[w].x, z.z - DEFENSE_POINT[w].z);
+        if (d < bestDist) { bestDist = d; best = z; }
+      }
+      currentTarget[w] = best;
     }
     if (!best) return;
 
     const dmg = 3 * S.weaponTier;
     best.hp -= dmg;
     S.ammo -= 1;
+    if (best.hp <= 0) currentTarget[w] = null; // dies this frame — free to retarget next shot
 
     // fire from whichever window slot sits closest to the target, along the wall
     const axis = WALL_AXIS[w];
