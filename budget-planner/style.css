@@ -12,6 +12,7 @@
   --income:#9b6dff;
   --bills:#ff6d9b;
   --savings:#f0c65a;
+  --portfolio:#5aa9e6;
   --good:#4fd17d;
   --bad:#e2584f;
 }
@@ -75,19 +76,6 @@ h1{
 
 #root{margin-top:36px}
 
-.foot-note{
-  margin:28px 0 0;
-  font-size:12px;
-  color:var(--ink-dim);
-}
-.foot-note code{
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:4px;
-  padding:1px 5px;
-  font-size:11.5px;
-}
-
 /* ---------- shared panel shell ---------- */
 /* Income and Bills stack full-width rather than sitting side by side --
    splitting the page in half left the Bills row (label + amount + freq
@@ -114,6 +102,7 @@ h1{
 .accent-income .panel-head{background:linear-gradient(135deg, rgba(155,109,255,.16), rgba(155,109,255,.03))}
 .accent-bills .panel-head{background:linear-gradient(135deg, rgba(255,109,155,.16), rgba(255,109,155,.03))}
 .accent-summary .panel-head{background:linear-gradient(135deg, rgba(79,209,125,.16), rgba(79,209,125,.03))}
+.accent-portfolio .panel-head{background:linear-gradient(135deg, rgba(90,169,230,.16), rgba(90,169,230,.03))}
 
 /* ---------- editable rows ---------- */
 .rows-head{
@@ -127,6 +116,7 @@ h1{
 }
 .rows-head.row-income{grid-template-columns:1fr 130px 150px 30px}
 .rows-head.row-bills{grid-template-columns:1fr 130px 150px 96px 30px}
+.rows-head.row-ticker{grid-template-columns:1fr 110px 130px 30px}
 
 .rows{padding:6px 18px 4px;display:flex;flex-direction:column;gap:6px}
 .rows-empty{padding:10px 0 14px;font-size:13px;color:var(--ink-dim)}
@@ -138,11 +128,15 @@ h1{
 }
 .row-income{grid-template-columns:1fr 130px 150px 30px}
 .row-bills{grid-template-columns:1fr 130px 150px 96px 30px}
+.row-ticker{grid-template-columns:1fr 110px 130px 30px}
+.row-ticker input{text-align:right}
+.row-ticker .ticker-symbol{text-align:left;text-transform:uppercase}
 
 .row input[type="text"],
 .row input[type="number"],
 .row select{
   width:100%;
+  min-width:0;
   padding:8px 10px;
   background:var(--ground);
   border:1px solid var(--line);
@@ -216,7 +210,7 @@ h1{
 .summary{margin-top:18px}
 .summary-grid{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:1px;
   background:var(--line);
 }
@@ -226,20 +220,24 @@ h1{
   display:flex;
   flex-direction:column;
   gap:6px;
+  min-width:0;
 }
 .summary-figure span{font-size:11.5px;color:var(--ink-dim)}
 .summary-figure b{font-size:19px;font-weight:700;color:var(--ink)}
 .summary-figure.highlight.good b{color:var(--good)}
 .summary-figure.highlight.bad b{color:var(--bad)}
+.summary-grid.cols-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 
-.freq-table{padding:14px 18px 4px}
+.freq-table{padding:14px 18px 4px;min-width:0}
 .freq-head,.freq-row{
   display:grid;
   grid-template-columns:1.4fr 1fr 1fr 1fr;
   gap:8px;
   padding:7px 0;
   font-size:12.5px;
+  min-width:0;
 }
+.freq-head > span,.freq-row > span{min-width:0}
 .freq-head{color:var(--ink-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
 .freq-row{border-bottom:1px solid var(--line);color:var(--ink-mid)}
 .freq-row span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
@@ -277,6 +275,71 @@ h1{
 .dot.bills{background:var(--bills)}
 .dot.savings{background:var(--savings)}
 .dot.disposable{background:var(--good)}
+
+/* ---------- portfolio ---------- */
+.accent-portfolio{margin-top:18px}
+.sp500-note{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px 14px;
+  padding:12px 18px;
+  border-bottom:1px solid var(--line);
+  font-size:12px;
+  color:var(--ink-dim);
+}
+.sp500-note b{color:var(--ink);font-weight:600;font-size:12.5px;font-variant-numeric:tabular-nums}
+
+.portfolio-alloc-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  padding:14px 18px;
+  border-bottom:1px solid var(--line);
+}
+.portfolio-alloc-row > label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12.5px;
+  color:var(--ink-dim);
+}
+.portfolio-alloc-row input[type="number"]{
+  width:64px;
+  padding:6px 8px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:6px;
+  color:var(--ink);
+  font:500 13px "Space Grotesk",sans-serif;
+  text-align:right;
+}
+.portfolio-contribution{font-size:12.5px;color:var(--ink-dim)}
+.portfolio-contribution b{color:var(--ink);font-size:14px;margin-left:6px}
+
+.portfolio-projection{padding:16px 18px 4px;border-top:1px solid var(--line)}
+.years-label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12.5px;
+  color:var(--ink-dim);
+  margin:0 0 12px;
+}
+.years-label input{
+  width:56px;
+  padding:6px 8px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:6px;
+  color:var(--ink);
+  font:500 13px "Space Grotesk",sans-serif;
+  text-align:right;
+}
+.portfolio-projection .summary-grid{margin-bottom:16px;border-radius:8px;overflow:hidden}
 
 /* ---------- export ---------- */
 .export-row{
@@ -318,4 +381,33 @@ h1{
   .row-remove{grid-area:remove}
   .row-savings-text{display:none}
   .freq-head,.freq-row{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:11.5px}
+
+  .rows-head.row-ticker{display:none}
+  .row-ticker{
+    grid-template-columns:1fr 1fr auto;
+    grid-template-areas:"symbol symbol symbol" "allocation return remove";
+  }
+  .row-ticker .ticker-symbol{grid-area:symbol;text-align:left}
+  .row-ticker input:nth-child(2){grid-area:allocation}
+  .row-ticker input:nth-child(3){grid-area:return}
+  .row-ticker .row-remove{grid-area:remove}
+  .portfolio-alloc-row,.sp500-note{padding:12px 14px}
+  .portfolio-projection{padding:14px 14px 4px}
+}
+
+/* small phones: even the 720px breakpoint's 2-column/tighter layout
+   doesn't leave room for a bold 19px dollar figure or a 4-column money
+   table -- these grid items default to min-width:auto so the row just
+   overflows the panel instead of shrinking, and .panel's overflow:
+   hidden clips it. Shrink the figures and stack the money table. */
+@media (max-width:400px){
+  .page{padding:20px 16px 40px}
+  .panel-head,.rows,.panel-foot{padding-left:14px;padding-right:14px}
+  .rows-head{padding-left:14px;padding-right:14px}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .summary-figure{padding:12px 14px}
+  .summary-figure b{font-size:16px}
+  .summary-grid.cols-2{grid-template-columns:1fr}
+  .freq-table{padding:12px 14px 4px}
+  .freq-head,.freq-row{grid-template-columns:1fr 1fr 1fr 1fr;gap:3px;font-size:9px}
 }

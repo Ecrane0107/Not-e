@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div class="page">
@@ -24,8 +24,6 @@
   <p class="blurb">Add what comes in and what goes out, in whatever frequency each one actually happens on. Everything below updates live, saves in this browser automatically, and can be exported when you want a copy.</p>
 
   <div id="root"></div>
-
-  <footer class="foot-note">Nothing here leaves your browser — no account, no server, just <code>localStorage</code>.</footer>
 
 </div>
 
@@ -56,8 +54,54 @@ function makeId() { return "r" + (idCounter++) + "-" + Math.random().toString(36
 function emptyRow(kind) {
   return { id: makeId(), label: "", amount: "", freq: kind === "income" ? "biweekly" : "monthly", savings: false };
 }
+
+// ---------------------------------------------------------------
+// mock portfolio — a sandbox for "what if I invested X% of what's left
+// over at Y% a year", not real investment advice and not live market
+// data. SP500_NOMINAL/SP500_REAL are just commonly-cited long-run
+// historical averages, shown as a reference point next to whatever the
+// user's own tickers work out to.
+// ---------------------------------------------------------------
+const SP500_NOMINAL = 10; // historical avg annual return, nominal, %
+const SP500_REAL = 7;     // same, inflation-adjusted, %
+
+function emptyTicker() {
+  return { id: makeId(), symbol: "", allocation: "", returnRate: "" };
+}
+function defaultPortfolio() {
+  return { pct: "20", years: "10", tickers: [emptyTicker()] };
+}
+// future value of a constant annual contribution compounding at `rate`
+// (as a fraction, e.g. 0.07) for `years` years -- the standard growing-
+// annuity formula, contributions landing at each year's end
+function futureValueAnnuity(contribution, rate, years) {
+  if (!(contribution > 0) || !(years > 0)) return 0;
+  if (Math.abs(rate) < 1e-9) return contribution * years;
+  return contribution * (Math.pow(1 + rate, years) - 1) / rate;
+}
+function computePortfolio(disposableAnnual, portfolio) {
+  const pct = clampPct(parseFloat(portfolio.pct));
+  const contribution = Math.max(0, disposableAnnual) * (pct / 100);
+  let allocSum = 0, weightedReturnSum = 0;
+  (portfolio.tickers || []).forEach(t => {
+    const a = parseFloat(t.allocation);
+    const r = parseFloat(t.returnRate);
+    if (Number.isFinite(a) && a > 0) {
+      allocSum += a;
+      if (Number.isFinite(r)) weightedReturnSum += a * r;
+    }
+  });
+  const weightedReturn = allocSum > 0 ? weightedReturnSum / allocSum : 0;
+  const years = Math.max(1, Math.min(50, parseInt(portfolio.years, 10) || 10));
+  return {
+    pct, contribution, allocSum, weightedReturn, years,
+    projected: futureValueAnnuity(contribution, weightedReturn / 100, years),
+    projectedSP500: futureValueAnnuity(contribution, SP500_NOMINAL / 100, years),
+  };
+}
+
 function defaultState() {
-  return { income: [emptyRow("income")], bills: [emptyRow("bills")] };
+  return { income: [emptyRow("income")], bills: [emptyRow("bills")], portfolio: defaultPortfolio() };
 }
 function loadState() {
   try {
@@ -68,7 +112,11 @@ function loadState() {
     // re-stamp ids through makeId so the counter can't collide with a
     // freshly-created row later in this session
     const fix = rows => rows.map(r => ({ ...r, id: makeId() }));
-    return { income: fix(parsed.income), bills: fix(parsed.bills) };
+    const p = parsed.portfolio;
+    const portfolio = p && typeof p === "object" && Array.isArray(p.tickers)
+      ? { pct: p.pct ?? "20", years: p.years ?? "10", tickers: fix(p.tickers) }
+      : defaultPortfolio();
+    return { income: fix(parsed.income), bills: fix(parsed.bills), portfolio };
   } catch {
     return defaultState();
   }
@@ -340,6 +388,111 @@ function Summary({ income, bills }) {
   );
 }
 
+function TickerRow({ ticker, onChange, onRemove }) {
+  return (
+    <div className="row row-ticker">
+      <input
+        className="row-label ticker-symbol"
+        type="text"
+        placeholder="e.g. VOO"
+        maxLength={12}
+        value={ticker.symbol}
+        onChange={e => onChange({ ...ticker, symbol: e.target.value.toUpperCase() })}
+      />
+      <input
+        className="row-amount"
+        type="number"
+        inputMode="decimal"
+        min="0"
+        max="100"
+        step="1"
+        placeholder="0"
+        value={ticker.allocation}
+        onChange={e => onChange({ ...ticker, allocation: e.target.value })}
+      />
+      <input
+        className="row-amount"
+        type="number"
+        inputMode="decimal"
+        step="0.1"
+        placeholder="0.0"
+        value={ticker.returnRate}
+        onChange={e => onChange({ ...ticker, returnRate: e.target.value })}
+      />
+      <button type="button" className="row-remove" aria-label="Remove ticker" onClick={onRemove}>&times;</button>
+    </div>
+  );
+}
+
+function Portfolio({ disposableAnnual, portfolio, onChange }) {
+  const p = computePortfolio(disposableAnnual, portfolio);
+  const updateTicker = (id, next) => onChange(pf => ({ ...pf, tickers: pf.tickers.map(t => (t.id === id ? next : t)) }));
+  const removeTicker = id => onChange(pf => ({ ...pf, tickers: pf.tickers.filter(t => t.id !== id) }));
+  const addTicker = () => onChange(pf => ({ ...pf, tickers: [...pf.tickers, emptyTicker()] }));
+
+  return (
+    <section className="panel accent-portfolio">
+      <header className="panel-head">
+        <h2>Mock portfolio</h2>
+        <p>Not investment advice — a sandbox for sketching out "what if I invested some of what's left over"</p>
+      </header>
+
+      <div className="sp500-note">
+        <span>S&amp;P 500, long-run historical average</span>
+        <b>~{SP500_NOMINAL}%/yr nominal &middot; ~{SP500_REAL}%/yr after inflation</b>
+      </div>
+
+      <div className="portfolio-alloc-row">
+        <label>
+          % of disposable income invested
+          <input
+            type="number" min="0" max="100" step="1"
+            value={portfolio.pct}
+            onChange={e => onChange(pf => ({ ...pf, pct: e.target.value }))}
+          />
+        </label>
+        <div className="portfolio-contribution">
+          <span>Annual contribution</span><b>{fmtMoney(p.contribution)}</b>
+        </div>
+      </div>
+
+      <div className="rows-head row-ticker">
+        <span>Ticker</span><span>Allocation %</span><span>Return %/yr</span><span></span>
+      </div>
+      <div className="rows">
+        {portfolio.tickers.map(t => (
+          <TickerRow key={t.id} ticker={t} onChange={next => updateTicker(t.id, next)} onRemove={() => removeTicker(t.id)} />
+        ))}
+        {portfolio.tickers.length === 0 && <p className="rows-empty">No tickers yet.</p>}
+      </div>
+      <div className="panel-foot">
+        <button type="button" className="ghost-btn" onClick={addTicker}>+ Add ticker</button>
+        <div className="panel-total">Weighted avg return <b>{p.weightedReturn.toFixed(1)}%/yr</b></div>
+      </div>
+
+      <div className="portfolio-projection">
+        <label className="years-label">
+          Projected value after
+          <input
+            type="number" min="1" max="50" step="1"
+            value={portfolio.years}
+            onChange={e => onChange(pf => ({ ...pf, years: e.target.value }))}
+          />
+          years, contributing {fmtMoney(p.contribution)}/yr
+        </label>
+        <div className="summary-grid cols-2">
+          <div className="summary-figure highlight good">
+            <span>Your tickers ({p.weightedReturn.toFixed(1)}%/yr)</span><b>{fmtMoney(p.projected)}</b>
+          </div>
+          <div className="summary-figure">
+            <span>Same money, S&amp;P 500 instead ({SP500_NOMINAL}%/yr)</span><b>{fmtMoney(p.projectedSP500)}</b>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function App() {
   const [state, setState] = useState(loadState);
 
@@ -353,6 +506,7 @@ function App() {
   // the click/keystroke handler was created
   const setIncome = update => setState(s => ({ ...s, income: typeof update === "function" ? update(s.income) : update }));
   const setBills = update => setState(s => ({ ...s, bills: typeof update === "function" ? update(s.bills) : update }));
+  const setPortfolio = update => setState(s => ({ ...s, portfolio: typeof update === "function" ? update(s.portfolio) : update }));
 
   function clearAll() {
     if (!window.confirm("Clear all income and bills? This can't be undone.")) return;
@@ -373,6 +527,12 @@ function App() {
       </div>
 
       <Summary income={state.income} bills={state.bills} />
+
+      <Portfolio
+        disposableAnnual={computeTotals(state.income, state.bills).disposable}
+        portfolio={state.portfolio}
+        onChange={setPortfolio}
+      />
 
       <div className="export-row">
         <span className="export-label">Export</span>

@@ -73,80 +73,95 @@ const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
 const EQUIPMENT_TYPES = Array.from(new Set(EXERCISES.map(e => e.equipment))).sort();
 
 // ---------------------------------------------------------------
-// body map geometry — a stylized-but-detailed figure (curved muscle
-// "bellies" via SVG paths, several groups split into their real
-// sub-heads), not a medical-textbook illustration, but a lot closer to
-// one than plain rounded rectangles. Shared filler shapes (head/neck/
-// torso/limb base silhouettes) sit behind everything so adjacent muscle
-// shapes don't leave visible seams; DETAIL lines (collarbone, ab
-// striations, spine, kneecaps) are non-interactive decoration drawn on
-// top of the regions they cross.
+// body map geometry — real anatomical polygon data (viewBox 0 0 1000
+// 2000), not hand-drawn shapes. Adapted from the MIT-licensed
+// react-body-highlighter project (github.com/giavinh79/react-body-
+// highlighter, © 2020 GV79): each muscle group is one or more <polygon>
+// pieces that tile edge-to-edge to form the whole figure, so there's no
+// separate body silhouette underneath -- the regions ARE the body.
+// FRONT_FILLER/BACK_FILLER hold the head/neck/kneecap polygons, which
+// exist to fill in the figure but aren't tied to a trackable muscle so
+// they're drawn non-interactive. Original polygon muscle names are
+// remapped to this tool's 15-muscle vocabulary (a few originals with no
+// equivalent here -- outer-thigh "abductors", inner-thigh "adductor",
+// calf "soleus" -- are folded into the nearest tracked muscle).
 // ---------------------------------------------------------------
-const BODY_FILLER = [
-  { type: "circle", cx: 100, cy: 22, r: 15 },
-  { type: "rect", x: 91, y: 34, w: 18, h: 13, rx: 4 },
-  { type: "path", d: "M68,48 C58,56 54,78 56,108 C58,136 64,150 74,152 L126,152 C136,150 142,136 144,108 C146,78 142,56 132,48 C120,42 80,42 68,48 Z" },
-  { type: "rect", x: 74, y: 148, w: 52, h: 32, rx: 16 },
-  { type: "path", d: "M32,62 C28,80 28,112 32,134 C34,150 38,168 42,180 L54,178 C52,158 50,138 50,118 C50,94 50,74 54,62 Z" },
-  { type: "path", d: "M168,62 C172,80 172,112 168,134 C166,150 162,168 158,180 L146,178 C148,158 150,138 150,118 C150,94 150,74 146,62 Z" },
-  { type: "rect", x: 27, y: 176, w: 19, h: 19, rx: 7 },
-  { type: "rect", x: 154, y: 176, w: 19, h: 19, rx: 7 },
-  { type: "path", d: "M66,174 C60,206 60,242 66,266 C68,292 70,320 74,338 L98,338 C96,306 94,274 94,244 C94,214 94,192 98,174 Z" },
-  { type: "path", d: "M134,174 C140,206 140,242 134,266 C132,292 130,320 126,338 L102,338 C104,306 106,274 106,244 C106,214 106,192 102,174 Z" },
-  { type: "rect", x: 67, y: 335, w: 25, h: 15, rx: 5 },
-  { type: "rect", x: 108, y: 335, w: 25, h: 15, rx: 5 },
-];
+const FRONT_FILLER = [
+  "424 29 400 118 420 196 461 233 498 253 547 224 576 192 592 102 571 24 498 0", // head
+  "555 237 506 335 506 392 616 400 706 449 694 367 633 351 584 306", // neck (r)
+  "290 449 302 371 363 351 412 302 445 245 490 339 486 392 380 396", // neck (l)
+  "339 1400 347 1433 355 1473 363 1510 351 1567 298 1567 273 1527 273 1473 302 1441", // knee (l)
+  "657 1400 722 1478 722 1522 698 1571 649 1567 629 1510", // knee (r)
+].map(points => ({ type: "polygon", points }));
 
 const FRONT_REGIONS = [
-  { muscle: "front-delts", type: "ellipse", cx: 58, cy: 60, rx: 17, ry: 16 },
-  { muscle: "front-delts", type: "ellipse", cx: 142, cy: 60, rx: 17, ry: 16 },
-  { muscle: "chest", type: "path", d: "M100,54 C88,52 74,56 68,68 C65,78 68,86 78,88 C90,90 100,84 100,70 Z" },
-  { muscle: "chest", type: "path", d: "M100,54 C112,52 126,56 132,68 C135,78 132,86 122,88 C110,90 100,84 100,70 Z" },
-  { muscle: "abs", type: "rect", x: 84, y: 98, w: 32, h: 50, rx: 8 },
-  { muscle: "obliques", type: "path", d: "M68,98 C62,110 62,134 68,148 L80,146 C76,130 76,112 80,100 Z" },
-  { muscle: "obliques", type: "path", d: "M132,98 C138,110 138,134 132,148 L120,146 C124,130 124,112 120,100 Z" },
-  { muscle: "biceps", type: "path", d: "M38,70 C34,80 34,96 38,110 C40,118 46,120 50,110 C52,96 52,80 48,70 C46,66 40,66 38,70 Z" },
-  { muscle: "biceps", type: "path", d: "M162,70 C166,80 166,96 162,110 C160,118 154,120 150,110 C148,96 148,80 152,70 C154,66 160,66 162,70 Z" },
-  { muscle: "forearms", type: "path", d: "M36,130 C34,144 34,160 38,178 C40,184 46,184 48,178 C50,160 50,144 48,130 Z" },
-  { muscle: "forearms", type: "path", d: "M164,130 C166,144 166,160 162,178 C160,184 154,184 152,178 C150,160 150,144 152,130 Z" },
-  { muscle: "quads", type: "path", d: "M66,178 C62,208 62,236 66,258 L80,256 C77,228 77,200 80,178 Z" },
-  { muscle: "quads", type: "path", d: "M82,178 C80,208 80,236 84,258 C90,262 96,258 98,250 C99,220 97,196 96,178 Z" },
-  { muscle: "quads", type: "path", d: "M134,178 C138,208 138,236 134,258 L120,256 C123,228 123,200 120,178 Z" },
-  { muscle: "quads", type: "path", d: "M118,178 C120,208 120,236 116,258 C110,262 104,258 102,250 C101,220 103,196 104,178 Z" },
-  { muscle: "calves", type: "path", d: "M70,266 C66,288 66,312 70,334 L92,334 C90,308 88,284 90,266 Z" },
-  { muscle: "calves", type: "path", d: "M130,266 C134,288 134,312 130,334 L108,334 C110,308 112,284 110,266 Z" },
-];
-const FRONT_DETAIL = [
-  { type: "path", d: "M74,50 Q100,44 126,50" },
-  { type: "path", d: "M100,58 L100,86" },
-  { type: "path", d: "M100,100 L100,148" },
+  { muscle: "chest", points: "518 416 510 551 580 580 678 555 706 473 620 416" },
+  { muscle: "chest", points: "298 465 314 555 408 580 482 551 478 420 376 420" },
+  { muscle: "obliques", points: "686 633 673 571 588 596 600 641 604 833 657 788 665 698" },
+  { muscle: "obliques", points: "339 784 331 718 310 633 322 571 408 592 392 633 392 837" },
+  { muscle: "abs", points: "563 592 580 641 584 780 584 927 563 984 551 1041 514 1078 510 845 506 673 510 571" },
+  { muscle: "abs", points: "437 588 486 571 490 673 486 845 482 1073 445 1037 408 914 408 784 412 645" },
+  { muscle: "biceps", points: "167 682 180 714 229 661 290 539 278 494 204 559" },
+  { muscle: "biceps", points: "714 494 702 547 763 661 816 718 829 690 788 555" },
+  { muscle: "triceps", points: "694 555 694 616 759 727 776 702 755 673" },
+  { muscle: "triceps", points: "224 694 298 555 298 608 229 731" },
+  { muscle: "front-delts", points: "784 531 796 478 792 412 759 380 710 363 722 429 714 473" },
+  { muscle: "front-delts", points: "282 473 212 531 200 478 204 408 245 371 286 371 269 433" },
+  { muscle: "quads", points: "527 1102 543 1249 600 1102 620 1000 649 943 600 927 567 1045" }, // outer thigh
+  { muscle: "quads", points: "478 1106 449 1253 420 1159 404 1131 396 1073 380 1024 347 939 396 922 416 992 437 1053" },
+  { muscle: "quads", points: "347 988 371 1082 371 1278 343 1371 310 1327 294 1200 282 1114 294 1008 322 947" },
+  { muscle: "quads", points: "633 1057 645 1000 669 947 702 1012 710 1118 682 1331 653 1376 624 1286 620 1114" },
+  { muscle: "quads", points: "388 1294 384 1122 412 1184 445 1294 429 1351 400 1461 363 1465 355 1400" },
+  { muscle: "quads", points: "596 1457 555 1290 608 1139 612 1302 641 1396 629 1465" },
+  { muscle: "quads", points: "327 1384 265 1457 257 1367 257 1273 269 1143 294 1335" },
+  { muscle: "quads", points: "718 1131 739 1241 739 1404 727 1457 665 1384 702 1335" },
+  { muscle: "calves", points: "714 1604 735 1535 767 1612 796 1678 784 1878 796 1955 747 1955" },
+  { muscle: "calves", points: "249 1947 278 1649 282 1604 261 1543 249 1576 224 1616 208 1678 220 1882 208 1955" },
+  { muscle: "calves", points: "727 1951 698 1592 653 1584 641 1624 641 1653 657 1771" },
+  { muscle: "calves", points: "355 1584 359 1624 359 1669 351 1722 351 1767 322 1820 306 1873 269 1947 273 1878 282 1804 286 1755 290 1698 298 1641 302 1588" },
+  { muscle: "forearms", points: "61 886 102 751 147 702 163 743 192 735 45 976 0 1000" },
+  { muscle: "forearms", points: "845 698 833 735 800 731 951 984 1000 1004 935 894 898 763" },
+  { muscle: "forearms", points: "776 722 776 776 804 841 853 898 922 1012 947 996" },
+  { muscle: "forearms", points: "69 1012 135 906 188 841 216 771 212 718 49 988" },
 ];
 
+const BACK_FILLER = [
+  "506 0 460 9 409 55 404 128 451 200 557 200 591 136 596 47 557 13", // head
+  "345 1532 311 1591 336 1664 374 1626", // knee (l)
+  "664 1536 630 1630 668 1664 694 1591", // knee (r)
+].map(points => ({ type: "polygon", points }));
+
 const BACK_REGIONS = [
-  { muscle: "rear-delts", type: "ellipse", cx: 58, cy: 60, rx: 17, ry: 16 },
-  { muscle: "rear-delts", type: "ellipse", cx: 142, cy: 60, rx: 17, ry: 16 },
-  { muscle: "traps", type: "path", d: "M84,38 C90,36 110,36 116,38 C126,50 134,66 136,80 C124,90 112,94 100,94 C88,94 76,90 64,80 C66,66 74,50 84,38 Z" },
-  { muscle: "lats", type: "path", d: "M64,78 C58,96 58,120 64,144 C70,154 82,158 90,152 C88,128 86,102 88,80 C80,76 70,76 64,78 Z" },
-  { muscle: "lats", type: "path", d: "M136,78 C142,96 142,120 136,144 C130,154 118,158 110,152 C112,128 114,102 112,80 C120,76 130,76 136,78 Z" },
-  { muscle: "lower-back", type: "rect", x: 84, y: 148, w: 32, h: 30, rx: 8 },
-  { muscle: "triceps", type: "path", d: "M38,70 C34,82 34,98 38,112 C40,120 46,122 50,112 C52,98 52,82 48,70 C46,66 40,66 38,70 Z" },
-  { muscle: "triceps", type: "path", d: "M162,70 C166,82 166,98 162,112 C160,120 154,122 150,112 C148,98 148,82 152,70 C154,66 160,66 162,70 Z" },
-  { muscle: "forearms", type: "path", d: "M36,130 C34,144 34,160 38,178 C40,184 46,184 48,178 C50,160 50,144 48,130 Z" },
-  { muscle: "forearms", type: "path", d: "M164,130 C166,144 166,160 162,178 C160,184 154,184 152,178 C150,160 150,144 152,130 Z" },
-  { muscle: "glutes", type: "path", d: "M68,178 C62,192 62,208 68,216 C76,222 88,220 92,210 C94,198 92,184 84,178 Z" },
-  { muscle: "glutes", type: "path", d: "M132,178 C138,192 138,208 132,216 C124,222 112,220 108,210 C106,198 108,184 116,178 Z" },
-  { muscle: "hamstrings", type: "path", d: "M66,214 C62,236 62,256 66,270 L78,268 C76,248 76,228 78,214 Z" },
-  { muscle: "hamstrings", type: "path", d: "M80,214 C78,236 78,256 82,270 C88,274 94,270 96,262 C97,244 95,226 94,214 Z" },
-  { muscle: "hamstrings", type: "path", d: "M134,214 C138,236 138,256 134,270 L122,268 C124,248 124,228 122,214 Z" },
-  { muscle: "hamstrings", type: "path", d: "M120,214 C122,236 122,256 118,270 C112,274 106,270 104,262 C103,244 105,226 106,214 Z" },
-  { muscle: "calves", type: "path", d: "M68,266 C64,280 64,296 68,308 C70,314 76,312 78,302 C80,286 78,274 74,266 Z" },
-  { muscle: "calves", type: "path", d: "M78,266 C74,282 74,300 78,314 C82,322 90,320 92,308 C94,290 92,274 88,266 Z" },
-  { muscle: "calves", type: "path", d: "M132,266 C136,280 136,296 132,308 C130,314 124,312 122,302 C120,286 122,274 126,266 Z" },
-  { muscle: "calves", type: "path", d: "M122,266 C126,282 126,300 122,314 C118,322 110,320 108,308 C106,290 108,274 112,266 Z" },
-];
-const BACK_DETAIL = [
-  { type: "path", d: "M100,40 L100,88" },
-  { type: "path", d: "M100,150 L100,176" },
+  { muscle: "traps", points: "447 217 477 217 472 383 477 647 383 532 353 409 311 366 391 332 438 272" },
+  { muscle: "traps", points: "523 217 557 217 566 272 609 328 689 366 647 404 617 532 523 647 532 383" },
+  { muscle: "rear-delts", points: "294 370 230 391 174 443 183 536 243 494 272 464" },
+  { muscle: "rear-delts", points: "711 370 783 396 826 447 817 536 749 489 723 451" },
+  { muscle: "lats", points: "311 387 281 489 285 553 340 753 472 711 472 664 366 540 336 413" },
+  { muscle: "lats", points: "689 387 719 494 715 562 660 753 528 711 528 664 634 545 664 417" },
+  { muscle: "triceps", points: "268 498 179 557 145 723 166 817 217 638 268 557" },
+  { muscle: "triceps", points: "736 502 821 557 860 732 834 821 779 630 732 557" },
+  { muscle: "triceps", points: "268 583 268 685 230 753 191 774 226 655" },
+  { muscle: "triceps", points: "728 583 770 647 804 774 766 753 728 689" },
+  { muscle: "lower-back", points: "477 728 345 770 353 834 494 1021 468 830" },
+  { muscle: "lower-back", points: "523 728 655 770 647 834 506 1021 532 838" },
+  { muscle: "forearms", points: "864 757 911 834 932 940 1000 1064 962 1043 881 894 843 838" },
+  { muscle: "forearms", points: "136 757 89 838 68 936 0 1064 38 1043 123 885 157 830" },
+  { muscle: "forearms", points: "813 796 774 779 791 847 911 1038 932 1089 945 1047" },
+  { muscle: "forearms", points: "187 796 221 779 209 843 94 1030 68 1085 51 1047" },
+  { muscle: "glutes", points: "447 996 302 1085 298 1187 315 1260 472 1213 494 1149" },
+  { muscle: "glutes", points: "553 991 511 1145 523 1209 681 1260 698 1191 694 1085" },
+  { muscle: "hamstrings", points: "481 1230 447 1230 413 1255 451 1443 485 1357 489 1294" }, // inner thigh (adductor)
+  { muscle: "hamstrings", points: "519 1226 557 1234 591 1260 549 1443 519 1362 511 1294" },
+  { muscle: "hamstrings", points: "289 1221 311 1294 366 1260 353 1353 345 1502 294 1583 289 1468 277 1413 272 1315" },
+  { muscle: "hamstrings", points: "715 1217 694 1289 638 1260 655 1366 664 1502 711 1583 715 1477 728 1421 736 1319" },
+  { muscle: "hamstrings", points: "387 1255 443 1460 404 1668 362 1528 370 1353" },
+  { muscle: "hamstrings", points: "617 1255 634 1362 643 1532 600 1668 562 1464" },
+  { muscle: "calves", points: "294 1604 285 1672 247 1796 238 1928 255 1970 285 1932 298 1800 319 1711 319 1668" },
+  { muscle: "calves", points: "374 1651 353 1677 332 1719 311 1804 302 1919 340 2000 387 1906 391 1689" },
+  { muscle: "calves", points: "630 1651 613 1685 617 1906 664 1996 706 1919 689 1796 668 1702" },
+  { muscle: "calves", points: "706 1604 723 1685 757 1791 766 1928 745 1966 723 1936 706 1796 681 1681" },
+  { muscle: "calves", points: "285 1957 302 1957 336 2017 306 2200 285 2136 268 1983" }, // soleus (l)
+  { muscle: "calves", points: "698 1957 719 1957 736 1983 719 2132 702 2196 672 2021" }, // soleus (r)
 ];
 
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -156,24 +171,19 @@ function svgEl(tag, attrs) {
   return el;
 }
 function shapeToEl(shape, extraAttrs) {
-  let el;
-  if (shape.type === "circle") el = svgEl("circle", { cx: shape.cx, cy: shape.cy, r: shape.r });
-  else if (shape.type === "ellipse") el = svgEl("ellipse", { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry });
-  else if (shape.type === "rect") el = svgEl("rect", { x: shape.x, y: shape.y, width: shape.w, height: shape.h, rx: shape.rx || 0 });
-  else if (shape.type === "path") el = svgEl("path", { d: shape.d });
+  const el = svgEl("polygon", { points: shape.points });
   Object.entries(extraAttrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
   return el;
 }
 
-function buildMap(svg, regions, details, onMuscleClick) {
+function buildMap(svg, filler, regions, onMuscleClick) {
   svg.innerHTML = "";
-  BODY_FILLER.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "body-outline", fill: "var(--muscle-body-fill)", stroke: "var(--muscle-outline)" })));
+  filler.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "muscle-filler" })));
   regions.forEach(r => {
     const el = shapeToEl(r, { class: "muscle-shape", "data-muscle": r.muscle });
     el.addEventListener("click", () => onMuscleClick(r.muscle));
     svg.appendChild(el);
   });
-  details.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "muscle-detail" })));
 }
 
 // ---------------------------------------------------------------
@@ -238,8 +248,8 @@ function onMuscleClick(muscle) {
   muscleFilter = muscleFilter === muscle ? null : muscle;
   renderAll();
 }
-buildMap(mapFront, FRONT_REGIONS, FRONT_DETAIL, onMuscleClick);
-buildMap(mapBack, BACK_REGIONS, BACK_DETAIL, onMuscleClick);
+buildMap(mapFront, FRONT_FILLER, FRONT_REGIONS, onMuscleClick);
+buildMap(mapBack, BACK_FILLER, BACK_REGIONS, onMuscleClick);
 
 function renderMaps() {
   const allShapes = [...mapFront.querySelectorAll(".muscle-shape"), ...mapBack.querySelectorAll(".muscle-shape")];
