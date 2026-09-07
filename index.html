@@ -7,10 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <canvas id="bg"></canvas>
+<div class="bottom-mist" aria-hidden="true"></div>
 <div id="authWidget" class="auth-widget"></div>
 <div class="page">
 
@@ -191,13 +192,13 @@
 
 </div>
 
-<script src="assets/spiral-bg.js?v=7"></script>
+<script src="assets/spiral-bg.js?v=8"></script>
 <script type="module">
   import { initAuthWidget } from "./assets/auth-widget.js?v=2";
   initAuthWidget(document.getElementById("authWidget"));
 </script>
 <script>
-  initSpiralBackground(document.getElementById("bg"), {
+  const spiral = initSpiralBackground(document.getElementById("bg"), {
     intensity: 0.32,
     radiusScale: 0.1,
     centerX: 0.88,
@@ -206,6 +207,8 @@
     cubeCount: 10,
     fps: 24,
   });
+  // tint the bottom mist to match this load's random theme color
+  document.documentElement.style.setProperty("--mist-hue", spiral.hue);
 </script>
 </body>
 </html>

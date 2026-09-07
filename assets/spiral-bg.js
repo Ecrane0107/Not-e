@@ -1,9 +1,11 @@
 /*
  * spiral-bg.js — a shared ambient background: a slowly spinning ring of
  * glowing faceted bars, a few particles spiralling through the center
- * trailing light, and small glowing cubes drifting through the dark
- * behind everything. Picks a random color theme every time it loads
- * unless one is passed in explicitly.
+ * trailing light, and small glowing cubes ("flakes") drifting through the
+ * dark behind everything, each one its own color and slowly cycling hue
+ * as it rises. The rest of the effect (bars, particles) picks a random
+ * shared color theme every time it loads unless one is passed in
+ * explicitly; the flakes are independently randomized on top of that.
  *
  * Perf notes (this got slow twice, so worth keeping in mind before
  * touching it again):
@@ -159,6 +161,11 @@ function initSpiralBackground(canvas, options) {
       spin: (Math.random() - 0.5) * 0.6,
       rot: Math.random() * Math.PI,
       twinkle: Math.random() * Math.PI * 2,
+      // each flake gets its own color (not the single page-wide hue) and
+      // slowly cycles through the wheel as it rises, instead of every
+      // flake being an identical near-white sparkle
+      hue: Math.random() * 360,
+      hueDrift: (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 9),
     };
   }
 
@@ -275,6 +282,7 @@ function initSpiralBackground(canvas, options) {
       cube.y += cube.vy * dt * 0.06;
       cube.rot += cube.spin * dt * 0.001;
       cube.twinkle += dt * 0.002;
+      cube.hue = (cube.hue + cube.hueDrift * dt * 0.001 + 360) % 360;
       if (cube.y < -0.08 || cube.x < -0.08 || cube.x > 1.08) {
         Object.assign(cube, makeCube(false));
       }
@@ -285,7 +293,7 @@ function initSpiralBackground(canvas, options) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(cube.rot);
-      ctx.fillStyle = `hsla(${hue},20%,92%,${0.75 * glow})`;
+      ctx.fillStyle = `hsla(${cube.hue},65%,75%,${0.75 * glow})`;
       ctx.fillRect(-s / 2, -s / 2, s, s);
       ctx.restore();
     });
