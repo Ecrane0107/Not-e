@@ -1,0 +1,473 @@
+:root{
+  --ground:#0C0E0F;
+  --ground-deep:#08090A;
+  --panel:#101314;
+  --panel-hi:#1A1E20;
+  --line:#23282B;
+  --ink:#EDEFF0;
+  --ink-mid:#9AA1A6;
+  --ink-dim:#666D72;
+  --focus:#EDEFF0;
+
+  --muscle-off:#2a3033;
+  --muscle-off-line:#3a4245;
+  --muscle-primary:#e0685a;
+  --muscle-secondary:#c98a52;
+  --muscle-hover:#4a5458;
+
+  --cal-food:#5a9bd5;
+  --cal-over:#e0685a;
+  --good:#6bb583;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    var(--ground-deep);
+  color:var(--ink);
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  min-height:100dvh;
+}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-dim)}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.page{
+  max-width:1180px;
+  margin:0 auto;
+  padding:32px 32px 64px;
+}
+
+.back-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:32px;
+  padding:7px 11px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 13px "Space Grotesk",sans-serif;
+  text-decoration:none;
+}
+.back-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
+.eyebrow{
+  margin:0 0 12px;
+  font-size:12.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+h1{
+  margin:0;
+  font-size:32px;
+  line-height:1.15;
+  font-weight:700;
+  letter-spacing:-0.02em;
+}
+.blurb{
+  margin:14px 0 0;
+  max-width:60ch;
+  font-family:"Newsreader",Georgia,serif;
+  font-size:15.5px;
+  line-height:1.55;
+  color:var(--ink-mid);
+}
+
+/* ---------- date bar ---------- */
+.datebar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:28px 0 24px;
+  flex-wrap:wrap;
+}
+.datebar input[type="date"]{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--ink);
+  font:600 14px "Space Grotesk",sans-serif;
+  padding:9px 12px;
+  color-scheme:dark;
+}
+.date-nav{
+  width:32px;height:32px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--ink-mid);
+  cursor:pointer;
+  font-size:14px;
+}
+.date-nav:hover{color:var(--ink);border-color:var(--ink-dim)}
+.date-today-btn{
+  padding:8px 13px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--ink-mid);
+  font:500 12.5px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.date-today-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
+/* ---------- shared panel shell ---------- */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+}
+.panel-head{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.panel-head h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.panel-head p{margin:2px 0 0;font-size:12px;color:var(--ink-dim)}
+.panel-body{padding:16px 18px}
+
+.ghost-btn{
+  padding:8px 13px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 12.5px "Space Grotesk",sans-serif;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.ghost-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+.ghost-btn.small{padding:6px 10px;font-size:11.5px}
+
+/* ---------- top section: body map + exercise library ---------- */
+.explorer{
+  display:grid;
+  grid-template-columns:340px 1fr;
+  align-items:start; /* without this, grid stretches the shorter map
+                         card to match the exercise library's height,
+                         leaving a big empty gap under the map */
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.mapcard .panel-body{
+  padding:14px 10px 10px;
+}
+.maps{
+  display:flex;
+  gap:6px;
+  justify-content:center;
+}
+.mapsvg{
+  width:100%;
+  max-width:170px;
+  height:auto;
+}
+.map-label{
+  text-align:center;
+  font-size:11px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+  margin-top:2px;
+}
+.muscle-shape{
+  fill:var(--muscle-off);
+  stroke:var(--muscle-off-line);
+  stroke-width:1;
+  cursor:pointer;
+  transition:fill .12s ease;
+}
+.muscle-shape:hover{fill:var(--muscle-hover)}
+.muscle-shape.is-primary{fill:var(--muscle-primary)}
+.muscle-shape.is-secondary{fill:var(--muscle-secondary)}
+.muscle-shape.is-filtered{fill:var(--ink);stroke:var(--ink)}
+.body-outline{fill:none;stroke:var(--line);stroke-width:1.5}
+
+.map-filter-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-top:10px;
+  min-height:20px;
+}
+.map-filter-row .filter-chip{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--ink);
+  background:var(--panel-hi);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:4px 10px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.map-filter-row .filter-chip button{
+  background:none;border:0;color:var(--ink-dim);cursor:pointer;font-size:13px;line-height:1;padding:0;
+}
+.map-hint{
+  text-align:center;
+  font-size:11px;
+  color:var(--ink-dim);
+  margin-top:8px;
+}
+
+.exercise-toolbar{
+  display:flex;
+  gap:8px;
+  padding:12px 18px;
+  border-bottom:1px solid var(--line);
+  flex-wrap:wrap;
+}
+.exercise-toolbar input[type="text"]{
+  flex:1;
+  min-width:140px;
+  padding:8px 11px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink);
+  font:500 13px "Space Grotesk",sans-serif;
+}
+.exercise-toolbar input::placeholder{color:var(--ink-dim)}
+.exercise-toolbar select{
+  padding:8px 10px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 12.5px "Space Grotesk",sans-serif;
+}
+
+.exercise-list{
+  max-height:420px;
+  overflow-y:auto;
+}
+.exercise-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 18px;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+  transition:background .1s ease;
+}
+.exercise-row:last-child{border-bottom:0}
+.exercise-row:hover{background:var(--panel-hi)}
+.exercise-row.is-active{background:var(--panel-hi);box-shadow:inset 3px 0 0 var(--muscle-primary)}
+.exercise-info{flex:1;min-width:0}
+.exercise-name{font-size:13.5px;font-weight:600;color:var(--ink)}
+.exercise-tags{margin-top:3px;font-size:11px;color:var(--ink-dim)}
+.exercise-tags .eq{color:var(--ink-mid);text-transform:capitalize}
+.exercise-row .add-btn{
+  flex:0 0 auto;
+  width:28px;height:28px;
+  border-radius:7px;
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-mid);
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+}
+.exercise-row .add-btn:hover{color:var(--ink);border-color:var(--good);color:var(--good)}
+.exercise-empty{padding:24px 18px;text-align:center;font-size:13px;color:var(--ink-dim)}
+
+/* ---------- bottom section: workout log + calories ---------- */
+.trackers{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:start;
+  gap:18px;
+}
+
+.entry-list{padding:8px 18px 4px}
+.entry-empty{padding:16px 0 20px;text-align:center;font-size:13px;color:var(--ink-dim)}
+
+.workout-entry{
+  display:grid;
+  grid-template-columns:1fr 52px 52px 64px 26px;
+  gap:8px;
+  align-items:center;
+  padding:9px 0;
+  border-top:1px solid var(--line);
+}
+.workout-entry:first-child{border-top:0}
+.workout-entry .we-name{font-size:13px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workout-entry input{
+  width:100%;
+  padding:6px 6px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:6px;
+  color:var(--ink);
+  font:500 12.5px "Space Grotesk",sans-serif;
+  text-align:center;
+}
+.workout-entry .we-remove{
+  width:26px;height:26px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-dim);
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+.workout-entry .we-remove:hover{color:var(--muscle-primary);border-color:var(--muscle-primary)}
+.entry-head-row{
+  display:grid;
+  grid-template-columns:1fr 52px 52px 64px 26px;
+  gap:8px;
+  padding:0 18px;
+  font-size:10.5px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+.entry-head-row span{text-align:center}
+.entry-head-row span:first-child{text-align:left}
+
+.panel-foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 18px 16px;
+  border-top:1px solid var(--line);
+  margin-top:4px;
+}
+
+/* calories */
+.cal-add-row{
+  display:grid;
+  grid-template-columns:1fr 70px 30px;
+  gap:8px;
+  padding:12px 18px;
+  border-bottom:1px solid var(--line);
+}
+.cal-add-row input{
+  padding:8px 10px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink);
+  font:500 13px "Space Grotesk",sans-serif;
+}
+.cal-add-row input::placeholder{color:var(--ink-dim)}
+.cal-add-btn{
+  width:100%;
+  border-radius:7px;
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-mid);
+  cursor:pointer;
+  font-size:16px;
+}
+.cal-add-btn:hover{color:var(--good);border-color:var(--good)}
+
+.food-entry{
+  display:grid;
+  grid-template-columns:1fr 60px 26px;
+  gap:8px;
+  align-items:center;
+  padding:9px 0;
+  border-top:1px solid var(--line);
+}
+.food-entry:first-child{border-top:0}
+.food-entry .fe-name{font-size:13px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.food-entry .fe-cal{font-size:12.5px;color:var(--ink-mid);text-align:right;font-variant-numeric:tabular-nums}
+.food-entry .fe-remove{
+  width:26px;height:26px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-dim);
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+.food-entry .fe-remove:hover{color:var(--muscle-primary);border-color:var(--muscle-primary)}
+
+.cal-summary{
+  padding:14px 18px 4px;
+  border-top:1px solid var(--line);
+}
+.cal-summary-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  margin-bottom:10px;
+}
+.cal-summary-row .label{font-size:12px;color:var(--ink-dim)}
+.cal-summary-row .value{font-size:20px;font-weight:700;color:var(--ink)}
+.cal-summary-row .value.over{color:var(--cal-over)}
+.cal-summary-row .value.under{color:var(--good)}
+.cal-bar{
+  height:8px;
+  border-radius:5px;
+  background:var(--ground);
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.cal-bar-fill{height:100%;background:var(--cal-food);transition:width .2s ease}
+.cal-bar-fill.over{background:var(--cal-over)}
+.cal-goal-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  color:var(--ink-dim);
+  padding-bottom:14px;
+}
+.cal-goal-row input{
+  width:80px;
+  padding:5px 8px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:6px;
+  color:var(--ink);
+  font:500 12.5px "Space Grotesk",sans-serif;
+  text-align:right;
+}
+
+footer{
+  margin-top:36px;
+  font-size:12px;
+  color:var(--ink-dim);
+}
+footer code{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:1px 5px;
+  font-size:11.5px;
+}
+
+@media (max-width:900px){
+  .explorer{grid-template-columns:1fr}
+  .trackers{grid-template-columns:1fr}
+  .mapcard{order:2}
+}
+
+@media (max-width:560px){
+  .page{padding:24px 20px 48px}
+  h1{font-size:26px}
+  .workout-entry,.entry-head-row{grid-template-columns:1fr 44px 44px 54px 24px}
+}

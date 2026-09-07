@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workout &amp; Calories</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="page">
+
+  <a class="back-btn" href="../index.html">
+    <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Menu
+  </a>
+
+  <p class="eyebrow">Project</p>
+  <h1>Workout &amp; Calories</h1>
+  <p class="blurb">Click a muscle on the map to see what hits it, or pick an exercise to see what it hits. Add exercises to a day's workout, log food against a daily goal — all of it saved to this browser.</p>
+
+  <div class="datebar">
+    <button type="button" class="date-nav" id="datePrev" aria-label="Previous day">&lsaquo;</button>
+    <input type="date" id="dateInput">
+    <button type="button" class="date-nav" id="dateNext" aria-label="Next day">&rsaquo;</button>
+    <button type="button" class="date-today-btn" id="dateToday">Today</button>
+  </div>
+
+  <div class="explorer">
+
+    <section class="panel mapcard">
+      <div class="panel-head">
+        <h2>Muscle map</h2>
+      </div>
+      <div class="panel-body">
+        <div class="maps">
+          <div>
+            <svg class="mapsvg" id="mapFront" viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="map-label">Front</div>
+          </div>
+          <div>
+            <svg class="mapsvg" id="mapBack" viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="map-label">Back</div>
+          </div>
+        </div>
+        <div class="map-filter-row" id="mapFilterRow"></div>
+        <p class="map-hint" id="mapHint">Click a muscle to filter exercises, or pick an exercise below to see what it hits.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Exercise library</h2>
+        <p id="libraryCount"></p>
+      </div>
+      <div class="exercise-toolbar">
+        <input type="text" id="exerciseSearch" placeholder="Search exercises&hellip;">
+        <select id="equipmentFilter">
+          <option value="">All equipment</option>
+        </select>
+      </div>
+      <div class="exercise-list" id="exerciseList"></div>
+    </section>
+
+  </div>
+
+  <div class="trackers">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Today's workout</h2>
+        <p id="workoutSummary"></p>
+      </div>
+      <div class="entry-head-row" id="workoutHeadRow" hidden>
+        <span>Exercise</span><span>Sets</span><span>Reps</span><span>Weight</span><span></span>
+      </div>
+      <div class="entry-list" id="workoutList"></div>
+      <div class="panel-foot">
+        <span style="font-size:11.5px;color:var(--ink-dim)">Add exercises from the library above</span>
+        <button type="button" class="ghost-btn" id="clearWorkout">Clear day</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Calories</h2>
+        <p id="calSummaryLabel"></p>
+      </div>
+      <div class="cal-add-row">
+        <input type="text" id="foodName" placeholder="e.g. Chicken &amp; rice" maxlength="60">
+        <input type="number" id="foodCal" placeholder="kcal" min="0" step="1">
+        <button type="button" class="cal-add-btn" id="foodAdd" aria-label="Add food">+</button>
+      </div>
+      <div class="entry-list" id="foodList"></div>
+      <div class="cal-summary">
+        <div class="cal-summary-row">
+          <span class="label">Consumed</span>
+          <span class="value" id="calConsumed">0</span>
+        </div>
+        <div class="cal-bar"><div class="cal-bar-fill" id="calBarFill"></div></div>
+        <div class="cal-summary-row">
+          <span class="label" id="calRemainingLabel">Remaining</span>
+          <span class="value" id="calRemaining">0</span>
+        </div>
+        <div class="cal-goal-row">
+          Daily goal
+          <input type="number" id="calGoal" min="0" step="50">
+          <span>kcal</span>
+          <button type="button" class="ghost-btn small" id="clearFood" style="margin-left:auto">Clear day</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>Nothing here leaves your browser — no account, no server, just <code>localStorage</code>. Not medical or nutritional advice — figures you enter are only as accurate as you make them.</footer>
+
+</div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
