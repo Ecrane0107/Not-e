@@ -7,12 +7,48 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <canvas id="bg"></canvas>
 <div class="bottom-mist" aria-hidden="true"></div>
-<div id="authWidget" class="auth-widget"></div>
+
+<div class="topbar">
+  <button type="button" class="settings-btn" id="settingsBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsPanel" aria-label="Display settings">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <div id="authWidget" class="auth-widget"></div>
+</div>
+
+<div class="settings-panel" id="settingsPanel" role="dialog" aria-label="Display settings" hidden>
+  <div class="settings-head">
+    <h2>Display</h2>
+    <button type="button" class="settings-close" id="settingsClose" aria-label="Close">&times;</button>
+  </div>
+
+  <div class="settings-row">
+    <label for="setHue">Theme color</label>
+    <input type="range" id="setHue" min="0" max="359" step="1">
+  </div>
+  <label class="settings-check">
+    <input type="checkbox" id="setRandomHue">
+    Random color each visit
+  </label>
+
+  <div class="settings-div"></div>
+  <p class="settings-label">Background components</p>
+
+  <label class="settings-check"><input type="checkbox" id="setRods"> Spinning rod ring</label>
+  <label class="settings-check"><input type="checkbox" id="setLights"> Flying lights</label>
+  <label class="settings-check"><input type="checkbox" id="setFlakes"> Drifting flakes</label>
+  <label class="settings-check"><input type="checkbox" id="setMist"> Bottom mist glow</label>
+
+  <button type="button" class="ghost-btn" id="settingsReset">Reset to defaults</button>
+</div>
+
 <div class="page">
 
   <header>
@@ -198,17 +234,123 @@
   initAuthWidget(document.getElementById("authWidget"));
 </script>
 <script>
-  const spiral = initSpiralBackground(document.getElementById("bg"), {
-    intensity: 0.32,
-    radiusScale: 0.1,
-    centerX: 0.88,
-    centerY: 0.16,
-    barCount: 12,
-    cubeCount: 10,
-    fps: 24,
+  // ---------------------------------------------------------------
+  // display settings -- stored client-side only (localStorage), no
+  // account or server involved. Controls which ambient background
+  // pieces render and whether their color theme is random each visit
+  // or pinned to a chosen hue.
+  // ---------------------------------------------------------------
+  const SETTINGS_KEY = "note-display-settings:v1";
+  const DEFAULT_SETTINGS = { hue: null, rods: true, lights: true, flakes: true, mist: true };
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* private browsing etc -- just won't persist */ }
+  }
+
+  let settings = loadSettings();
+  let spiral = null;
+  const mistEl = document.querySelector(".bottom-mist");
+
+  // (re)builds the whole ambient effect from the current settings --
+  // spiral-bg.js's returned handle has its own stop(), so swapping
+  // settings live just tears down the old instance and starts a fresh
+  // one, no page reload needed
+  function applyEffects() {
+    if (spiral) spiral.stop();
+    spiral = initSpiralBackground(document.getElementById("bg"), {
+      intensity: 0.32,
+      radiusScale: 0.1,
+      centerX: 0.88,
+      centerY: 0.16,
+      barCount: settings.rods ? 12 : 0,
+      cubeCount: settings.flakes ? 10 : 0,
+      particleCount: settings.lights ? null : 0,
+      fps: 24,
+      hue: settings.hue,
+    });
+    document.documentElement.style.setProperty("--mist-hue", spiral.hue);
+    mistEl.classList.toggle("is-hidden", !settings.mist);
+  }
+
+  function updateSetting(patch) {
+    settings = { ...settings, ...patch };
+    saveSettings(settings);
+    applyEffects();
+    syncControls();
+  }
+
+  const hueInput = document.getElementById("setHue");
+  const randomHueInput = document.getElementById("setRandomHue");
+  const rodsInput = document.getElementById("setRods");
+  const lightsInput = document.getElementById("setLights");
+  const flakesInput = document.getElementById("setFlakes");
+  const mistInput = document.getElementById("setMist");
+
+  function syncControls() {
+    const isRandom = settings.hue === null;
+    randomHueInput.checked = isRandom;
+    hueInput.disabled = isRandom;
+    hueInput.value = isRandom ? spiral.hue : settings.hue;
+    rodsInput.checked = settings.rods;
+    lightsInput.checked = settings.lights;
+    flakesInput.checked = settings.flakes;
+    mistInput.checked = settings.mist;
+  }
+
+  applyEffects();
+  syncControls();
+
+  hueInput.addEventListener("input", () => updateSetting({ hue: Number(hueInput.value) }));
+  randomHueInput.addEventListener("change", () => {
+    updateSetting({ hue: randomHueInput.checked ? null : spiral.hue });
   });
-  // tint the bottom mist to match this load's random theme color
-  document.documentElement.style.setProperty("--mist-hue", spiral.hue);
+  rodsInput.addEventListener("change", () => updateSetting({ rods: rodsInput.checked }));
+  lightsInput.addEventListener("change", () => updateSetting({ lights: lightsInput.checked }));
+  flakesInput.addEventListener("change", () => updateSetting({ flakes: flakesInput.checked }));
+  mistInput.addEventListener("change", () => updateSetting({ mist: mistInput.checked }));
+
+  document.getElementById("settingsReset").addEventListener("click", () => {
+    settings = { ...DEFAULT_SETTINGS };
+    saveSettings(settings);
+    applyEffects();
+    syncControls();
+  });
+
+  // ---------------------------------------------------------------
+  // settings panel open/close
+  // ---------------------------------------------------------------
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsPanel = document.getElementById("settingsPanel");
+  function openSettings() {
+    settingsPanel.hidden = false;
+    settingsBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeSettings() {
+    settingsPanel.hidden = true;
+    settingsBtn.setAttribute("aria-expanded", "false");
+  }
+  settingsBtn.addEventListener("click", () => {
+    if (settingsPanel.hidden) openSettings(); else closeSettings();
+  });
+  document.getElementById("settingsClose").addEventListener("click", closeSettings);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !settingsPanel.hidden) closeSettings();
+  });
+  document.addEventListener("click", (e) => {
+    if (settingsPanel.hidden) return;
+    if (settingsPanel.contains(e.target) || settingsBtn.contains(e.target)) return;
+    closeSettings();
+  });
 </script>
 </body>
 </html>

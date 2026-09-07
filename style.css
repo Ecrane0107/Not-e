@@ -49,6 +49,7 @@ body{
   mix-blend-mode:screen;
   animation:mist-breathe 9s ease-in-out infinite;
 }
+.bottom-mist.is-hidden{display:none} /* toggled off via the display-settings panel */
 @keyframes mist-breathe{
   0%,100%{opacity:.75;transform:translateY(0)}
   50%{opacity:1;transform:translateY(-1.5%)}
@@ -68,15 +69,39 @@ body{
   flex-direction:column;
 }
 
-/* sitewide sign-in widget — fixed top-right, same pattern as the little
-   fixed "back to menu" buttons the individual project pages use. Any
-   page can drop <div id="authWidget"></div> and call initAuthWidget()
-   on it (see assets/auth-widget.js) to get the same signed-in state. */
-.auth-widget{
+/* fixed top-right cluster: the display-settings button and the sitewide
+   sign-in widget share one fixed-position row, same pattern as the
+   little fixed "back to menu" buttons the individual project pages use */
+.topbar{
   position:fixed;
   top:24px;
   right:32px;
   z-index:5;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.settings-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;height:34px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:9px;
+  color:var(--ink-mid);
+  cursor:pointer;
+}
+.settings-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+.settings-btn:focus-visible,
+.settings-btn[aria-expanded="true"]{outline:2px solid var(--focus);outline-offset:1px}
+
+/* any page can drop <div id="authWidget"></div> and call
+   initAuthWidget() on it (see assets/auth-widget.js) to get the same
+   signed-in state -- currently only used here, nested inside .topbar,
+   which is what actually fixes it in place; a page using it standalone
+   would need its own positioning */
+.auth-widget{
   display:flex;
   align-items:center;
   font-family:"Space Grotesk",sans-serif;
@@ -136,6 +161,83 @@ body{
   text-align:right;
 }
 
+/* display-settings dropdown -- pinned under .topbar, everything in it
+   persists to localStorage only (see the inline script), no account
+   involved */
+.settings-panel{
+  position:fixed;
+  top:66px;
+  right:32px;
+  z-index:6;
+  width:250px;
+  padding:16px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 16px 40px rgba(0,0,0,.45);
+}
+.settings-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:0 0 12px;
+}
+.settings-head h2{margin:0;font-size:14px;font-weight:700;color:var(--ink)}
+.settings-close{
+  width:24px;height:24px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:none;
+  border:0;
+  border-radius:6px;
+  color:var(--ink-dim);
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+}
+.settings-close:hover{color:var(--ink)}
+.settings-close:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+.settings-row{display:flex;flex-direction:column;gap:8px;margin:0 0 4px}
+.settings-row label{font-size:12px;color:var(--ink-mid)}
+.settings-row input[type="range"]{
+  width:100%;
+  accent-color:hsl(var(--mist-hue,220),75%,60%);
+}
+
+.settings-check{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 0;
+  font-size:12.5px;
+  color:var(--ink-mid);
+  cursor:pointer;
+}
+.settings-check input{accent-color:var(--ink)}
+.settings-check:has(input:disabled){opacity:.5;cursor:default}
+
+.settings-div{height:1px;background:var(--line);margin:10px 0}
+.settings-label{
+  margin:0 0 2px;
+  font-size:11px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+
+.settings-panel .ghost-btn{
+  width:100%;
+  margin-top:10px;
+  padding:8px 12px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 12px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.settings-panel .ghost-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
 /* sign-in isn't live yet (see assets/auth-widget.js) -- a greyed-out,
    non-interactive stand-in so it reads as "not built yet", same idea as
    the placeholder project tile below */
@@ -161,8 +263,9 @@ body{
 }
 
 @media (max-width:560px){
-  .auth-widget{top:14px;right:16px}
+  .topbar{top:14px;right:16px}
   .auth-name{max-width:70px}
+  .settings-panel{top:56px;right:16px;left:16px;width:auto}
 }
 
 header{margin-bottom:56px}
@@ -274,12 +377,25 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 
 footer{
   position:relative;
-  z-index:2; /* explicitly above .grid's tiles (z-index:1) so it never
-                ends up visually behind their blur/glow */
+  z-index:2; /* above .grid's tiles (z-index:1) and .bottom-mist (z-index:0)
+                so nothing can stack on top of it */
   margin-top:auto;
-  padding-top:56px;
+  padding:22px 0 4px;
   font-size:12.5px;
   color:var(--ink-dim);
+}
+/* a soft solid-to-transparent band behind the text itself -- the mist
+   glow (or anything else back there) can still show through most of the
+   page, but never washes out the credit line's own contrast. z-index:-1
+   only sinks it below footer's own text, not below footer as a whole
+   (which already sits above everything via the rule above). */
+footer::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:-20px 0 -6px;
+  background:linear-gradient(to top, var(--ground-deep) 60%, transparent);
+  pointer-events:none;
 }
 
 @media (max-width:560px){
