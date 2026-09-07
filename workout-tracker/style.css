@@ -9,11 +9,18 @@
   --ink-dim:#666D72;
   --focus:#EDEFF0;
 
-  --muscle-off:#2a3033;
-  --muscle-off-line:#3a4245;
+  /* the body map is drawn as a light anatomical-chart figure (like a
+     muscle heat-map poster) sitting on the dark panel, not a dark
+     silhouette -- crisp outlines around every region read much better
+     than shades-of-dark-gray ever did */
+  --muscle-body-fill:#EDE7D8;
+  --muscle-outline:#2A2620;
+  --muscle-off:#EDE7D8;
+  --muscle-off-line:#2A2620;
+  --muscle-hover:#F6E9C4;
   --muscle-primary:#e0685a;
-  --muscle-secondary:#c98a52;
-  --muscle-hover:#4a5458;
+  --muscle-secondary:#dba24f;
+  --muscle-filtered:#4f7fb0;
 
   --cal-food:#5a9bd5;
   --cal-over:#e0685a;
@@ -176,6 +183,8 @@ h1{
   width:100%;
   max-width:170px;
   height:auto;
+  background:var(--muscle-body-fill);
+  border-radius:10px;
 }
 .map-label{
   text-align:center;
@@ -187,19 +196,20 @@ h1{
 }
 .muscle-shape{
   fill:var(--muscle-off);
-  stroke:var(--muscle-off-line);
-  stroke-width:1;
+  stroke:var(--muscle-outline);
+  stroke-width:1.4;
+  stroke-linejoin:round;
   cursor:pointer;
   transition:fill .12s ease;
 }
 .muscle-shape:hover{fill:var(--muscle-hover)}
 .muscle-shape.is-primary{fill:var(--muscle-primary)}
 .muscle-shape.is-secondary{fill:var(--muscle-secondary)}
-.muscle-shape.is-filtered{fill:var(--ink);stroke:var(--ink)}
+.muscle-shape.is-filtered{fill:var(--muscle-filtered);stroke:var(--muscle-outline)}
 /* class rules win over the fill/stroke presentation attributes set on
    these shapes in JS, so the actual colors live here, not there */
-.body-outline{fill:var(--panel-hi);stroke:none}
-.muscle-detail{fill:none;stroke:var(--muscle-off-line);stroke-width:1;opacity:.6;pointer-events:none}
+.body-outline{fill:var(--muscle-body-fill);stroke:var(--muscle-outline);stroke-width:1.6;stroke-linejoin:round}
+.muscle-detail{fill:none;stroke:var(--muscle-outline);stroke-width:1.1;opacity:.55;pointer-events:none}
 
 .map-filter-row{
   display:flex;
@@ -310,11 +320,18 @@ h1{
   align-items:center;
   padding:9px 0;
   border-top:1px solid var(--line);
+  min-width:0; /* grid items default to min-width:auto, which keeps the 1fr
+                  name column and the number inputs from shrinking below
+                  their content -- that blows the row past the panel's edge
+                  at phone widths and .panel's overflow:hidden silently
+                  clips it instead of showing a scrollbar */
 }
 .workout-entry:first-child{border-top:0}
+.workout-entry > *{min-width:0}
 .workout-entry .we-name{font-size:13px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .workout-entry input{
   width:100%;
+  min-width:0;
   padding:6px 6px;
   background:var(--ground);
   border:1px solid var(--line);
@@ -323,6 +340,13 @@ h1{
   font:500 12.5px "Space Grotesk",sans-serif;
   text-align:center;
 }
+/* native number-input spinners eat real width in these narrow columns and
+   were part of what made things look cut off -- drop them everywhere in
+   this tool, the inputs are labeled and small enough that the arrows
+   never earned their keep */
+input[type="number"]{-moz-appearance:textfield}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .workout-entry .we-remove{
   width:26px;height:26px;
   border-radius:6px;
@@ -343,8 +367,9 @@ h1{
   letter-spacing:.05em;
   text-transform:uppercase;
   color:var(--ink-dim);
+  min-width:0;
 }
-.entry-head-row span{text-align:center}
+.entry-head-row span{text-align:center;min-width:0}
 .entry-head-row span:first-child{text-align:left}
 
 .panel-foot{
@@ -364,8 +389,11 @@ h1{
   gap:8px;
   padding:12px 18px;
   border-bottom:1px solid var(--line);
+  min-width:0;
 }
+.cal-add-row > *{min-width:0}
 .cal-add-row input{
+  width:100%;
   padding:8px 10px;
   background:var(--ground);
   border:1px solid var(--line);
@@ -392,8 +420,10 @@ h1{
   align-items:center;
   padding:9px 0;
   border-top:1px solid var(--line);
+  min-width:0;
 }
 .food-entry:first-child{border-top:0}
+.food-entry > *{min-width:0}
 .food-entry .fe-name{font-size:13px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .food-entry .fe-cal{font-size:12.5px;color:var(--ink-mid);text-align:right;font-variant-numeric:tabular-nums}
 .food-entry .fe-remove{
@@ -438,9 +468,12 @@ h1{
   font-size:12px;
   color:var(--ink-dim);
   padding-bottom:14px;
+  flex-wrap:wrap;
 }
 .cal-goal-row input{
   width:80px;
+  min-width:0;
+  flex-shrink:0;
   padding:5px 8px;
   background:var(--ground);
   border:1px solid var(--line);
@@ -473,4 +506,33 @@ footer code{
   .page{padding:24px 20px 48px}
   h1{font-size:26px}
   .workout-entry,.entry-head-row{grid-template-columns:1fr 44px 44px 54px 24px}
+}
+
+/* small phones: even the shrunk 44/44/54/24 columns above don't leave
+   the flexible name column any room once padding + gaps are subtracted,
+   so the row overflows the panel and .panel's overflow:hidden clips it
+   -- tighten padding/gaps and the fixed columns further here */
+@media (max-width:400px){
+  .panel-head{padding:14px 14px}
+  .panel-body{padding:14px 14px}
+  .panel-foot{padding:10px 14px 14px}
+  .exercise-toolbar{padding:10px 14px}
+  .exercise-list .exercise-row{padding:10px 14px}
+  .entry-list{padding:8px 14px 4px}
+  .entry-head-row{padding:0 14px}
+  .cal-add-row{padding:12px 14px}
+  .cal-summary{padding:14px 14px 4px}
+
+  .workout-entry,.entry-head-row{grid-template-columns:1fr 34px 34px 44px 20px;gap:5px}
+  .entry-head-row{font-size:9.5px;letter-spacing:.02em}
+  .workout-entry .we-remove{width:20px;height:20px;font-size:12px}
+  .workout-entry input{padding:5px 3px;font-size:11.5px}
+
+  .cal-add-row{grid-template-columns:1fr 54px 26px;gap:5px}
+  .cal-add-row input{padding:7px 8px}
+
+  .food-entry{grid-template-columns:1fr 50px 20px;gap:5px}
+  .food-entry .fe-remove{width:20px;height:20px;font-size:12px}
+
+  .cal-goal-row input{width:64px}
 }

@@ -119,12 +119,7 @@ const FRONT_REGIONS = [
 const FRONT_DETAIL = [
   { type: "path", d: "M74,50 Q100,44 126,50" },
   { type: "path", d: "M100,58 L100,86" },
-  { type: "path", d: "M85,109 L115,109" },
-  { type: "path", d: "M85,122 L115,122" },
-  { type: "path", d: "M85,135 L115,135" },
   { type: "path", d: "M100,100 L100,148" },
-  { type: "circle", cx: 82, cy: 259, r: 5 },
-  { type: "circle", cx: 118, cy: 259, r: 5 },
 ];
 
 const BACK_REGIONS = [
@@ -172,7 +167,7 @@ function shapeToEl(shape, extraAttrs) {
 
 function buildMap(svg, regions, details, onMuscleClick) {
   svg.innerHTML = "";
-  BODY_FILLER.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "body-outline", fill: "var(--panel-hi)", stroke: "none" })));
+  BODY_FILLER.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "body-outline", fill: "var(--muscle-body-fill)", stroke: "var(--muscle-outline)" })));
   regions.forEach(r => {
     const el = shapeToEl(r, { class: "muscle-shape", "data-muscle": r.muscle });
     el.addEventListener("click", () => onMuscleClick(r.muscle));
