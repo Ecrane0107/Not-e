@@ -89,9 +89,13 @@ h1{
 }
 
 /* ---------- shared panel shell ---------- */
+/* Income and Bills stack full-width rather than sitting side by side --
+   splitting the page in half left the Bills row (label + amount + freq
+   + savings + remove) fighting over so little space that the label
+   input was squeezed down to almost nothing */
 .grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr;
   gap:18px;
 }
 .panel{
@@ -121,8 +125,8 @@ h1{
   text-transform:uppercase;
   color:var(--ink-dim);
 }
-.rows-head.row-income{grid-template-columns:1fr 108px 118px 26px}
-.rows-head.row-bills{grid-template-columns:1fr 108px 118px 72px 26px}
+.rows-head.row-income{grid-template-columns:1fr 130px 150px 30px}
+.rows-head.row-bills{grid-template-columns:1fr 130px 150px 96px 30px}
 
 .rows{padding:6px 18px 4px;display:flex;flex-direction:column;gap:6px}
 .rows-empty{padding:10px 0 14px;font-size:13px;color:var(--ink-dim)}
@@ -132,8 +136,8 @@ h1{
   gap:8px;
   align-items:center;
 }
-.row-income{grid-template-columns:1fr 108px 118px 26px}
-.row-bills{grid-template-columns:1fr 108px 118px 72px 26px}
+.row-income{grid-template-columns:1fr 130px 150px 30px}
+.row-bills{grid-template-columns:1fr 130px 150px 96px 30px}
 
 .row input[type="text"],
 .row input[type="number"],
@@ -150,6 +154,15 @@ h1{
 .row input:focus-visible,
 .row select:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
 .row-amount{text-align:right}
+/* the browser's native up/down stepper on <input type="number"> --
+   dropped in favor of a plain text-style field, since a wallet amount
+   isn't something anyone increments by clicking tiny arrows */
+.row input[type="number"]{-moz-appearance:textfield}
+.row input[type="number"]::-webkit-inner-spin-button,
+.row input[type="number"]::-webkit-outer-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
 
 .row-savings{
   display:flex;
@@ -280,9 +293,29 @@ h1{
   h1{font-size:28px}
   .grid{grid-template-columns:1fr}
   .summary-grid{grid-template-columns:1fr 1fr}
-  .rows-head.row-income,.row-income{grid-template-columns:1fr 76px 92px 24px}
-  .rows-head.row-bills,.row-bills{grid-template-columns:1fr 76px 92px 34px 24px}
+  /* the column-header legend only means something once label/amount/
+     frequency/savings actually line up in columns -- below, each row
+     wraps onto two lines instead, so the legend is dropped rather than
+     shown above wrapped rows it no longer describes */
+  .rows-head{display:none}
+
+  /* label gets its own full-width line; amount/frequency/(savings)/
+     remove share a second line -- this is what actually fixes labels
+     getting squeezed down to a couple of characters on a phone screen,
+     the same root problem as the desktop layout, just tighter */
+  .row-income{
+    grid-template-columns:1fr 1fr auto;
+    grid-template-areas:"label label label" "amount freq remove";
+  }
+  .row-bills{
+    grid-template-columns:1fr 1fr auto auto;
+    grid-template-areas:"label label label label" "amount freq savings remove";
+  }
+  .row-label{grid-area:label}
+  .row-amount{grid-area:amount}
+  .row-freq{grid-area:freq}
+  .row-savings{grid-area:savings;justify-content:center}
+  .row-remove{grid-area:remove}
   .row-savings-text{display:none}
-  .row-savings{justify-content:center}
   .freq-head,.freq-row{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:11.5px}
 }

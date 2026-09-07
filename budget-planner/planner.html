@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div class="page">
@@ -245,9 +245,13 @@ function RowEditor({ row, kind, onChange, onRemove }) {
 
 function Table({ title, subtitle, kind, rows, onRowsChange, accent }) {
   const total = rows.reduce((sum, r) => sum + annualOf(r), 0);
-  const updateRow = (id, next) => onRowsChange(rows.map(r => (r.id === id ? next : r)));
-  const removeRow = id => onRowsChange(rows.filter(r => r.id !== id));
-  const addRow = () => onRowsChange([...rows, emptyRow(kind)]);
+  // functional updaters throughout -- reading the `rows` prop directly
+  // (a snapshot from this render) and pushing straight back would drop
+  // updates if two of them land before a re-render lands in between,
+  // e.g. clicking "+ Add row" twice in quick succession
+  const updateRow = (id, next) => onRowsChange(rows => rows.map(r => (r.id === id ? next : r)));
+  const removeRow = id => onRowsChange(rows => rows.filter(r => r.id !== id));
+  const addRow = () => onRowsChange(rows => [...rows, emptyRow(kind)]);
 
   return (
     <section className={"panel accent-" + accent}>
@@ -343,8 +347,12 @@ function App() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* private browsing etc -- fine, just won't persist */ }
   }, [state]);
 
-  const setIncome = rows => setState(s => ({ ...s, income: rows }));
-  const setBills = rows => setState(s => ({ ...s, bills: rows }));
+  // accepts either a new rows array or an updater fn (rows => rows) --
+  // Table always sends an updater now, applied against the freshest
+  // state at flush time rather than whatever `rows` looked like when
+  // the click/keystroke handler was created
+  const setIncome = update => setState(s => ({ ...s, income: typeof update === "function" ? update(s.income) : update }));
+  const setBills = update => setState(s => ({ ...s, bills: typeof update === "function" ? update(s.bills) : update }));
 
   function clearAll() {
     if (!window.confirm("Clear all income and bills? This can't be undone.")) return;
