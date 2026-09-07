@@ -63,7 +63,8 @@ body{
   z-index:1;
   max-width:1040px;
   margin:0 auto;
-  padding:72px 32px 40px;
+  padding:100px 32px 40px; /* clears .topbar (fixed, same top-left corner) with real
+                              room to spare, not the 3px it had before it moved here */
   min-height:100dvh;
   display:flex;
   flex-direction:column;
@@ -75,7 +76,7 @@ body{
 .topbar{
   position:fixed;
   top:24px;
-  right:32px;
+  left:32px;
   z-index:5;
   display:flex;
   align-items:center;
@@ -167,7 +168,7 @@ body{
 .settings-panel{
   position:fixed;
   top:66px;
-  right:32px;
+  left:32px;
   z-index:6;
   width:250px;
   padding:16px;
@@ -263,9 +264,9 @@ body{
 }
 
 @media (max-width:560px){
-  .topbar{top:14px;right:16px}
+  .topbar{top:14px;left:16px}
   .auth-name{max-width:70px}
-  .settings-panel{top:56px;right:16px;left:16px;width:auto}
+  .settings-panel{top:56px;left:16px;right:16px;width:auto}
 }
 
 header{margin-bottom:56px}
@@ -375,31 +376,21 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
 .tile.placeholder .go{display:none}
 .tile.placeholder .label{color:var(--ink-mid)}
 
-footer{
-  position:relative;
-  z-index:2; /* above .grid's tiles (z-index:1) and .bottom-mist (z-index:0)
-                so nothing can stack on top of it */
-  margin-top:auto;
-  padding:22px 0 4px;
+/* project categories -- each is its own heading + its own .grid, so the
+   auto-fill tile layout still works exactly the same within a section */
+.category{margin-bottom:40px}
+.category:last-child{margin-bottom:0}
+.category-title{
+  margin:0 0 14px;
   font-size:12.5px;
-  color:var(--ink-dim);
-}
-/* a soft solid-to-transparent band behind the text itself -- the mist
-   glow (or anything else back there) can still show through most of the
-   page, but never washes out the credit line's own contrast. z-index:-1
-   only sinks it below footer's own text, not below footer as a whole
-   (which already sits above everything via the rule above). */
-footer::before{
-  content:"";
-  position:absolute;
-  z-index:-1;
-  inset:-20px 0 -6px;
-  background:linear-gradient(to top, var(--ground-deep) 60%, transparent);
-  pointer-events:none;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--ink-mid);
 }
 
 @media (max-width:560px){
-  .page{padding:40px 20px 28px}
+  .page{padding:78px 20px 28px}
   header{margin-bottom:32px}
   h1{font-size:30px}
   .blurb{font-size:14.5px}
