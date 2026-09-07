@@ -196,7 +196,10 @@ h1{
 .muscle-shape.is-primary{fill:var(--muscle-primary)}
 .muscle-shape.is-secondary{fill:var(--muscle-secondary)}
 .muscle-shape.is-filtered{fill:var(--ink);stroke:var(--ink)}
-.body-outline{fill:none;stroke:var(--line);stroke-width:1.5}
+/* class rules win over the fill/stroke presentation attributes set on
+   these shapes in JS, so the actual colors live here, not there */
+.body-outline{fill:var(--panel-hi);stroke:none}
+.muscle-detail{fill:none;stroke:var(--muscle-off-line);stroke-width:1;opacity:.6;pointer-events:none}
 
 .map-filter-row{
   display:flex;
