@@ -1,4 +1,8 @@
   :root{
+    /* the page is dark, so browser-drawn furniture -- scrollbars, form
+       controls, the overscroll gutter -- has to be told that too */
+    color-scheme:dark;
+
     --ground:#0C0E0F;
     --ground-deep:#08090A;
     --panel:#101314;
@@ -14,6 +18,16 @@
   }
 
   *{box-sizing:border-box}
+
+  /* Thin dark scrollbars, matching the workout and schedule tools. The rail,
+     the drawer, the booklet's contents list and its text all scroll, and a
+     default light browser scrollbar on each was the loudest thing on screen. */
+  *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--ink-dim)}
+
   html,body{height:100%}
   body{
     margin:0;
@@ -111,6 +125,8 @@
   }
   .rail-reopen:hover{color:var(--ink);border-color:var(--ink-dim)}
   .rail-reopen:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  /* author display beats the UA [hidden] rule, so the attribute needs saying */
+  .rail-reopen[hidden]{display:none}
 
   /* drag handle straddling the right border */
   .rail-grip{
