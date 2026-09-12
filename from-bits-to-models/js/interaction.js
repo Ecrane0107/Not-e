@@ -179,18 +179,11 @@ function select(id){
   dirty = true;
 }
 
-// Legend swatch: solid bar for AI, otherwise the track's own dash pattern.
-function ruleStyle(t){
-  if (!t.dash.length) return `background:${t.color}`;
-  const d = t.dash.length % 2 ? [...t.dash, ...t.dash] : t.dash;
-  const period = d.reduce((a, b) => a + b, 0);
-  let pos = 0;
-  const stops = d.map((len, i) => {
-    const from = pos, to = pos + len;
-    pos = to;
-    return `${i % 2 ? "transparent" : t.color} ${from}px ${to}px`;
-  });
-  return `background:repeating-linear-gradient(90deg, ${stops.join(", ")}) 0 0 / ${period}px 100%`;
+// The legend swatch is a miniature of the thing you actually hunt for on the
+// map: a pill with that category's border. Edges carry no category, so there
+// is no line style left to show.
+function swatch(t){
+  return `<span class="swatch" style="border-color:${t.color}"></span>`;
 }
 
 function chipList(ids, emptyText){
@@ -235,7 +228,7 @@ function renderDrawer(n){
   const after = state.descendants.size;
   drawer.innerHTML = `
     <button class="close" id="closeDrawer" aria-label="Close details">×</button>
-    <div class="drawer-line"><span class="rule" style="${ruleStyle(track)}"></span>${track.name}</div>
+    <div class="drawer-line">${swatch(track)}${track.name}</div>
     <h2>${n.label}</h2>
     <p class="depth">Step ${n.order} of ${visibleCount()} in study order. ${before} concept${before === 1 ? "" : "s"} before it, ${after} after.</p>
     <p class="body">${n.desc}</p>
@@ -636,12 +629,13 @@ document.getElementById("readClose").addEventListener("click", closeBooklet);
 /* ---------- entry points ---------- */
 
 const startsEl = document.getElementById("starts");
+const startsMeta = document.getElementById("startsMeta");
 function renderStarts(){
-  startsEl.innerHTML = `<p class="lines-title">Places to start</p>`;
+  startsEl.innerHTML = "";
   const entries = visibleNodes().filter(n => n.start).sort((a, b) => a.order - b.order);
+  startsMeta.textContent = entries.length || "";
   if (!entries.length) {
-    startsEl.insertAdjacentHTML("beforeend",
-      `<p class="none" style="padding:0 8px">No entry points in the categories you have on.</p>`);
+    startsEl.innerHTML = `<p class="none">No entry points in the categories you have on.</p>`;
     return;
   }
   entries.forEach(n => {
@@ -654,16 +648,17 @@ function renderStarts(){
   });
 }
 
-/* ---------- line filters ---------- */
+/* ---------- category filters ---------- */
 
 const linesEl = document.getElementById("lines");
+const linesMeta = document.getElementById("linesMeta");
 for (const [key, t] of Object.entries(TRACKS)) {
   const count = NODES.filter(n => n.track === key).length;
   const b = document.createElement("button");
   b.className = "line-btn";
   b.setAttribute("aria-pressed", "true");
   b.dataset.track = key;
-  b.innerHTML = `<span class="rule" style="${ruleStyle(t)}"></span>${t.name}<span class="line-count">${count}</span>`;
+  b.innerHTML = `${swatch(t)}<span class="line-name">${t.name}</span><span class="line-count">${count}</span>`;
   b.addEventListener("click", () => {
     const on = b.getAttribute("aria-pressed") === "true";
     if (on && state.hiddenTracks.size === Object.keys(TRACKS).length - 1) return; // keep one
@@ -672,6 +667,55 @@ for (const [key, t] of Object.entries(TRACKS)) {
     applyFilter();
   });
   linesEl.appendChild(b);
+}
+
+/* ---------- layout picker ---------- */
+
+const layoutsEl = document.getElementById("layouts");
+const layoutMeta = document.getElementById("layoutMeta");
+for (const [key, l] of Object.entries(LAYOUTS)) {
+  const b = document.createElement("button");
+  b.className = "layout-btn";
+  b.dataset.layout = key;
+  b.setAttribute("aria-pressed", String(key === layoutMode));
+  b.innerHTML = `<span class="layout-ico">${layoutIcon(key)}</span>${l.name}`;
+  b.addEventListener("click", () => setLayout(key));
+  layoutsEl.appendChild(b);
+}
+
+function syncLayoutUI(){
+  layoutsEl.querySelectorAll("[data-layout]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.layout === layoutMode)));
+  layoutMeta.textContent = LAYOUTS[layoutMode].name.replace(/^Layered — /, "");
+}
+
+function setLayout(key){
+  if (!LAYOUTS[key] || key === layoutMode) return;
+  layoutMode = key;
+  syncLayoutUI();
+  savePrefs();
+  layout(ctx);
+  fit();
+  if (state.selected) renderDrawer(byId.get(state.selected));
+  buildFallback();
+}
+
+// A 20x20 thumbnail of the arrangement each button produces.
+function layoutIcon(key){
+  const box = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="3" rx="1.4"/>`;
+  const shapes = {
+    tb:       box(4, 2, 12) + box(1.5, 8.5, 17) + box(4, 15, 12),
+    lr:       `<rect x="2" y="4" width="3" height="12" rx="1.4"/>
+               <rect x="8.5" y="1.5" width="3" height="17" rx="1.4"/>
+               <rect x="15" y="4" width="3" height="12" rx="1.4"/>`,
+    lanes:    `<rect x="2" y="2" width="4" height="16" rx="1.4"/>
+               <rect x="8" y="2" width="4" height="16" rx="1.4"/>
+               <rect x="14" y="2" width="4" height="16" rx="1.4"/>`,
+    sequence: box(2, 3, 7) + box(11, 3, 7) + box(2, 8.5, 7) + box(11, 8.5, 7) +
+              box(2, 14, 7) + box(11, 14, 7)
+  };
+  return `<svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"
+    aria-hidden="true">${shapes[key] || ""}</svg>`;
 }
 
 // Rebuild everything a hidden category touches: tiers, layout, study numbers,
@@ -700,6 +744,9 @@ function updateLineCounts(){
     el.querySelector(".line-count").textContent = n;
     el.style.opacity = n === 0 ? ".45" : "1";
   });
+  const total = Object.keys(TRACKS).length;
+  const off = state.hiddenTracks.size;
+  linesMeta.textContent = off ? `${total - off} of ${total}` : "All";
 }
 
 /* ---------- search ---------- */
@@ -718,22 +765,106 @@ search.addEventListener("input", () => {
 
 /* ---------- rail buttons ---------- */
 
-const dirLR = document.getElementById("dirLR"), dirTB = document.getElementById("dirTB");
-function setOrient(o){
-  if (o === orient) return;
-  orient = o;
-  layout(ctx);
-  fit();
-  if (state.selected) renderDrawer(byId.get(state.selected));
-  buildFallback();
-  dirLR.setAttribute("aria-pressed", String(o === "lr"));
-  dirTB.setAttribute("aria-pressed", String(o === "tb"));
+/* ---------- the panel itself: sections, collapse, resize ----------
+   All three stick, because the panel is something you set up once for the
+   way you work rather than every time you open the map. */
+
+const RAIL_KEY = "fbtm:rail:v1";
+const RAIL_MIN = 232, RAIL_MAX = 520, RAIL_DEFAULT = 296;
+
+const railGrip = document.getElementById("railGrip");
+const railCollapse = document.getElementById("railCollapse");
+const railReopen = document.getElementById("railReopen");
+const shellEl = document.querySelector(".shell");
+
+let prefs = { width: RAIL_DEFAULT, collapsed: false, closed: {}, layout: "tb" };
+try {
+  const saved = JSON.parse(localStorage.getItem(RAIL_KEY) || "null");
+  if (saved && typeof saved === "object") prefs = { ...prefs, ...saved };
+} catch { /* a corrupt or blocked store just means defaults */ }
+
+function savePrefs(){
+  prefs.layout = layoutMode;
+  try { localStorage.setItem(RAIL_KEY, JSON.stringify(prefs)); } catch { /* private mode */ }
 }
-dirLR.addEventListener("click", () => setOrient("lr"));
-dirTB.addEventListener("click", () => setOrient("tb"));
+
+function setRailWidth(px){
+  prefs.width = Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, px)));
+  shellEl.style.setProperty("--rail", prefs.width + "px");
+}
+
+function setCollapsed(on){
+  prefs.collapsed = !!on;
+  railEl.classList.toggle("is-collapsed", prefs.collapsed);
+  railReopen.hidden = !prefs.collapsed;
+  railCollapse.setAttribute("aria-label", prefs.collapsed ? "Show the panel" : "Hide the panel");
+  savePrefs();
+  if (bounds) { resize(); fit(); }   // no camera to fix up before boot
+}
+
+railCollapse.addEventListener("click", () => setCollapsed(true));
+railReopen.addEventListener("click", () => { setCollapsed(false); railCollapse.focus(); });
+
+// Drag the right edge to resize; the canvas follows through its ResizeObserver.
+let gripDrag = null;
+railGrip.addEventListener("pointerdown", e => {
+  railGrip.setPointerCapture(e.pointerId);
+  gripDrag = { x: e.clientX, w: prefs.width };
+  railGrip.classList.add("is-dragging");
+  document.body.style.cursor = "col-resize";
+  e.preventDefault();
+});
+railGrip.addEventListener("pointermove", e => {
+  if (!gripDrag) return;
+  setRailWidth(gripDrag.w + (e.clientX - gripDrag.x));
+});
+function endGrip(e){
+  if (!gripDrag) return;
+  gripDrag = null;
+  railGrip.classList.remove("is-dragging");
+  document.body.style.cursor = "";
+  if (e && e.pointerId !== undefined && railGrip.hasPointerCapture(e.pointerId)) {
+    railGrip.releasePointerCapture(e.pointerId);
+  }
+  savePrefs();
+}
+railGrip.addEventListener("pointerup", endGrip);
+railGrip.addEventListener("pointercancel", endGrip);
+railGrip.addEventListener("dblclick", () => { setRailWidth(RAIL_DEFAULT); savePrefs(); });
+// keyboard equivalent, since a drag handle is unreachable without one
+railGrip.addEventListener("keydown", e => {
+  const step = e.shiftKey ? 48 : 16;
+  if (e.key === "ArrowLeft")  { setRailWidth(prefs.width - step); savePrefs(); e.preventDefault(); }
+  if (e.key === "ArrowRight") { setRailWidth(prefs.width + step); savePrefs(); e.preventDefault(); }
+  if (e.key === "Home")       { setRailWidth(RAIL_DEFAULT); savePrefs(); e.preventDefault(); }
+});
+
+// Collapsible sections
+document.querySelectorAll(".sec-head").forEach(head => {
+  const key = head.dataset.sec;
+  const sec = head.closest(".sec");
+  const apply = open => {
+    head.setAttribute("aria-expanded", String(open));
+    sec.classList.toggle("is-shut", !open);
+  };
+  apply(!prefs.closed[key]);
+  head.addEventListener("click", () => {
+    const open = head.getAttribute("aria-expanded") !== "true";
+    apply(open);
+    if (open) delete prefs.closed[key]; else prefs.closed[key] = 1;
+    savePrefs();
+  });
+});
+
+// Restore the layout first: setCollapsed saves, and savePrefs stamps the
+// current layoutMode over the stored one, so restoring after it would write
+// the default back every load.
+if (LAYOUTS[prefs.layout]) layoutMode = prefs.layout;
+setRailWidth(prefs.width);
+setCollapsed(prefs.collapsed);
 
 const goalsEl = document.getElementById("goals");
-goalsEl.innerHTML = `<p class="lines-title">Aim for one or more of these</p>`;
+const goalsMeta = document.getElementById("goalsMeta");
 for (const [key, g] of Object.entries(GOALS)) {
   const b = document.createElement("button");
   b.className = "goal-btn";
@@ -751,14 +882,19 @@ const goalNote = document.createElement("p");
 goalNote.className = "goal-note";
 goalsEl.appendChild(goalNote);
 
+// The section header carries the short version, so a shut section still says
+// what it is set to.
 function updateGoalNote(){
   const picked = [...state.goals];
   if (!picked.length) {
     goalNote.textContent = `Nothing chosen, so all ${NODES.length} concepts are numbered.`;
+    goalsMeta.textContent = "Everything";
   } else if (picked.length === 1) {
     goalNote.textContent = `${GOALS[picked[0]].note} ${visibleCount()} concepts, numbered 1 to ${visibleCount()}.`;
+    goalsMeta.textContent = GOALS[picked[0]].name;
   } else {
     goalNote.textContent = `${picked.map(k => GOALS[k].name).join(" and ")}, merged into one order of ${visibleCount()} concepts.`;
+    goalsMeta.textContent = `${picked.length} chosen`;
   }
 }
 
@@ -818,6 +954,7 @@ function boot(){
   renderStarts();
   updateLineCounts();
   updateGoalNote();
+  syncLayoutUI();
   fit();
   state.reveal = reduceMotion ? 1 : 0;
   requestAnimationFrame(frame);

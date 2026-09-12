@@ -8,12 +8,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div class="shell">
 
-  <aside class="rail">
+  <aside class="rail" id="rail">
     <div class="rail-topbar">
       <a class="back-btn" href="../index.html">
         <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -27,33 +27,80 @@
           <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+      <button class="rail-collapse" id="railCollapse" aria-label="Hide the panel" title="Hide the panel">
+        <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
     <div class="rail-body" id="railBody">
       <div class="rail-head">
         <h1 class="wordmark">From bits<span>to models</span></h1>
-        <p class="blurb">Every concept sits below what it depends on. Begin at a marked entry point, or pick any concept to see the route there.</p>
       </div>
       <div class="search-wrap">
         <input id="search" class="search" type="search" placeholder="Find a concept" aria-label="Find a concept">
       </div>
-      <div class="rail-scroll">
-      <div class="goals" id="goals"></div>
-      <div class="starts" id="starts"></div>
-      <div class="lines" id="lines">
-        <p class="lines-title">Six lines run through the map</p>
+
+      <div class="rail-scroll" id="railScroll">
+        <section class="sec" id="secGoals">
+          <button class="sec-head" data-sec="goals" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span>
+            <span class="sec-name">Goal</span>
+            <span class="sec-meta" id="goalsMeta"></span>
+          </button>
+          <div class="sec-body"><div class="goals" id="goals"></div></div>
+        </section>
+
+        <section class="sec" id="secStarts">
+          <button class="sec-head" data-sec="starts" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span>
+            <span class="sec-name">Places to start</span>
+            <span class="sec-meta" id="startsMeta"></span>
+          </button>
+          <div class="sec-body"><div class="starts" id="starts"></div></div>
+        </section>
+
+        <section class="sec" id="secLines">
+          <button class="sec-head" data-sec="lines" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span>
+            <span class="sec-name">Categories</span>
+            <span class="sec-meta" id="linesMeta"></span>
+          </button>
+          <div class="sec-body">
+            <div class="lines" id="lines"></div>
+            <p class="legend-note">Colour is the border on a concept&rsquo;s pill, and nothing else.
+              Every line between two concepts means the same thing — the one it
+              points at needs the one it leaves — so every line is drawn alike.</p>
+          </div>
+        </section>
+
+        <section class="sec" id="secLayout">
+          <button class="sec-head" data-sec="layout" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span>
+            <span class="sec-name">Layout</span>
+            <span class="sec-meta" id="layoutMeta"></span>
+          </button>
+          <div class="sec-body">
+            <div class="layouts" id="layouts"></div>
+          </div>
+        </section>
       </div>
-      </div>
+
       <div class="rail-foot">
-        <div class="seg" role="group" aria-label="Flow direction">
-          <button class="ghost seg-btn" id="dirTB" aria-pressed="true">Top to bottom</button>
-          <button class="ghost seg-btn" id="dirLR" aria-pressed="false">Left to right</button>
-        </div>
         <button class="ghost" id="fit">Fit view</button>
-        <button class="ghost" id="relayout">Redraw layout</button>
+        <button class="ghost" id="relayout">Redraw</button>
         <button class="ghost" id="copy">Copy data</button>
       </div>
     </div>
+    <div class="rail-grip" id="railGrip" role="separator" aria-orientation="vertical"
+         aria-label="Resize the panel" tabindex="0" title="Drag to resize · double-click to reset"></div>
   </aside>
+
+  <button class="rail-reopen" id="railReopen" aria-label="Show the panel" title="Show the panel" hidden>
+    <svg viewBox="0 0 12 12" width="12" height="12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M4.5 2.5 9 6l-4.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
 
   <main class="map">
     <canvas id="c" aria-label="Map of computer science concepts and their prerequisites"></canvas>
@@ -78,7 +125,7 @@
 <div class="sr" id="fallback"></div>
 
 <!-- Data, in dependency order -->
-<script src="js/data-tracks.js"></script>
+<script src="js/data-tracks.js?v=3"></script>
 <script src="js/data-nodes.js"></script>
 <script src="js/data-details.js"></script>
 <script src="js/data-booklets-core.js"></script>
@@ -92,9 +139,9 @@
 <script src="js/data-edges.js"></script>
 
 <!-- Application logic -->
-<script src="js/graph.js"></script>
-<script src="js/layout.js"></script>
-<script src="js/render.js"></script>
-<script src="js/interaction.js?v=2"></script>
+<script src="js/graph.js?v=3"></script>
+<script src="js/layout.js?v=3"></script>
+<script src="js/render.js?v=3"></script>
+<script src="js/interaction.js?v=3"></script>
 </body>
 </html>

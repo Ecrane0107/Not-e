@@ -82,6 +82,25 @@ function edgeAlpha(a, b){
   return 0.22;
 }
 
+/* Every edge means one thing — the concept it points at needs the one it
+   leaves — so every edge is drawn the same: same colour, same solid stroke.
+   Only state changes it: dim by default, brighter on hover or in a selected
+   chain, white and thicker along a route. */
+const EDGE_COLOR = "#9AA1A6";
+const EDGE_LIT   = "#FFFFFF";
+
+// Endpoints and the two bezier controls between a and b, in screen space.
+function edgeGeom(a, b){
+  const lr = orient === "lr";
+  const [x1, y1] = lr ? toScreen(a.x + a.w / 2, a.y) : toScreen(a.x, a.y + a.h / 2);
+  const [x2, y2] = lr ? toScreen(b.x - b.w / 2, b.y) : toScreen(b.x, b.y - b.h / 2);
+  const bend = lr ? Math.max(28, (x2 - x1) * 0.45) : Math.max(28, (y2 - y1) * 0.45);
+  return [x1, y1,
+          lr ? x1 + bend : x1, lr ? y1 : y1 + bend,
+          lr ? x2 - bend : x2, lr ? y2 : y2 - bend,
+          x2, y2];
+}
+
 function roundRect(x, y, w, h, r){
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -98,7 +117,6 @@ function draw(){
   const rev = state.reveal;
 
   // edges first
-  ctx.lineWidth = Math.max(1, 1.4 * cam.k);
   for (const [fromId, toId] of EDGES) {
     const a = byId.get(fromId), b = byId.get(toId);
     if (a.hidden || b.hidden) continue;
@@ -107,29 +125,20 @@ function draw(){
     const alpha = edgeAlpha(a, b);
     if (alpha < 0.02) continue;
 
-    const lr = orient === "lr";
-    const [x1, y1] = lr ? toScreen(a.x + a.w / 2, a.y) : toScreen(a.x, a.y + a.h / 2);
-    const [x2, y2] = lr ? toScreen(b.x - b.w / 2, b.y) : toScreen(b.x, b.y - b.h / 2);
+    const [x1, y1, c1x, c1y, c2x, c2y, x2, y2] = edgeGeom(a, b);
     if (Math.max(x1, x2) < -60 || Math.min(x1, x2) > viewW + 60 ||
         Math.max(y1, y2) < -60 || Math.min(y1, y2) > viewH + 60) continue;
 
-    const bend = lr ? Math.max(28, (x2 - x1) * 0.45) : Math.max(28, (y2 - y1) * 0.45);
-    const c1x = lr ? x1 + bend : x1, c1y = lr ? y1 : y1 + bend;
-    const c2x = lr ? x2 - bend : x2, c2y = lr ? y2 : y2 - bend;
-    const track = TRACKS[b.track];
     const lit = alpha > 0.45;
     const onRoute = alpha >= 0.999;
-    ctx.setLineDash(track.dash.map(d => d * cam.k));
     ctx.lineWidth = Math.max(1, (onRoute ? 2.6 : lit ? 1.9 : 1.3) * cam.k);
-    if (onRoute) ctx.setLineDash([]);
-    ctx.strokeStyle = lit ? "#FFFFFF" : track.color;
+    ctx.strokeStyle = lit ? EDGE_LIT : EDGE_COLOR;
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2);
     ctx.stroke();
   }
-  ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
   // nodes

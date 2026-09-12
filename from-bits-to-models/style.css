@@ -25,8 +25,12 @@
 
   .shell{display:flex;height:100vh;height:100dvh}
 
-  /* ---------- left rail ---------- */
+  /* ---------- left rail ----------
+     Resizable (drag the right edge), collapsible to nothing, and every
+     group inside it folds away, so the panel ends up only as tall as the
+     controls you actually keep open. All three stick across visits. */
   .rail{
+    position:relative;
     width:var(--rail);
     flex:0 0 var(--rail);
     background:var(--panel);
@@ -34,15 +38,16 @@
     display:flex;
     flex-direction:column;
     min-height:0;
+    min-width:0;
   }
+  .rail.is-collapsed{display:none}
   .rail-topbar{
     flex:0 0 auto;
-    padding:14px 22px;
+    padding:12px 14px 12px 18px;
     border-bottom:1px solid var(--line);
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    gap:10px;
+    gap:8px;
   }
   .browse-toggle{
     display:none; /* shown on mobile only -- see the max-width:900px block */
@@ -70,40 +75,145 @@
     color:var(--ink-mid);
     font:500 13px "Space Grotesk",sans-serif;
     text-decoration:none;
+    white-space:nowrap;
   }
   .back-btn svg{flex:0 0 auto}
   .back-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
   .back-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-  .rail-head{padding:20px 22px 16px}
+
+  .rail-collapse{
+    margin-left:auto;
+    flex:0 0 auto;
+    width:28px;height:28px;
+    display:grid;place-items:center;
+    background:none;
+    border:1px solid transparent;
+    border-radius:7px;
+    color:var(--ink-dim);
+    cursor:pointer;
+  }
+  .rail-collapse:hover{color:var(--ink);border-color:var(--line);background:var(--ground)}
+  .rail-collapse:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+  /* the only thing left on screen once the panel is gone */
+  .rail-reopen{
+    position:fixed;
+    top:12px;
+    left:12px;
+    z-index:8;
+    width:32px;height:32px;
+    display:grid;place-items:center;
+    background:rgba(16,19,20,.9);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink-mid);
+    cursor:pointer;
+  }
+  .rail-reopen:hover{color:var(--ink);border-color:var(--ink-dim)}
+  .rail-reopen:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+  /* drag handle straddling the right border */
+  .rail-grip{
+    position:absolute;
+    top:0;
+    bottom:0;
+    right:-3px;
+    width:7px;
+    z-index:5;
+    cursor:col-resize;
+    touch-action:none;
+  }
+  .rail-grip::after{
+    content:"";
+    position:absolute;
+    inset:0 3px;
+    background:transparent;
+    transition:background .12s ease;
+  }
+  .rail-grip:hover::after,
+  .rail-grip.is-dragging::after,
+  .rail-grip:focus-visible::after{background:var(--ink-dim)}
+  .rail-grip:focus-visible{outline:none}
+
+  .rail-body{display:flex;flex-direction:column;min-height:0;flex:1}
+  .rail-head{padding:16px 18px 12px}
   .wordmark{
     margin:0;
-    font-size:25px;
+    font-size:22px;
     line-height:1.08;
     font-weight:700;
     letter-spacing:-0.02em;
   }
-  .wordmark span{display:block;color:var(--ink-dim);font-weight:400;font-size:25px}
-  .blurb{
-    margin:12px 0 0;
-    font-family:"Newsreader",Georgia,serif;
-    font-size:15px;
-    line-height:1.5;
-    color:var(--ink-mid);
-  }
+  .wordmark span{display:block;color:var(--ink-dim);font-weight:400;font-size:22px}
 
-  .goals{padding:0 14px 14px}
+  .search-wrap{padding:0 18px 12px}
+  .search{
+    width:100%;
+    padding:9px 12px;
+    background:var(--ground);
+    border:1px solid var(--line);
+    border-radius:7px;
+    color:var(--ink);
+    font:400 14px "Space Grotesk",sans-serif;
+  }
+  .search::placeholder{color:var(--ink-dim)}
+  .search:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
+
+  /* ---------- folding sections ---------- */
+  .rail-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .sec{border-top:1px solid var(--line)}
+  .sec:first-child{border-top:0}
+  .sec-head{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    padding:11px 18px;
+    background:none;
+    border:0;
+    color:var(--ink-mid);
+    font:500 12.5px "Space Grotesk",sans-serif;
+    letter-spacing:.02em;
+    text-align:left;
+    cursor:pointer;
+  }
+  .sec-head:hover{color:var(--ink);background:var(--panel-hi)}
+  .sec-head:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+  .sec-name{flex:0 0 auto}
+  .sec-meta{
+    margin-left:auto;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:var(--ink-dim);
+    font-weight:400;
+  }
+  .sec-chev{
+    flex:0 0 7px;
+    width:7px;height:7px;
+    border-right:1.4px solid currentColor;
+    border-bottom:1.4px solid currentColor;
+    transform:rotate(45deg) translate(-1px,-1px);
+    transition:transform .15s ease;
+  }
+  .sec.is-shut .sec-chev{transform:rotate(-45deg) translate(-1px,1px)}
+  .sec.is-shut .sec-body{display:none}
+  .sec-body{padding-bottom:10px}
+
+  .goals{padding:0 10px}
   .goal-btn{
     display:flex;
     align-items:center;
     gap:10px;
     width:100%;
-    padding:8px;
-    margin-bottom:2px;
+    padding:7px 8px;
+    margin-bottom:1px;
     background:none;
     border:0;
     border-radius:7px;
     color:var(--ink-dim);
-    font:500 14px "Space Grotesk",sans-serif;
+    font:500 13.5px "Space Grotesk",sans-serif;
     text-align:left;
     cursor:pointer;
   }
@@ -117,33 +227,19 @@
   }
   .goal-btn[aria-pressed="true"] .box{background:#fff;border-color:#fff}
   .goal-note{
-    margin:8px 8px 0;
+    margin:8px 18px 0;
     font-family:"Newsreader",Georgia,serif;
     font-size:13px;
     line-height:1.45;
     color:var(--ink-dim);
   }
 
-  .search-wrap{padding:0 22px 16px}
-  .search{
-    width:100%;
-    padding:9px 12px;
-    background:var(--ground);
-    border:1px solid var(--line);
-    border-radius:7px;
-    color:var(--ink);
-    font:400 14px "Space Grotesk",sans-serif;
-  }
-  .search::placeholder{color:var(--ink-dim)}
-  .search:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
-
-  .rail-scroll{flex:1;min-height:0;overflow-y:auto}
-  .starts{padding:0 14px 14px}
+  .starts{padding:0 10px}
   .start-btn{
     display:flex;
     gap:10px;
     width:100%;
-    padding:8px;
+    padding:7px 8px;
     background:none;
     border:0;
     border-radius:7px;
@@ -162,45 +258,83 @@
     box-shadow:0 0 0 3px rgba(255,255,255,.14);
   }
   .start-text{display:block;min-width:0}
-  .start-text strong{display:block;font-size:14px;font-weight:500}
+  .start-text strong{display:block;font-size:13.5px;font-weight:500}
   .start-text em{
     display:block;
     margin-top:2px;
     font-family:"Newsreader",Georgia,serif;
     font-style:normal;
-    font-size:13px;
+    font-size:12.5px;
     line-height:1.4;
     color:var(--ink-dim);
   }
 
-  .lines{padding:0 14px 8px}
-  .lines-title{
-    margin:0 8px 8px;
-    font-size:12.5px;
-    color:var(--ink-dim);
-    font-weight:500;
-  }
+  .lines{padding:0 10px}
   .line-btn{
     display:flex;
     align-items:center;
     gap:10px;
     width:100%;
-    padding:8px;
-    margin-bottom:2px;
+    min-width:0;
+    padding:7px 8px;
+    margin-bottom:1px;
     background:none;
     border:0;
     border-radius:7px;
     color:var(--ink);
-    font:500 14px "Space Grotesk",sans-serif;
+    font:500 13.5px "Space Grotesk",sans-serif;
     text-align:left;
     cursor:pointer;
   }
   .line-btn:hover{background:var(--panel-hi)}
   .line-btn:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
   .line-btn[aria-pressed="false"]{color:var(--ink-dim)}
-  .line-btn[aria-pressed="false"] .rule{opacity:.28}
-  .rule{width:26px;height:3px;flex:0 0 26px}
+  .line-btn[aria-pressed="false"] .swatch{opacity:.3}
+  .line-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .line-count{margin-left:auto;color:var(--ink-dim);font-size:12.5px;font-weight:400}
+
+  /* a miniature of the pill you look for on the map */
+  .swatch{
+    width:22px;height:13px;flex:0 0 22px;
+    border:1.5px solid;
+    border-radius:4px;
+    background:#131719;
+  }
+  .legend-note{
+    margin:10px 18px 0;
+    font-family:"Newsreader",Georgia,serif;
+    font-size:13px;
+    line-height:1.45;
+    color:var(--ink-dim);
+  }
+
+  .layouts{padding:0 10px;display:flex;flex-direction:column;gap:1px}
+  .layout-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    min-width:0;
+    padding:7px 8px;
+    background:none;
+    border:0;
+    border-radius:7px;
+    color:var(--ink-dim);
+    font:500 13.5px "Space Grotesk",sans-serif;
+    text-align:left;
+    cursor:pointer;
+  }
+  .layout-btn:hover{background:var(--panel-hi);color:var(--ink)}
+  .layout-btn:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+  .layout-btn[aria-pressed="true"]{color:var(--ink);background:var(--panel-hi)}
+  .layout-ico{
+    flex:0 0 26px;
+    height:20px;
+    display:grid;
+    place-items:center;
+    color:var(--ink-dim);
+  }
+  .layout-btn[aria-pressed="true"] .layout-ico{color:var(--ink)}
 
   .rail-foot{padding:14px 22px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px}
   .ghost{
@@ -213,11 +347,6 @@
     cursor:pointer;
   }
   .ghost:hover{color:var(--ink);border-color:var(--ink-dim)}
-  .seg{display:flex;width:100%}
-  .seg .seg-btn{flex:1;border-radius:0}
-  .seg .seg-btn:first-child{border-radius:7px 0 0 7px}
-  .seg .seg-btn:last-child{border-radius:0 7px 7px 0;border-left:0}
-  .seg .seg-btn[aria-pressed="true"]{background:var(--panel-hi);color:var(--ink);border-color:var(--ink-dim)}
   .ghost:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
 
   /* ---------- map ---------- */
@@ -830,31 +959,20 @@
       box-shadow:0 18px 36px rgba(0,0,0,.45);
     }
 
+    /* the panel is already an overlay here, so its desktop affordances --
+       collapse, reopen, resize -- have nothing to act on. A width saved on
+       desktop is overridden by width:100% above; a collapse saved there
+       would otherwise leave nothing on screen at all. */
+    .rail-collapse,.rail-grip,.rail-reopen{display:none}
+    .rail.is-collapsed{display:flex}
+
     .rail-topbar{padding:10px 16px}
-    .rail-head{padding:16px 16px 10px}
+    .rail-head{padding:14px 16px 10px}
     .wordmark,.wordmark span{font-size:21px}
-    .blurb{display:none}
     .search-wrap{padding:0 16px 10px}
-    .rail-scroll{display:contents}
-    .goals{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px}
-    .goals .lines-title,.goals .goal-note{display:none}
-    .goal-btn{width:auto;flex:0 0 auto;padding:6px 10px;background:var(--ground);border:1px solid var(--line);white-space:nowrap}
-    .starts{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px}
-    .starts .lines-title{display:none}
-    .start-btn{width:auto;flex:0 0 auto;padding:6px 10px;background:var(--ground);border:1px solid var(--line);align-items:center}
-    .start-text em{display:none}
-    .start-text strong{white-space:nowrap}
-    .dot{margin-top:0}
-    .lines{
-      display:flex;
-      gap:6px;
-      overflow-x:auto;
-      padding:0 16px 12px;
-      flex:0 0 auto;
-    }
-    .lines-title{display:none}
-    .line-btn{width:auto;flex:0 0 auto;padding:6px 10px;background:var(--ground);border:1px solid var(--line)}
-    .line-count{display:none}
+    .sec-head{padding:11px 16px}
+    .goals,.starts,.lines,.layouts{padding:0 8px}
+    .goal-note,.legend-note{margin-left:16px;margin-right:16px}
     .rail-foot{padding:10px 16px;flex-wrap:wrap}
     .map{flex:1;min-height:0}
     .map-ctrl{width:42px;height:42px;font-size:19px}
