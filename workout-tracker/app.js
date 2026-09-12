@@ -181,6 +181,11 @@ function buildMap(svg, filler, regions, onMuscleClick) {
   filler.forEach(shape => svg.appendChild(shapeToEl(shape, { class: "muscle-filler" })));
   regions.forEach(r => {
     const el = shapeToEl(r, { class: "muscle-shape", "data-muscle": r.muscle });
+    // native <title> gives a hover tooltip with the muscle's name for
+    // free, in every browser, with no extra positioning/tracking code
+    const title = svgEl("title", {});
+    title.textContent = MUSCLE_LABELS[r.muscle] || r.muscle;
+    el.appendChild(title);
     el.addEventListener("click", () => onMuscleClick(r.muscle));
     svg.appendChild(el);
   });

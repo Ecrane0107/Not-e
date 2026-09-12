@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="page">
@@ -47,8 +47,13 @@
             <div class="map-label">Back</div>
           </div>
         </div>
+        <div class="map-legend">
+          <span><i class="dot is-primary"></i>Primary</span>
+          <span><i class="dot is-secondary"></i>Secondary</span>
+          <span><i class="dot is-filtered"></i>Selected</span>
+        </div>
         <div class="map-filter-row" id="mapFilterRow"></div>
-        <p class="map-hint" id="mapHint">Click a muscle to filter exercises, or pick an exercise below to see what it hits.</p>
+        <p class="map-hint" id="mapHint">Hover a muscle to see its name, click to filter exercises, or pick an exercise below to see what it hits.</p>
       </div>
     </section>
 
@@ -120,6 +125,6 @@
 
 </div>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

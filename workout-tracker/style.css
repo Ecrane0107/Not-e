@@ -213,6 +213,21 @@ h1{
    trackable muscle, so no cursor/hover/click */
 .muscle-filler{fill:var(--muscle-off);stroke:var(--muscle-outline);stroke-width:7;stroke-linejoin:round}
 
+.map-legend{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  margin-top:10px;
+  font-size:11px;
+  color:var(--ink-dim);
+}
+.map-legend span{display:inline-flex;align-items:center;gap:5px}
+.map-legend .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.map-legend .dot.is-primary{background:var(--muscle-primary)}
+.map-legend .dot.is-secondary{background:var(--muscle-secondary)}
+.map-legend .dot.is-filtered{background:var(--muscle-filtered)}
+
 .map-filter-row{
   display:flex;
   align-items:center;
@@ -312,15 +327,15 @@ h1{
   gap:18px;
 }
 
-.entry-list{padding:8px 18px 4px}
-.entry-empty{padding:16px 0 20px;text-align:center;font-size:13px;color:var(--ink-dim)}
+.entry-list{padding:14px 18px 10px}
+.entry-empty{padding:30px 0 34px;text-align:center;font-size:13px;color:var(--ink-dim)}
 
 .workout-entry{
   display:grid;
   grid-template-columns:1fr 52px 52px 64px 26px;
   gap:8px;
   align-items:center;
-  padding:9px 0;
+  padding:12px 0;
   border-top:1px solid var(--line);
   min-width:0; /* grid items default to min-width:auto, which keeps the 1fr
                   name column and the number inputs from shrinking below
@@ -364,7 +379,7 @@ input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0
   display:grid;
   grid-template-columns:1fr 52px 52px 64px 26px;
   gap:8px;
-  padding:0 18px;
+  padding:14px 18px 10px;
   font-size:10.5px;
   letter-spacing:.05em;
   text-transform:uppercase;
@@ -379,9 +394,9 @@ input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:12px 18px 16px;
+  padding:16px 18px 20px;
   border-top:1px solid var(--line);
-  margin-top:4px;
+  margin-top:8px;
 }
 
 /* calories */
