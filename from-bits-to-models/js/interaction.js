@@ -348,17 +348,29 @@ function answerMatches(input, accepted){
    `quiz` state, so re-rendering a card is always safe. */
 
 // Status per question: right = first attempt, help = correct after a miss or
-// a hint, shown = gave up and read the solution, seen = walkthrough read.
-const STATUS_LABEL = { right:"correct", help:"correct with help", shown:"solution shown", seen:"read" };
+// a hint, shown = gave up and read the solution. The open questions are marked
+// by the reader instead: got / missed.
+const STATUS_LABEL = { right:"correct", help:"correct with help", shown:"solution shown",
+                       got:"marked right", missed:"marked wrong" };
 const CHOICE_LETTER = "ABCDEFGH";
 
 let quiz = null;
 
 function quizKind(p){
-  return p.kind === "mc" || p.kind === "write" ? p.kind : "walk";
+  return p.kind === "mc" || p.kind === "write" ? p.kind : "open";
 }
-function isGraded(p){ return quizKind(p) !== "walk"; }
-function isSettled(s){ return s.status === "right" || s.status === "help" || s.status === "shown"; }
+// An open question ("why is building a heap O(n)?") has no answer a string
+// comparison could check, so the reader writes one, reads the worked steps,
+// and marks it themselves. Being unmarkable automatically is not a reason to
+// leave it with no way to answer at all.
+function isGraded(p){ return quizKind(p) !== "open"; }
+function isSettled(s){
+  return s.status === "right" || s.status === "help" || s.status === "shown"
+      || s.status === "got"   || s.status === "missed";
+}
+function escapeText(v){
+  return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+}
 
 function startQuiz(exercises){
   quiz = {
@@ -411,11 +423,17 @@ function quizCardHTML(){
         placeholder="${p.hint || "type your answer"}" autocomplete="off" spellcheck="false"
         ${settled ? "disabled" : ""}>
     </div>`;
+  } else {
+    field = `<div class="qwrite">
+      <textarea class="qinput qarea" rows="3" spellcheck="false"
+        placeholder="Answer it here, then compare with the working"
+        ${settled ? "disabled" : ""}>${escapeText(s.value)}</textarea>
+    </div>`;
   }
 
   // Hints are the worked steps metered out one at a time; once the question is
   // settled the rest open up as the full explanation, so they read as steps.
-  const word = (kind === "walk" || settled) ? "Step" : "Hint";
+  const word = (kind === "open" || settled) ? "Step" : "Hint";
   const revealed = (s.solved || settled) ? steps.length : s.hints;
   const hintsLeft = revealed < steps.length;
 
@@ -423,19 +441,26 @@ function quizCardHTML(){
   if (s.status === "right")  feedback = `<p class="qfb is-good">Correct.</p>`;
   if (s.status === "help")   feedback = `<p class="qfb is-good">Correct — you had help on this one.</p>`;
   if (s.status === "shown")  feedback = `<p class="qfb is-flat">Solution shown.</p>`;
+  if (s.status === "got")    feedback = `<p class="qfb is-good">Marked right.</p>`;
+  if (s.status === "missed") feedback = `<p class="qfb is-flat">Marked wrong — worth coming back to.</p>`;
   if (s.miss)                feedback = `<p class="qfb is-bad">Not quite. Try again, or take a hint.</p>`;
 
-  const answer = (settled || (kind === "walk" && s.solved))
+  const answer = (settled || (kind === "open" && s.solved))
     ? `<p class="qanswer">${p.answer}</p>` : "";
 
   let foot;
-  if (settled || (kind === "walk" && s.status === "seen")) {
+  if (settled) {
     foot = `<button class="qbtn is-primary" data-act="next">${
       last ? "See how you did" : "Next question"}</button>`;
-  } else if (kind === "walk") {
+  } else if (kind === "open" && s.solved) {
+    // the answer is on screen; only the reader can say whether theirs matched
+    foot = `<span class="qselfq">Did you get it?</span>
+      <button class="qbtn" data-act="self" data-v="missed">Not quite</button>
+      <button class="qbtn is-primary" data-act="self" data-v="got">Got it</button>`;
+  } else if (kind === "open") {
     foot = `<button class="qbtn" data-act="hint"${hintsLeft ? "" : " disabled"}>${
-        s.hints === 0 ? "Work through it" : "Next step"}</button>
-      <button class="qbtn is-primary" data-act="walkdone">Show the answer</button>`;
+        s.hints === 0 ? "Work through it" : `Next step (${s.hints}/${steps.length})`}</button>
+      <button class="qbtn is-primary" data-act="reveal">Show the answer</button>`;
   } else {
     const canSolve = s.wrong.length > 0 || s.hints > 0;
     foot = `<button class="qbtn" data-act="hint"${hintsLeft ? "" : " disabled"}>${
@@ -455,16 +480,28 @@ function quizCardHTML(){
     </div>`;
 }
 
+// Checked and self-marked questions are counted apart: lumping them together
+// would claim a score the grader never actually verified.
 function quizDoneHTML(){
   const graded = quiz.items.filter(isGraded).length;
-  const right = quiz.st.filter(s => s.status === "right").length;
-  const help  = quiz.st.filter(s => s.status === "help").length;
-  let line;
-  if (!graded) line = "Walkthroughs read.";
-  else if (right === graded) line = `${right} of ${graded} — all of them first time.`;
-  else line = `${right} of ${graded} first time` + (help ? `, ${help} more after a hint.` : ".");
+  const open   = quiz.items.length - graded;
+  const right  = quiz.st.filter(s => s.status === "right").length;
+  const help   = quiz.st.filter(s => s.status === "help").length;
+  const got    = quiz.st.filter(s => s.status === "got").length;
+
+  let line = "";
+  if (graded) {
+    line = right === graded
+      ? `${right} of ${graded} — all of them first time.`
+      : `${right} of ${graded} first time` + (help ? `, ${help} more after a hint.` : ".");
+  }
+  const openLine = open
+    ? `${graded ? "And of" : "Of"} the ${open} open question${open === 1 ? "" : "s"}, you marked ${got} right.`
+    : "";
+
   return `<div class="qdone">
-    <p class="qdone-score">${line}</p>
+    ${line ? `<p class="qdone-score">${line}</p>` : ""}
+    ${openLine ? `<p class="qdone-open">${openLine}</p>` : ""}
     <p class="qdone-note">Click any square above to look back at a question, or run the set again.</p>
     <button class="qbtn is-primary" data-act="restart">Practice again</button>
   </div>`;
@@ -503,9 +540,13 @@ function wireQuiz(mount){
   const input = mount.querySelector(".qinput");
   if (input) {
     input.addEventListener("input", () => { s.value = input.value; });
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") { s.value = input.value; check(); }
-    });
+    // Enter submits a one-line answer; in the open question's box it is a
+    // newline, since those answers run to a sentence or three.
+    if (!input.classList.contains("qarea")) {
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { s.value = input.value; check(); }
+      });
+    }
     if (!input.disabled && s.status === null) input.focus();
   }
 
@@ -543,10 +584,8 @@ function wireQuiz(mount){
       case "hint":     if (s.hints < steps.length) s.hints++; s.miss = false; renderQuiz(); break;
       case "solution": s.status = "shown"; s.solved = true; s.miss = false; renderQuiz(); break;
       case "check":    if (quizKind(p) !== "mc" && !String(s.value).trim()) return; check(); break;
-      case "walkdone":
-        if (!s.solved) { s.solved = true; s.status = "seen"; renderQuiz(); }
-        else advance();
-        break;
+      case "reveal":   s.solved = true; renderQuiz(); break;
+      case "self":     s.status = b.dataset.v; renderQuiz(); break;
       case "next":     advance(); break;
       case "restart":  startQuiz(quiz.items); renderQuiz(); break;
     }
