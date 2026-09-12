@@ -204,26 +204,15 @@ function chipList(ids, emptyText){
 function bookletMarkup(n){
   const bk = loadBooklet(n.id);
   if (!bk) return "";
-  const ex = bk.chapters.reduce((t, c) => t + (c.exercises ? c.exercises.length : 0), 0);
+  // Count what the reader will actually get: the vocabulary and mixed-practice
+  // chapters are appended on open, so they are added here rather than counted.
+  const ex = bk.chapters.reduce((t, c) => t + (c.exercises ? c.exercises.length : 0), 0)
+    + ((!bk._problemsAdded && PROBLEMS[n.id]) ? PROBLEMS[n.id].length : 0);
+  const ch = bk.chapters.length
+    + (bk.vocab && !bk._vocabAdded ? 1 : 0)
+    + (!bk._problemsAdded && PROBLEMS[n.id] && PROBLEMS[n.id].length ? 1 : 0);
   return `<button class="open-booklet" data-booklet="${n.id}">Open the booklet
-    <small>${bk.chapters.length} chapters, ${ex} exercises</small></button>`;
-}
-
-function problemMarkup(n){
-  // A booklet carries its own exercises, so the short practice list only shows
-  // for concepts whose booklet is not written yet.
-  if (loadBooklet(n.id)) return "";
-  const ps = PROBLEMS[n.id];
-  if (!ps || !ps.length) return "";
-  const items = ps.map((p, i) => `<li>
-      <p class="q">${p.q}</p>
-      <details class="work">
-        <summary>Work through it</summary>
-        <ol class="steps">${p.steps.map(st => `<li>${st}</li>`).join("")}</ol>
-        <p class="ans">${p.answer}</p>
-      </details>
-    </li>`).join("");
-  return `<div class="grp"><h3>Practice</h3><ol class="probs">${items}</ol></div>`;
+    <small>${ch} chapters, ${ex} practice questions</small></button>`;
 }
 
 function routeMarkup(n){
@@ -256,7 +245,6 @@ function renderDrawer(n){
     ${d.check ? `<div class="entry"><h3>You have it when</h3><p>${d.check}</p></div>` : ""}
     ${n.start ? `<div class="entry"><h3>Entry point</h3><p>${n.note}</p></div>` : ""}
     ${bookletMarkup(n)}
-    ${problemMarkup(n)}
     ${routeMarkup(n)}
     <div class="grp">
       <h3>Comes after</h3>
@@ -359,90 +347,229 @@ function answerMatches(input, accepted){
   });
 }
 
-function exerciseHTML(p, j){
-  const body = `<ol class="steps">${p.steps.map(st => `<li>${st}</li>`).join("")}</ol>
-    <p class="ans">${p.answer}</p>`;
-  if (p.kind === "mc") {
-    const opts = p.options.map((o, k) =>
-      `<button class="opt" data-k="${k}">${o}</button>`).join("");
-    return `<div class="ex" data-kind="mc" data-correct="${p.correct}">
-      <p class="wq">${j + 1}. ${p.q}</p>
-      <div class="opts">${opts}</div>
-      <div class="verdict" hidden></div>
-      <div class="expl" hidden>${body}</div></div>`;
-  }
-  if (p.kind === "write") {
-    return `<div class="ex" data-kind="write" data-accept="${encodeURIComponent(JSON.stringify(p.accept))}">
-      <p class="wq">${j + 1}. ${p.q}</p>
-      <div class="writein">
-        <input type="text" class="ansin" placeholder="${p.hint || "your answer"}" autocomplete="off" spellcheck="false">
-        <button class="ghost check">Check</button>
-        <button class="ghost reveal">Show</button>
-      </div>
-      <div class="verdict" hidden></div>
-      <div class="expl" hidden>${body}</div></div>`;
-  }
-  return `<div class="worked"><p class="wq">${j + 1}. ${p.q}</p>
-    <details class="work"><summary>Work through it</summary>${body}</details></div>`;
+/* ---------- practice quiz ----------
+   A chapter's exercises are worked one card at a time rather than listed
+   all at once: a progress strip you can click back through, hints drawn
+   from the worked steps and revealed one at a time, a check that lets you
+   try again after a miss, and a score at the end. Everything renders from
+   `quiz` state, so re-rendering a card is always safe. */
+
+// Status per question: right = first attempt, help = correct after a miss or
+// a hint, shown = gave up and read the solution, seen = walkthrough read.
+const STATUS_LABEL = { right:"correct", help:"correct with help", shown:"solution shown", seen:"read" };
+const CHOICE_LETTER = "ABCDEFGH";
+
+let quiz = null;
+
+function quizKind(p){
+  return p.kind === "mc" || p.kind === "write" ? p.kind : "walk";
+}
+function isGraded(p){ return quizKind(p) !== "walk"; }
+function isSettled(s){ return s.status === "right" || s.status === "help" || s.status === "shown"; }
+
+function startQuiz(exercises){
+  quiz = {
+    items: exercises,
+    i: 0,
+    finished: false,
+    st: exercises.map(() => ({ status:null, picked:null, wrong:[], value:"",
+                               hints:0, solved:false, miss:false, everWrong:false }))
+  };
 }
 
-function wireExercises(root){
-  root.querySelectorAll(".ex").forEach(ex => {
-    const verdict = ex.querySelector(".verdict"), expl = ex.querySelector(".expl");
-    const settle = (ok, msg) => {
-      verdict.textContent = msg;
-      verdict.className = "verdict " + (ok ? "right" : "wrong");
-      verdict.hidden = false;
-      expl.hidden = false;
-    };
-    if (ex.dataset.kind === "mc") {
-      const correct = Number(ex.dataset.correct);
-      ex.querySelectorAll(".opt").forEach(btn => {
-        btn.addEventListener("click", () => {
-          if (ex.dataset.done) return;
-          ex.dataset.done = "1";
-          const k = Number(btn.dataset.k);
-          ex.querySelectorAll(".opt").forEach((b, i) => {
-            if (i === correct) b.classList.add("is-right");
-            else if (i === k) b.classList.add("is-wrong");
-            b.disabled = true;
-          });
-          settle(k === correct, k === correct ? "Correct." : "Not quite.");
-        });
-      });
+function quizDotsHTML(){
+  return `<div class="qdots">` + quiz.st.map((s, k) => {
+    const cls = ["qdot", s.status ? "is-" + s.status : "",
+      k === quiz.i && !quiz.finished ? "is-at" : ""].filter(Boolean).join(" ");
+    const what = s.status ? ", " + STATUS_LABEL[s.status] : "";
+    return `<button class="${cls}" data-jump="${k}" title="Question ${k + 1}${what}"
+      aria-label="Question ${k + 1}${what}"></button>`;
+  }).join("") + `</div>`;
+}
+
+function quizStepsHTML(steps, n, word){
+  if (!n) return "";
+  return `<div class="qsteps">` + steps.slice(0, n).map((st, k) =>
+    `<div class="qstep"><span class="qstep-n">${word} ${k + 1}</span><p>${st}</p></div>`
+  ).join("") + `</div>`;
+}
+
+function quizCardHTML(){
+  const p = quiz.items[quiz.i], s = quiz.st[quiz.i];
+  const kind = quizKind(p), steps = p.steps || [];
+  const settled = isSettled(s);
+  const last = quiz.i === quiz.items.length - 1;
+
+  let field = "";
+  if (kind === "mc") {
+    field = `<div class="qchoices">` + p.options.map((o, k) => {
+      const missed = s.wrong.includes(k);
+      const cls = ["qchoice",
+        missed ? "is-wrong" : "",
+        settled && k === p.correct ? "is-right" : "",
+        !settled && s.picked === k ? "is-picked" : ""].filter(Boolean).join(" ");
+      return `<button class="${cls}" data-pick="${k}"${settled || missed ? " disabled" : ""}>
+        <span class="qletter">${CHOICE_LETTER[k]}</span><span class="qopt">${o}</span></button>`;
+    }).join("") + `</div>`;
+  } else if (kind === "write") {
+    const mark = s.status === "right" || s.status === "help" ? " is-right" : "";
+    field = `<div class="qwrite">
+      <input type="text" class="qinput${mark}" value="${String(s.value).replace(/"/g, "&quot;")}"
+        placeholder="${p.hint || "type your answer"}" autocomplete="off" spellcheck="false"
+        ${settled ? "disabled" : ""}>
+    </div>`;
+  }
+
+  // Hints are the worked steps metered out one at a time; once the question is
+  // settled the rest open up as the full explanation, so they read as steps.
+  const word = (kind === "walk" || settled) ? "Step" : "Hint";
+  const revealed = (s.solved || settled) ? steps.length : s.hints;
+  const hintsLeft = revealed < steps.length;
+
+  let feedback = "";
+  if (s.status === "right")  feedback = `<p class="qfb is-good">Correct.</p>`;
+  if (s.status === "help")   feedback = `<p class="qfb is-good">Correct — you had help on this one.</p>`;
+  if (s.status === "shown")  feedback = `<p class="qfb is-flat">Solution shown.</p>`;
+  if (s.miss)                feedback = `<p class="qfb is-bad">Not quite. Try again, or take a hint.</p>`;
+
+  const answer = (settled || (kind === "walk" && s.solved))
+    ? `<p class="qanswer">${p.answer}</p>` : "";
+
+  let foot;
+  if (settled || (kind === "walk" && s.status === "seen")) {
+    foot = `<button class="qbtn is-primary" data-act="next">${
+      last ? "See how you did" : "Next question"}</button>`;
+  } else if (kind === "walk") {
+    foot = `<button class="qbtn" data-act="hint"${hintsLeft ? "" : " disabled"}>${
+        s.hints === 0 ? "Work through it" : "Next step"}</button>
+      <button class="qbtn is-primary" data-act="walkdone">Show the answer</button>`;
+  } else {
+    const canSolve = s.wrong.length > 0 || s.hints > 0;
+    foot = `<button class="qbtn" data-act="hint"${hintsLeft ? "" : " disabled"}>${
+        s.hints === 0 ? "Hint" : hintsLeft ? `Next hint (${s.hints}/${steps.length})` : "No hints left"}</button>
+      ${canSolve ? `<button class="qbtn" data-act="solution">Show solution</button>` : ""}
+      <button class="qbtn is-primary" data-act="check"${
+        kind === "mc" && s.picked === null ? " disabled" : ""}>Check</button>`;
+  }
+
+  return `<div class="qcard">
+      <p class="qprompt">${p.q}</p>
+      ${field}
+      ${quizStepsHTML(steps, revealed, word)}
+      ${answer}
+      ${feedback}
+      <div class="qfoot">${foot}</div>
+    </div>`;
+}
+
+function quizDoneHTML(){
+  const graded = quiz.items.filter(isGraded).length;
+  const right = quiz.st.filter(s => s.status === "right").length;
+  const help  = quiz.st.filter(s => s.status === "help").length;
+  let line;
+  if (!graded) line = "Walkthroughs read.";
+  else if (right === graded) line = `${right} of ${graded} — all of them first time.`;
+  else line = `${right} of ${graded} first time` + (help ? `, ${help} more after a hint.` : ".");
+  return `<div class="qdone">
+    <p class="qdone-score">${line}</p>
+    <p class="qdone-note">Click any square above to look back at a question, or run the set again.</p>
+    <button class="qbtn is-primary" data-act="restart">Practice again</button>
+  </div>`;
+}
+
+function renderQuiz(){
+  const mount = document.getElementById("quizMount");
+  if (!mount || !quiz) return;
+  const n = quiz.items.length;
+  mount.innerHTML = `
+    <div class="qhead">
+      <p class="qtitle">Practice</p>
+      ${quizDotsHTML()}
+      <p class="qcount">${quiz.finished ? "Done" : `${quiz.i + 1} of ${n}`}</p>
+    </div>
+    ${quiz.finished ? quizDoneHTML() : quizCardHTML()}`;
+  wireQuiz(mount);
+}
+
+function wireQuiz(mount){
+  const s = quiz.st[quiz.i], p = quiz.items[quiz.i];
+  const steps = p ? (p.steps || []) : [];
+
+  mount.querySelectorAll("[data-jump]").forEach(b => b.addEventListener("click", () => {
+    quiz.i = Number(b.dataset.jump);
+    quiz.finished = false;
+    renderQuiz();
+  }));
+
+  mount.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => {
+    s.picked = Number(b.dataset.pick);
+    s.miss = false;
+    renderQuiz();
+  }));
+
+  const input = mount.querySelector(".qinput");
+  if (input) {
+    input.addEventListener("input", () => { s.value = input.value; });
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") { s.value = input.value; check(); }
+    });
+    if (!input.disabled && s.status === null) input.focus();
+  }
+
+  // A miss keeps the question open: the wrong choice is struck out and you
+  // pick again, the way Khan Academy handles a first attempt.
+  function check(){
+    const kind = quizKind(p);
+    const ok = kind === "mc"
+      ? s.picked === p.correct
+      : answerMatches(s.value, p.accept);
+    if (ok) {
+      // `wrong` only holds struck-out choices, so write-ins need their own flag
+      // for a miss -- otherwise a second, correct try would score as first time.
+      s.status = (s.everWrong || s.hints) ? "help" : "right";
+      s.miss = false;
     } else {
-      const accept = JSON.parse(decodeURIComponent(ex.dataset.accept));
-      const input = ex.querySelector(".ansin");
-      const grade = () => {
-        const ok = answerMatches(input.value, accept);
-        input.classList.add(ok ? "is-right" : "is-wrong");
-        settle(ok, ok ? "Correct." : `Not quite — the term is “${accept[0]}”.`);
-      };
-      ex.querySelector(".check").addEventListener("click", grade);
-      input.addEventListener("keydown", e => { if (e.key === "Enter") grade(); });
-      ex.querySelector(".reveal").addEventListener("click", () => {
-        input.value = accept[0];
-        settle(true, `The term is “${accept[0]}”.`);
-      });
+      s.miss = true;
+      s.everWrong = true;
+      if (kind === "mc" && s.picked !== null && !s.wrong.includes(s.picked)) s.wrong.push(s.picked);
+      s.picked = null;
     }
-  });
-}
+    renderQuiz();
+  }
 
-function chapterBlocks(bk, i){
-  const ch = bk.chapters[i];
-  if (!ch.exercises) return ch.blocks.map(blockHTML).join("");
-  return ch.blocks.map(blockHTML).join("") +
-    ch.exercises.map((p, j) => exerciseHTML(p, j)).join("");
+  const advance = () => {
+    if (quiz.i === quiz.items.length - 1) quiz.finished = true;
+    else quiz.i++;
+    renderQuiz();
+    const mo = document.getElementById("quizMount");
+    if (mo) mo.scrollIntoView({ block:"start", behavior: reduceMotion ? "auto" : "smooth" });
+  };
+
+  mount.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+    switch (b.dataset.act) {
+      case "hint":     if (s.hints < steps.length) s.hints++; s.miss = false; renderQuiz(); break;
+      case "solution": s.status = "shown"; s.solved = true; s.miss = false; renderQuiz(); break;
+      case "check":    if (quizKind(p) !== "mc" && !String(s.value).trim()) return; check(); break;
+      case "walkdone":
+        if (!s.solved) { s.solved = true; s.status = "seen"; renderQuiz(); }
+        else advance();
+        break;
+      case "next":     advance(); break;
+      case "restart":  startQuiz(quiz.items); renderQuiz(); break;
+    }
+  }));
 }
 
 function renderChapter(i){
   const bk = openBook;
   chIndex = Math.max(0, Math.min(i, bk.chapters.length - 1));
   const ch = bk.chapters[chIndex];
+  const hasQuiz = ch.exercises && ch.exercises.length;
   readBody.innerHTML = `<div class="read-inner">
     <p class="ch-eyebrow">${bk.title} — chapter ${chIndex + 1} of ${bk.chapters.length}</p>
     <h2>${ch.title}</h2>
-    ${chapterBlocks(bk, chIndex)}
+    ${ch.blocks.map(blockHTML).join("")}
+    ${hasQuiz ? `<div class="quiz" id="quizMount"></div>` : ""}
     <div class="ch-nav">
       <button class="ghost" id="chPrev" ${chIndex === 0 ? "disabled" : ""}>Previous</button>
       <span>${chIndex + 1} / ${bk.chapters.length}</span>
@@ -454,7 +581,7 @@ function renderChapter(i){
   if (nx && !nx.disabled) nx.addEventListener("click", () => renderChapter(chIndex + 1));
   tocEl.querySelectorAll(".toc-btn").forEach((b, j) =>
     b.setAttribute("aria-current", String(j === chIndex)));
-  wireExercises(readBody);
+  if (hasQuiz) { startQuiz(ch.exercises); renderQuiz(); }
   readBody.scrollTop = 0;
 }
 
@@ -471,6 +598,22 @@ function openBooklet(id){
       ]
     });
     bk._vocabAdded = true;
+  }
+  // The longer problems in PROBLEMS span the whole concept rather than one
+  // chapter, so they close the booklet as a final set instead of sitting in
+  // the drawer, where a written booklet used to hide them entirely.
+  if (!bk._problemsAdded) {
+    const ps = PROBLEMS[id];
+    if (ps && ps.length) {
+      bk.chapters.push({
+        title: "Mixed practice",
+        blocks: [
+          { t:"p", x:"Longer problems that pull on the whole booklet rather than a single chapter. Work each one out on paper first — the steps are there when you want them." }
+        ],
+        exercises: ps
+      });
+    }
+    bk._problemsAdded = true;
   }
   openBook = bk;
   tocEl.innerHTML = `<p class="toc-head">${bk.title}</p>

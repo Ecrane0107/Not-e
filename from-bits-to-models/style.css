@@ -324,54 +324,6 @@
     background:var(--ink-dim);
   }
 
-  .probs{margin:0;padding:0;list-style:none;counter-reset:prob}
-  .probs > li{
-    counter-increment:prob;
-    padding:12px 0 14px;
-    border-top:1px solid var(--line);
-  }
-  .probs > li:first-child{border-top:0;padding-top:2px}
-  .q{
-    margin:0;
-    font-size:14px;
-    line-height:1.5;
-    color:var(--ink);
-  }
-  .q::before{
-    content:counter(prob) ". ";
-    color:var(--ink-dim);
-  }
-  .work{margin-top:8px}
-  .work summary{
-    display:inline-block;
-    font-size:12.5px;
-    color:var(--ink-mid);
-    cursor:pointer;
-    padding:3px 0;
-  }
-  .work summary:hover{color:var(--ink)}
-  .work summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-  .work[open] summary{color:var(--ink-dim)}
-  .steps{
-    margin:8px 0 0;
-    padding:0 0 0 20px;
-    font-family:"Newsreader",Georgia,serif;
-    font-size:14.5px;
-    line-height:1.5;
-    color:var(--ink-mid);
-  }
-  .steps li{margin-bottom:6px}
-  .ans{
-    margin:10px 0 0;
-    padding:9px 12px;
-    background:var(--ground);
-    border-left:2px solid var(--ink-dim);
-    border-radius:0 6px 6px 0;
-    font-size:13.5px;
-    line-height:1.45;
-    color:var(--ink);
-  }
-
   .grp{margin-bottom:20px}
   .grp h3{
     margin:0 0 9px;
@@ -613,51 +565,186 @@
     line-height:1.55;
     color:var(--ink-mid);
   }
-  .ex{
-    margin:0 0 22px;
-    padding:16px 18px;
-    background:var(--panel);
-    border-left:2px solid var(--ink-dim);
-    border-radius:0 9px 9px 0;
+  /* ---------- practice quiz ----------
+     One question at a time inside its own card, with a clickable progress
+     strip above it. Green and amber are the only saturated colours in the
+     booklet, so right and wrong read instantly against the grey text. */
+  .quiz{
+    --q-good:#5BC98B;
+    --q-bad:#E0A458;
+    margin:40px 0 8px;
+    scroll-margin-top:18px;
   }
-  .opts{display:flex;flex-direction:column;gap:6px;margin-top:12px}
-  .opt{
-    padding:9px 12px;
+  .qhead{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .quiz .qtitle{
+    margin:0;
+    font:500 13px/1 "Space Grotesk",sans-serif;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  .quiz .qcount{
+    margin:0 0 0 auto;
+    font:400 12.5px/1 "Space Grotesk",sans-serif;
+    color:var(--ink-dim);
+    white-space:nowrap;
+  }
+  .qdots{display:flex;gap:4px;flex-wrap:wrap;min-width:0}
+  .qdot{
+    width:16px;
+    height:16px;
+    padding:0;
     background:var(--ground);
     border:1px solid var(--line);
-    border-radius:7px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .qdot:hover{border-color:var(--ink-dim)}
+  .qdot:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  .qdot.is-at{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .qdot.is-right{background:var(--q-good);border-color:var(--q-good)}
+  .qdot.is-help{background:rgba(91,201,139,.28);border-color:var(--q-good)}
+  .qdot.is-shown{background:rgba(224,164,88,.22);border-color:var(--q-bad)}
+  .qdot.is-seen{background:var(--ink-dim);border-color:var(--ink-dim)}
+
+  .qcard{padding:20px 0 0}
+  .quiz .qprompt{
+    margin:0 0 16px;
+    font:500 17px/1.5 "Space Grotesk",sans-serif;
     color:var(--ink);
-    font:400 14px/1.45 "Space Grotesk",sans-serif;
+  }
+  .qchoices{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+  .qchoice{
+    display:flex;
+    align-items:flex-start;
+    gap:11px;
+    width:100%;
+    min-width:0;
+    padding:11px 13px;
+    background:var(--ground);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink);
+    font:400 14.5px/1.45 "Space Grotesk",sans-serif;
     text-align:left;
     cursor:pointer;
   }
-  .opt:hover:not(:disabled){border-color:var(--ink-dim)}
-  .opt:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-  .opt:disabled{cursor:default}
-  .opt.is-right{border-color:#fff;background:rgba(255,255,255,.10);color:#fff}
-  .opt.is-wrong{border-color:var(--ink-dim);opacity:.55;text-decoration:line-through}
-  .writein{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-  .ansin{
-    flex:1;
-    min-width:180px;
-    padding:9px 12px;
+  .qchoice:hover:not(:disabled){border-color:var(--ink-dim);background:var(--panel-hi)}
+  .qchoice:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  .qchoice:disabled{cursor:default}
+  .qletter{
+    flex:0 0 21px;
+    height:21px;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--ink-dim);
+    border-radius:50%;
+    font-size:11.5px;
+    color:var(--ink-mid);
+  }
+  .qopt{flex:1;min-width:0}
+  .qchoice.is-picked{border-color:var(--ink);background:var(--panel-hi)}
+  .qchoice.is-picked .qletter{background:var(--ink);border-color:var(--ink);color:var(--ground-deep)}
+  .qchoice.is-right{border-color:var(--q-good);background:rgba(91,201,139,.10)}
+  .qchoice.is-right .qletter{background:var(--q-good);border-color:var(--q-good);color:#08120C}
+  .qchoice.is-wrong{border-color:var(--q-bad);opacity:.6}
+  .qchoice.is-wrong .qopt{text-decoration:line-through}
+  .qchoice.is-wrong .qletter{border-color:var(--q-bad);color:var(--q-bad)}
+
+  .qwrite{margin-bottom:4px}
+  .qinput{
+    width:100%;
+    padding:11px 13px;
     background:var(--ground);
     border:1px solid var(--line);
-    border-radius:7px;
+    border-radius:8px;
     color:var(--ink);
-    font:400 14px "Space Grotesk",sans-serif;
+    font:400 15px "Space Grotesk",sans-serif;
   }
-  .ansin:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
-  .ansin.is-right{border-color:#fff}
-  .ansin.is-wrong{border-color:var(--ink-dim)}
-  .verdict{
-    margin-top:12px;
+  .qinput:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
+  .qinput.is-right{border-color:var(--q-good)}
+  .qinput:disabled{opacity:.75}
+
+  /* hints reveal one at a time -- the worked steps, metered out */
+  .qsteps{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+  .qstep{
+    padding:12px 14px;
+    background:var(--panel);
+    border-left:2px solid var(--ink-dim);
+    border-radius:0 8px 8px 0;
+  }
+  .qstep-n{
+    display:block;
+    margin-bottom:4px;
+    font:500 11px/1 "Space Grotesk",sans-serif;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  .quiz .qstep p{
+    margin:0;
+    font-size:16px;
+    line-height:1.55;
+    color:var(--ink-mid);
+  }
+  .quiz .qanswer{
+    margin:16px 0 0;
+    padding:13px 15px;
+    background:rgba(91,201,139,.08);
+    border:1px solid rgba(91,201,139,.3);
+    border-radius:8px;
+    font:400 16px/1.55 "Newsreader",Georgia,serif;
+    color:#DDE3E7;
+  }
+  .quiz .qfb{
+    margin:14px 0 0;
+    font:500 13.5px/1.5 "Space Grotesk",sans-serif;
+  }
+  .quiz .qfb.is-good{color:var(--q-good)}
+  .quiz .qfb.is-bad{color:var(--q-bad)}
+  .quiz .qfb.is-flat{color:var(--ink-dim)}
+
+  .qfoot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:20px}
+  .qbtn{
+    padding:10px 17px;
+    background:none;
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink-mid);
     font:500 13.5px "Space Grotesk",sans-serif;
+    cursor:pointer;
   }
-  .verdict.right{color:#fff}
-  .verdict.wrong{color:var(--ink-mid)}
-  .expl{margin-top:4px}
-  .expl .steps{margin-top:8px}
+  .qbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-dim)}
+  .qbtn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  .qbtn:disabled{opacity:.4;cursor:default}
+  .qbtn.is-primary{
+    margin-left:auto;
+    background:#fff;
+    border-color:#fff;
+    color:#08090A;
+  }
+  .qbtn.is-primary:hover:not(:disabled){background:#DDE3E7;border-color:#DDE3E7;color:#08090A}
+
+  .qdone{padding:26px 0 0;text-align:center}
+  .quiz .qdone-score{
+    margin:0 0 6px;
+    font:500 22px/1.3 "Space Grotesk",sans-serif;
+    color:var(--ink);
+  }
+  .quiz .qdone-note{
+    margin:0 auto 20px;
+    max-width:36ch;
+    font-size:15px;
+    color:var(--ink-dim);
+  }
+  .qdone .qbtn{margin:0}
 
   .ch-nav{
     display:flex;
@@ -701,6 +788,13 @@
     .read-body{padding:64px 18px 80px}
     .read-inner h2{font-size:25px}
     .read-inner p,.read-inner ul{font-size:17px}
+
+    /* narrow: the strip gets its own row so the count can't be pushed
+       under the fixed Close button */
+    .qdots{order:3;flex-basis:100%}
+    .quiz .qcount{order:2}
+    .qfoot .qbtn{flex:1 1 auto}
+    .qfoot .qbtn.is-primary{flex-basis:100%;margin-left:0;order:-1}
   }
 
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
