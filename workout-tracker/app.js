@@ -501,9 +501,14 @@ function setHoverGroup(muscle) {
 // ---------------------------------------------------------------
 // state + persistence
 // ---------------------------------------------------------------
-const WORKOUT_KEY = "workout-tracker:workouts:v1";
-const FOOD_KEY = "workout-tracker:food:v1";
+// v2 keys: the plan and the food log used to be keyed by date
+// ({'YYYY-MM-DD': [...]}), but the tool is one standing workout plan now
+// rather than a diary, so both are flat lists.
+const PLAN_KEY = "workout-tracker:plan:v2";
+const FOOD_KEY = "workout-tracker:food:v2";
 const GOAL_KEY = "workout-tracker:calgoal:v1";
+const OLD_WORKOUT_KEY = "workout-tracker:workouts:v1";
+const OLD_FOOD_KEY = "workout-tracker:food:v1";
 
 function loadJSON(key, fallback) {
   try {
@@ -515,24 +520,37 @@ function saveJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private browsing etc -- just won't persist */ }
 }
 
-let workoutLog = loadJSON(WORKOUT_KEY, {}); // { 'YYYY-MM-DD': [{id, exerciseId, name, sets, reps, weight}] }
-let foodLog = loadJSON(FOOD_KEY, {});       // { 'YYYY-MM-DD': [{id, name, cal}] }
+// carry anything already logged under the old date-keyed shape over to
+// the flat one, newest day first, so dropping the calendar doesn't
+// silently throw away what someone had in there
+function loadFlat(key, oldKey) {
+  const current = loadJSON(key, null);
+  if (Array.isArray(current)) return current;
+  const old = loadJSON(oldKey, null);
+  if (old && typeof old === "object" && !Array.isArray(old)) {
+    const days = Object.keys(old).sort().reverse();
+    for (const d of days) {
+      if (Array.isArray(old[d]) && old[d].length) {
+        saveJSON(key, old[d]);
+        return old[d];
+      }
+    }
+  }
+  return [];
+}
+
+let workoutPlan = loadFlat(PLAN_KEY, OLD_WORKOUT_KEY); // [{id, exerciseId, name, sets, reps, weight}]
+let foodEntries = loadFlat(FOOD_KEY, OLD_FOOD_KEY);    // [{id, name, cal}]
 let calorieGoal = loadJSON(GOAL_KEY, 2200);
 
-let selectedDate = todayStr();
 let muscleFilter = null;   // muscle id, filters the exercise list
 let previewExercise = null; // exercise id, highlighted on the map
 
-function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
 function uid() { return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 // ---------------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------------
-const dateInput = document.getElementById("dateInput");
 const mapFront = document.getElementById("mapFront");
 const mapBack = document.getElementById("mapBack");
 const mapFilterRow = document.getElementById("mapFilterRow");
@@ -563,17 +581,39 @@ function onMuscleClick(muscle) {
 buildMap(mapFront, FRONT_SILHOUETTE, FRONT_MUSCLES, onMuscleClick);
 buildMap(mapBack, BACK_SILHOUETTE, BACK_MUSCLES, onMuscleClick);
 
+// everything the plan as a whole trains: a muscle any exercise targets
+// directly counts as primary, one that only ever comes along for the
+// ride stays secondary
+function planCoverage() {
+  const primary = new Set(), secondary = new Set();
+  workoutPlan.forEach(entry => {
+    const ex = EXERCISE_BY_ID[entry.exerciseId];
+    if (!ex) return;
+    ex.primary.forEach(m => primary.add(m));
+    ex.secondary.forEach(m => secondary.add(m));
+  });
+  primary.forEach(m => secondary.delete(m));
+  return { primary, secondary };
+}
+
 function renderMaps() {
   const allShapes = [...mapFront.querySelectorAll(".muscle-shape"), ...mapBack.querySelectorAll(".muscle-shape")];
   const exercise = previewExercise ? EXERCISE_BY_ID[previewExercise] : null;
+  // with nothing being inspected, the map shows the whole plan -- adding
+  // an exercise lights up what it works. Previewing one exercise or
+  // filtering a muscle takes over so you can still look at just that.
+  const plan = (!exercise && !muscleFilter) ? planCoverage() : null;
   allShapes.forEach(el => {
     const m = el.dataset.muscle;
     el.classList.remove("is-primary", "is-secondary", "is-filtered");
     if (exercise) {
       if (exercise.primary.includes(m)) el.classList.add("is-primary");
       else if (exercise.secondary.includes(m)) el.classList.add("is-secondary");
-    } else if (muscleFilter && m === muscleFilter) {
-      el.classList.add("is-filtered");
+    } else if (muscleFilter) {
+      if (m === muscleFilter) el.classList.add("is-filtered");
+    } else if (plan) {
+      if (plan.primary.has(m)) el.classList.add("is-primary");
+      else if (plan.secondary.has(m)) el.classList.add("is-secondary");
     }
   });
 
@@ -594,6 +634,14 @@ function renderMaps() {
     const chip = document.createElement("span");
     chip.className = "filter-chip";
     chip.innerHTML = "<b>" + exercise.name + "</b>";
+    mapFilterRow.appendChild(chip);
+    mapHint.hidden = true;
+  } else if (plan && (plan.primary.size || plan.secondary.size)) {
+    // say so, otherwise a lit-up map is ambiguous with a previewed exercise
+    const chip = document.createElement("span");
+    chip.className = "filter-chip";
+    chip.innerHTML = "Your plan &middot; <b>" + workoutPlan.length + "</b> exercise"
+      + (workoutPlan.length === 1 ? "" : "s");
     mapFilterRow.appendChild(chip);
     mapHint.hidden = true;
   } else {
@@ -745,16 +793,20 @@ exerciseSearch.addEventListener("input", renderExerciseList);
 equipmentFilter.addEventListener("change", renderExerciseList);
 
 // ---------------------------------------------------------------
-// workout log
+// workout plan
 // ---------------------------------------------------------------
 function addToWorkout(exercise) {
-  const list = workoutLog[selectedDate] || (workoutLog[selectedDate] = []);
-  list.push({ id: uid(), exerciseId: exercise.id, name: exercise.name, sets: "", reps: "", weight: "" });
-  saveJSON(WORKOUT_KEY, workoutLog);
+  workoutPlan.push({ id: uid(), exerciseId: exercise.id, name: exercise.name, sets: "", reps: "", weight: "" });
+  saveJSON(PLAN_KEY, workoutPlan);
+  // drop any single-exercise preview so the map falls back to showing
+  // the whole plan -- which now includes what was just added
+  previewExercise = null;
   renderWorkout();
+  renderMaps();
+  renderExerciseList();
 }
 function renderWorkout() {
-  const list = workoutLog[selectedDate] || [];
+  const list = workoutPlan;
   workoutHeadRow.hidden = list.length === 0;
   workoutList.innerHTML = "";
   if (list.length === 0) {
@@ -774,13 +826,14 @@ function renderWorkout() {
       const reps = row.querySelector(".we-reps");
       const weight = row.querySelector(".we-weight");
       sets.value = entry.sets; reps.value = entry.reps; weight.value = entry.weight;
-      sets.addEventListener("input", () => { entry.sets = sets.value; saveJSON(WORKOUT_KEY, workoutLog); });
-      reps.addEventListener("input", () => { entry.reps = reps.value; saveJSON(WORKOUT_KEY, workoutLog); });
-      weight.addEventListener("input", () => { entry.weight = weight.value; saveJSON(WORKOUT_KEY, workoutLog); });
+      sets.addEventListener("input", () => { entry.sets = sets.value; saveJSON(PLAN_KEY, workoutPlan); });
+      reps.addEventListener("input", () => { entry.reps = reps.value; saveJSON(PLAN_KEY, workoutPlan); });
+      weight.addEventListener("input", () => { entry.weight = weight.value; saveJSON(PLAN_KEY, workoutPlan); });
       row.querySelector(".we-remove").addEventListener("click", () => {
-        workoutLog[selectedDate] = (workoutLog[selectedDate] || []).filter(x => x.id !== entry.id);
-        saveJSON(WORKOUT_KEY, workoutLog);
+        workoutPlan = workoutPlan.filter(x => x.id !== entry.id);
+        saveJSON(PLAN_KEY, workoutPlan);
         renderWorkout();
+        renderMaps(); // the map follows the plan, so it has to drop that muscle too
       });
       workoutList.appendChild(row);
     });
@@ -788,11 +841,12 @@ function renderWorkout() {
   workoutSummary.textContent = list.length + " exercise" + (list.length === 1 ? "" : "s");
 }
 document.getElementById("clearWorkout").addEventListener("click", () => {
-  if (!(workoutLog[selectedDate] || []).length) return;
-  if (!confirm("Clear all exercises logged for this day?")) return;
-  delete workoutLog[selectedDate];
-  saveJSON(WORKOUT_KEY, workoutLog);
+  if (!workoutPlan.length) return;
+  if (!confirm("Clear every exercise from the plan?")) return;
+  workoutPlan = [];
+  saveJSON(PLAN_KEY, workoutPlan);
   renderWorkout();
+  renderMaps();
 });
 
 // ---------------------------------------------------------------
@@ -804,9 +858,8 @@ function addFood() {
   const name = nameEl.value.trim();
   const cal = parseFloat(calEl.value);
   if (!name || !Number.isFinite(cal) || cal < 0) return;
-  const list = foodLog[selectedDate] || (foodLog[selectedDate] = []);
-  list.push({ id: uid(), name, cal });
-  saveJSON(FOOD_KEY, foodLog);
+  foodEntries.push({ id: uid(), name, cal });
+  saveJSON(FOOD_KEY, foodEntries);
   nameEl.value = ""; calEl.value = "";
   nameEl.focus();
   renderCalories();
@@ -816,7 +869,7 @@ document.getElementById("foodCal").addEventListener("keydown", e => { if (e.key 
 document.getElementById("foodName").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("foodCal").focus(); });
 
 function renderCalories() {
-  const list = foodLog[selectedDate] || [];
+  const list = foodEntries;
   foodList.innerHTML = "";
   if (list.length === 0) {
     foodList.innerHTML = '<div class="entry-empty">Nothing logged yet.</div>';
@@ -831,8 +884,8 @@ function renderCalories() {
       row.querySelector(".fe-name").textContent = entry.name;
       row.querySelector(".fe-cal").textContent = Math.round(entry.cal) + " kcal";
       row.querySelector(".fe-remove").addEventListener("click", () => {
-        foodLog[selectedDate] = (foodLog[selectedDate] || []).filter(x => x.id !== entry.id);
-        saveJSON(FOOD_KEY, foodLog);
+        foodEntries = foodEntries.filter(x => x.id !== entry.id);
+        saveJSON(FOOD_KEY, foodEntries);
         renderCalories();
       });
       foodList.appendChild(row);
@@ -859,10 +912,10 @@ function renderCalories() {
   }
 }
 document.getElementById("clearFood").addEventListener("click", () => {
-  if (!(foodLog[selectedDate] || []).length) return;
-  if (!confirm("Clear all food logged for this day?")) return;
-  delete foodLog[selectedDate];
-  saveJSON(FOOD_KEY, foodLog);
+  if (!foodEntries.length) return;
+  if (!confirm("Clear everything from the food log?")) return;
+  foodEntries = [];
+  saveJSON(FOOD_KEY, foodEntries);
   renderCalories();
 });
 calGoalInput.addEventListener("input", () => {
@@ -989,33 +1042,12 @@ function hydrateCalc() {
 }
 
 // ---------------------------------------------------------------
-// date navigation
-// ---------------------------------------------------------------
-function setDate(str) {
-  selectedDate = str;
-  dateInput.value = str;
-  renderWorkout();
-  renderCalories();
-}
-function shiftDate(days) {
-  const [y, m, d] = selectedDate.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + days);
-  setDate(dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"));
-}
-dateInput.addEventListener("change", () => setDate(dateInput.value || todayStr()));
-document.getElementById("datePrev").addEventListener("click", () => shiftDate(-1));
-document.getElementById("dateNext").addEventListener("click", () => shiftDate(1));
-document.getElementById("dateToday").addEventListener("click", () => setDate(todayStr()));
-
-// ---------------------------------------------------------------
 // init
 // ---------------------------------------------------------------
 function renderAll() {
   renderMaps();
   renderExerciseList();
 }
-dateInput.value = selectedDate;
 calGoalInput.value = calorieGoal;
 renderAll();
 renderWorkout();

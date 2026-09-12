@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <div class="page">
@@ -21,14 +21,7 @@
 
   <p class="eyebrow">Project</p>
   <h1>Workout &amp; Calories</h1>
-  <p class="blurb">Click a muscle on the map to see what hits it, or pick an exercise to see what it hits. Add exercises to a day's workout, log food against a daily goal — all of it saved to this browser.</p>
-
-  <div class="datebar">
-    <button type="button" class="date-nav" id="datePrev" aria-label="Previous day">&lsaquo;</button>
-    <input type="date" id="dateInput">
-    <button type="button" class="date-nav" id="dateNext" aria-label="Next day">&rsaquo;</button>
-    <button type="button" class="date-today-btn" id="dateToday">Today</button>
-  </div>
+  <p class="blurb">Build a workout plan and the map lights up with everything it trains. Click a muscle to see what hits it, or pick an exercise to see what it hits. Log food against a daily goal too — all of it saved to this browser.</p>
 
   <div class="explorer">
 
@@ -77,7 +70,7 @@
 
     <section class="panel">
       <div class="panel-head">
-        <h2>Today's workout</h2>
+        <h2>Workout plan</h2>
         <p id="workoutSummary"></p>
       </div>
       <div class="entry-head-row" id="workoutHeadRow" hidden>
@@ -86,7 +79,7 @@
       <div class="entry-list" id="workoutList"></div>
       <div class="panel-foot">
         <span style="font-size:11.5px;color:var(--ink-dim)">Add exercises from the library above</span>
-        <button type="button" class="ghost-btn" id="clearWorkout">Clear day</button>
+        <button type="button" class="ghost-btn" id="clearWorkout">Clear plan</button>
       </div>
     </section>
 
@@ -115,7 +108,7 @@
           Daily goal
           <input type="number" id="calGoal" min="0" step="50">
           <span>kcal</span>
-          <button type="button" class="ghost-btn small" id="clearFood" style="margin-left:auto">Clear day</button>
+          <button type="button" class="ghost-btn small" id="clearFood" style="margin-left:auto">Clear log</button>
         </div>
       </div>
     </section>
@@ -195,6 +188,6 @@
 
 </div>
 
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
