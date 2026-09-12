@@ -24,50 +24,196 @@ const MUSCLE_LABELS = {
 // each muscle group across common equipment types.
 // ---------------------------------------------------------------
 const EXERCISES = [
+  // ---- chest ----
   { id: "bench-press", name: "Barbell Bench Press", equipment: "barbell", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "incline-barbell-press", name: "Incline Barbell Press", equipment: "barbell", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "decline-bench-press", name: "Decline Bench Press", equipment: "barbell", primary: ["chest"], secondary: ["triceps"] },
+  { id: "flat-db-press", name: "Flat Dumbbell Press", equipment: "dumbbell", primary: ["chest"], secondary: ["front-delts", "triceps"] },
   { id: "incline-db-press", name: "Incline Dumbbell Press", equipment: "dumbbell", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "decline-db-press", name: "Decline Dumbbell Press", equipment: "dumbbell", primary: ["chest"], secondary: ["triceps"] },
+  { id: "db-fly", name: "Dumbbell Fly", equipment: "dumbbell", primary: ["chest"], secondary: ["front-delts"] },
+  { id: "incline-db-fly", name: "Incline Dumbbell Fly", equipment: "dumbbell", primary: ["chest"], secondary: ["front-delts"] },
   { id: "push-up", name: "Push-Up", equipment: "bodyweight", primary: ["chest"], secondary: ["front-delts", "triceps", "abs"] },
+  { id: "wide-push-up", name: "Wide-Grip Push-Up", equipment: "bodyweight", primary: ["chest"], secondary: ["front-delts"] },
+  { id: "incline-push-up", name: "Incline Push-Up", equipment: "bodyweight", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "decline-push-up", name: "Decline Push-Up", equipment: "bodyweight", primary: ["chest"], secondary: ["front-delts", "triceps", "abs"] },
   { id: "cable-fly", name: "Cable Fly", equipment: "cable", primary: ["chest"], secondary: ["front-delts"] },
-  { id: "dips", name: "Dips", equipment: "bodyweight", primary: ["triceps", "chest"], secondary: ["front-delts"] },
+  { id: "low-high-cable-fly", name: "Low-to-High Cable Fly", equipment: "cable", primary: ["chest"], secondary: ["front-delts"] },
+  { id: "high-low-cable-fly", name: "High-to-Low Cable Fly", equipment: "cable", primary: ["chest"], secondary: [] },
+  { id: "cable-chest-press", name: "Cable Chest Press", equipment: "cable", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "machine-chest-press", name: "Machine Chest Press", equipment: "machine", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+  { id: "pec-deck", name: "Pec Deck", equipment: "machine", primary: ["chest"], secondary: [] },
+  { id: "band-chest-press", name: "Band Chest Press", equipment: "band", primary: ["chest"], secondary: ["front-delts", "triceps"] },
+
+  // ---- shoulders (front / lateral) ----
   { id: "overhead-press", name: "Overhead Press", equipment: "barbell", primary: ["front-delts"], secondary: ["triceps", "traps"] },
+  { id: "seated-barbell-press", name: "Seated Barbell Press", equipment: "barbell", primary: ["front-delts"], secondary: ["triceps"] },
+  { id: "push-press", name: "Push Press", equipment: "barbell", primary: ["front-delts"], secondary: ["triceps", "quads", "traps"] },
+  { id: "upright-row", name: "Upright Row", equipment: "barbell", primary: ["front-delts", "traps"], secondary: ["biceps"] },
+  { id: "landmine-press", name: "Landmine Press", equipment: "barbell", primary: ["front-delts"], secondary: ["chest", "triceps"] },
   { id: "db-shoulder-press", name: "Dumbbell Shoulder Press", equipment: "dumbbell", primary: ["front-delts"], secondary: ["triceps"] },
+  { id: "arnold-press", name: "Arnold Press", equipment: "dumbbell", primary: ["front-delts"], secondary: ["triceps", "rear-delts"] },
   { id: "lateral-raise", name: "Lateral Raise", equipment: "dumbbell", primary: ["front-delts"], secondary: [] },
   { id: "front-raise", name: "Front Raise", equipment: "dumbbell", primary: ["front-delts"], secondary: [] },
+  { id: "cable-lateral-raise", name: "Cable Lateral Raise", equipment: "cable", primary: ["front-delts"], secondary: [] },
+  { id: "machine-shoulder-press", name: "Machine Shoulder Press", equipment: "machine", primary: ["front-delts"], secondary: ["triceps"] },
+  { id: "machine-lateral-raise", name: "Machine Lateral Raise", equipment: "machine", primary: ["front-delts"], secondary: [] },
+  { id: "kb-overhead-press", name: "Kettlebell Overhead Press", equipment: "kettlebell", primary: ["front-delts"], secondary: ["triceps", "abs"] },
+  { id: "kb-thruster", name: "Kettlebell Thruster", equipment: "kettlebell", primary: ["front-delts", "quads"], secondary: ["glutes", "triceps"] },
+  { id: "band-lateral-raise", name: "Band Lateral Raise", equipment: "band", primary: ["front-delts"], secondary: [] },
+  { id: "pike-push-up", name: "Pike Push-Up", equipment: "bodyweight", primary: ["front-delts"], secondary: ["triceps"] },
+  { id: "handstand-push-up", name: "Handstand Push-Up", equipment: "bodyweight", primary: ["front-delts"], secondary: ["triceps", "traps"] },
+
+  // ---- rear delts ----
   { id: "rear-delt-fly", name: "Rear Delt Fly", equipment: "dumbbell", primary: ["rear-delts"], secondary: ["traps"] },
+  { id: "incline-reverse-fly", name: "Incline Reverse Fly", equipment: "dumbbell", primary: ["rear-delts"], secondary: ["traps"] },
   { id: "face-pull", name: "Face Pull", equipment: "cable", primary: ["rear-delts"], secondary: ["traps"] },
+  { id: "cable-rear-delt-fly", name: "Cable Rear Delt Fly", equipment: "cable", primary: ["rear-delts"], secondary: ["traps"] },
+  { id: "reverse-pec-deck", name: "Reverse Pec Deck", equipment: "machine", primary: ["rear-delts"], secondary: ["traps"] },
+  { id: "band-pull-apart", name: "Band Pull-Apart", equipment: "band", primary: ["rear-delts"], secondary: ["traps"] },
+
+  // ---- lats / upper back ----
   { id: "barbell-row", name: "Barbell Row", equipment: "barbell", primary: ["lats"], secondary: ["rear-delts", "biceps", "traps"] },
+  { id: "pendlay-row", name: "Pendlay Row", equipment: "barbell", primary: ["lats"], secondary: ["traps", "biceps", "lower-back"] },
+  { id: "t-bar-row", name: "T-Bar Row", equipment: "barbell", primary: ["lats"], secondary: ["traps", "biceps", "rear-delts"] },
+  { id: "rack-pull", name: "Rack Pull", equipment: "barbell", primary: ["traps", "lats"], secondary: ["lower-back", "forearms"] },
   { id: "pull-up", name: "Pull-Up", equipment: "bodyweight", primary: ["lats"], secondary: ["biceps", "rear-delts"] },
+  { id: "chin-up", name: "Chin-Up", equipment: "bodyweight", primary: ["biceps", "lats"], secondary: ["abs"] },
+  { id: "neutral-pull-up", name: "Neutral-Grip Pull-Up", equipment: "bodyweight", primary: ["lats"], secondary: ["biceps", "forearms"] },
+  { id: "inverted-row", name: "Inverted Row", equipment: "bodyweight", primary: ["lats"], secondary: ["rear-delts", "biceps"] },
   { id: "lat-pulldown", name: "Lat Pulldown", equipment: "cable", primary: ["lats"], secondary: ["biceps"] },
+  { id: "close-grip-pulldown", name: "Close-Grip Pulldown", equipment: "cable", primary: ["lats"], secondary: ["biceps"] },
+  { id: "straight-arm-pulldown", name: "Straight-Arm Pulldown", equipment: "cable", primary: ["lats"], secondary: ["abs"] },
   { id: "seated-cable-row", name: "Seated Cable Row", equipment: "cable", primary: ["lats"], secondary: ["rear-delts", "biceps", "traps"] },
+  { id: "single-arm-cable-row", name: "Single-Arm Cable Row", equipment: "cable", primary: ["lats"], secondary: ["rear-delts", "obliques"] },
   { id: "single-arm-db-row", name: "Single-Arm Dumbbell Row", equipment: "dumbbell", primary: ["lats"], secondary: ["biceps", "rear-delts"] },
-  { id: "deadlift", name: "Deadlift", equipment: "barbell", primary: ["lower-back", "glutes", "hamstrings"], secondary: ["traps", "forearms"] },
+  { id: "chest-supported-row", name: "Chest-Supported Row", equipment: "dumbbell", primary: ["lats"], secondary: ["rear-delts", "traps", "biceps"] },
+  { id: "db-pullover", name: "Dumbbell Pullover", equipment: "dumbbell", primary: ["lats"], secondary: ["chest"] },
+  { id: "machine-row", name: "Machine Row", equipment: "machine", primary: ["lats"], secondary: ["biceps", "rear-delts"] },
+  { id: "kb-row", name: "Kettlebell Row", equipment: "kettlebell", primary: ["lats"], secondary: ["biceps", "rear-delts"] },
+  { id: "band-row", name: "Band Row", equipment: "band", primary: ["lats"], secondary: ["biceps", "rear-delts"] },
+
+  // ---- traps ----
   { id: "shrug", name: "Barbell Shrug", equipment: "barbell", primary: ["traps"], secondary: ["forearms"] },
+  { id: "db-shrug", name: "Dumbbell Shrug", equipment: "dumbbell", primary: ["traps"], secondary: ["forearms"] },
+  { id: "cable-shrug", name: "Cable Shrug", equipment: "cable", primary: ["traps"], secondary: ["forearms"] },
+  { id: "machine-shrug", name: "Machine Shrug", equipment: "machine", primary: ["traps"], secondary: ["forearms"] },
+  { id: "farmers-carry", name: "Farmer's Carry", equipment: "dumbbell", primary: ["forearms", "traps"], secondary: ["abs"] },
+
+  // ---- lower back / posterior chain ----
+  { id: "deadlift", name: "Deadlift", equipment: "barbell", primary: ["lower-back", "glutes", "hamstrings"], secondary: ["traps", "forearms"] },
+  { id: "sumo-deadlift", name: "Sumo Deadlift", equipment: "barbell", primary: ["glutes", "quads"], secondary: ["lower-back", "hamstrings", "forearms"] },
+  { id: "trap-bar-deadlift", name: "Trap Bar Deadlift", equipment: "barbell", primary: ["glutes", "quads"], secondary: ["lower-back", "hamstrings", "traps"] },
+  { id: "good-morning", name: "Good Morning", equipment: "barbell", primary: ["hamstrings", "lower-back"], secondary: ["glutes"] },
+  { id: "back-extension", name: "Back Extension", equipment: "machine", primary: ["lower-back"], secondary: ["glutes", "hamstrings"] },
+  { id: "superman", name: "Superman", equipment: "bodyweight", primary: ["lower-back"], secondary: ["glutes"] },
+  { id: "bird-dog", name: "Bird Dog", equipment: "bodyweight", primary: ["lower-back", "abs"], secondary: ["glutes"] },
+  { id: "kb-swing", name: "Kettlebell Swing", equipment: "kettlebell", primary: ["glutes", "hamstrings"], secondary: ["lower-back", "traps"] },
+
+  // ---- biceps ----
   { id: "bicep-curl", name: "Dumbbell Bicep Curl", equipment: "dumbbell", primary: ["biceps"], secondary: ["forearms"] },
   { id: "hammer-curl", name: "Hammer Curl", equipment: "dumbbell", primary: ["biceps"], secondary: ["forearms"] },
+  { id: "incline-db-curl", name: "Incline Dumbbell Curl", equipment: "dumbbell", primary: ["biceps"], secondary: [] },
+  { id: "concentration-curl", name: "Concentration Curl", equipment: "dumbbell", primary: ["biceps"], secondary: [] },
+  { id: "spider-curl", name: "Spider Curl", equipment: "dumbbell", primary: ["biceps"], secondary: [] },
   { id: "barbell-curl", name: "Barbell Curl", equipment: "barbell", primary: ["biceps"], secondary: ["forearms"] },
+  { id: "ez-bar-curl", name: "EZ-Bar Curl", equipment: "barbell", primary: ["biceps"], secondary: ["forearms"] },
   { id: "cable-curl", name: "Cable Curl", equipment: "cable", primary: ["biceps"], secondary: ["forearms"] },
+  { id: "preacher-curl", name: "Preacher Curl", equipment: "machine", primary: ["biceps"], secondary: [] },
+  { id: "machine-curl", name: "Machine Curl", equipment: "machine", primary: ["biceps"], secondary: [] },
+  { id: "band-curl", name: "Band Curl", equipment: "band", primary: ["biceps"], secondary: ["forearms"] },
+
+  // ---- triceps ----
   { id: "tricep-pushdown", name: "Tricep Pushdown", equipment: "cable", primary: ["triceps"], secondary: [] },
+  { id: "rope-pushdown", name: "Rope Pushdown", equipment: "cable", primary: ["triceps"], secondary: [] },
+  { id: "cable-overhead-ext", name: "Cable Overhead Extension", equipment: "cable", primary: ["triceps"], secondary: [] },
   { id: "skullcrusher", name: "Skullcrusher", equipment: "barbell", primary: ["triceps"], secondary: [] },
+  { id: "close-grip-bench", name: "Close-Grip Bench Press", equipment: "barbell", primary: ["triceps"], secondary: ["chest", "front-delts"] },
   { id: "overhead-tricep-ext", name: "Overhead Tricep Extension", equipment: "dumbbell", primary: ["triceps"], secondary: [] },
+  { id: "tricep-kickback", name: "Tricep Kickback", equipment: "dumbbell", primary: ["triceps"], secondary: [] },
+  { id: "dips", name: "Dips", equipment: "bodyweight", primary: ["triceps", "chest"], secondary: ["front-delts"] },
+  { id: "bench-dip", name: "Bench Dip", equipment: "bodyweight", primary: ["triceps"], secondary: ["front-delts"] },
+  { id: "diamond-push-up", name: "Diamond Push-Up", equipment: "bodyweight", primary: ["triceps"], secondary: ["chest", "front-delts"] },
+  { id: "machine-tricep-ext", name: "Machine Tricep Extension", equipment: "machine", primary: ["triceps"], secondary: [] },
+  { id: "band-pushdown", name: "Band Pushdown", equipment: "band", primary: ["triceps"], secondary: [] },
+
+  // ---- forearms / grip ----
   { id: "wrist-curl", name: "Wrist Curl", equipment: "dumbbell", primary: ["forearms"], secondary: [] },
-  { id: "farmers-carry", name: "Farmer's Carry", equipment: "dumbbell", primary: ["forearms", "traps"], secondary: ["abs"] },
+  { id: "reverse-wrist-curl", name: "Reverse Wrist Curl", equipment: "dumbbell", primary: ["forearms"], secondary: [] },
+  { id: "reverse-curl", name: "Reverse Curl", equipment: "barbell", primary: ["forearms"], secondary: ["biceps"] },
+  { id: "wrist-roller", name: "Wrist Roller", equipment: "machine", primary: ["forearms"], secondary: [] },
+  { id: "dead-hang", name: "Dead Hang", equipment: "bodyweight", primary: ["forearms"], secondary: ["lats", "traps"] },
+
+  // ---- abs ----
   { id: "crunch", name: "Crunch", equipment: "bodyweight", primary: ["abs"], secondary: [] },
+  { id: "sit-up", name: "Sit-Up", equipment: "bodyweight", primary: ["abs"], secondary: ["obliques"] },
+  { id: "decline-sit-up", name: "Decline Sit-Up", equipment: "bodyweight", primary: ["abs"], secondary: ["obliques"] },
   { id: "hanging-leg-raise", name: "Hanging Leg Raise", equipment: "bodyweight", primary: ["abs"], secondary: ["obliques"] },
+  { id: "toes-to-bar", name: "Toes-to-Bar", equipment: "bodyweight", primary: ["abs"], secondary: ["obliques", "lats", "forearms"] },
+  { id: "v-up", name: "V-Up", equipment: "bodyweight", primary: ["abs"], secondary: ["quads"] },
   { id: "plank", name: "Plank", equipment: "bodyweight", primary: ["abs"], secondary: ["obliques", "lower-back"] },
+  { id: "hollow-hold", name: "Hollow Hold", equipment: "bodyweight", primary: ["abs"], secondary: ["quads"] },
+  { id: "dead-bug", name: "Dead Bug", equipment: "bodyweight", primary: ["abs"], secondary: ["lower-back"] },
+  { id: "flutter-kick", name: "Flutter Kick", equipment: "bodyweight", primary: ["abs"], secondary: ["quads"] },
+  { id: "bicycle-crunch", name: "Bicycle Crunch", equipment: "bodyweight", primary: ["abs", "obliques"], secondary: [] },
+  { id: "mountain-climber", name: "Mountain Climber", equipment: "bodyweight", primary: ["abs"], secondary: ["quads", "front-delts"] },
+  { id: "ab-wheel", name: "Ab Wheel Rollout", equipment: "bodyweight", primary: ["abs"], secondary: ["lats", "lower-back"] },
   { id: "cable-crunch", name: "Cable Crunch", equipment: "cable", primary: ["abs"], secondary: [] },
+  { id: "machine-crunch", name: "Machine Crunch", equipment: "machine", primary: ["abs"], secondary: [] },
+
+  // ---- obliques ----
   { id: "russian-twist", name: "Russian Twist", equipment: "bodyweight", primary: ["obliques"], secondary: ["abs"] },
+  { id: "side-plank", name: "Side Plank", equipment: "bodyweight", primary: ["obliques"], secondary: ["abs"] },
+  { id: "hanging-oblique-raise", name: "Hanging Oblique Raise", equipment: "bodyweight", primary: ["obliques"], secondary: ["abs", "forearms"] },
   { id: "side-bend", name: "Dumbbell Side Bend", equipment: "dumbbell", primary: ["obliques"], secondary: [] },
+  { id: "suitcase-carry", name: "Suitcase Carry", equipment: "dumbbell", primary: ["obliques", "forearms"], secondary: ["traps"] },
+  { id: "cable-woodchop", name: "Cable Woodchop", equipment: "cable", primary: ["obliques"], secondary: ["abs"] },
+  { id: "pallof-press", name: "Pallof Press", equipment: "cable", primary: ["obliques"], secondary: ["abs"] },
+  { id: "landmine-twist", name: "Landmine Twist", equipment: "barbell", primary: ["obliques"], secondary: ["abs", "front-delts"] },
+
+  // ---- quads ----
   { id: "squat", name: "Barbell Squat", equipment: "barbell", primary: ["quads", "glutes"], secondary: ["hamstrings", "lower-back"] },
+  { id: "front-squat", name: "Front Squat", equipment: "barbell", primary: ["quads"], secondary: ["glutes", "abs", "traps"] },
   { id: "goblet-squat", name: "Goblet Squat", equipment: "dumbbell", primary: ["quads", "glutes"], secondary: ["hamstrings"] },
-  { id: "leg-press", name: "Leg Press", equipment: "machine", primary: ["quads"], secondary: ["glutes", "hamstrings"] },
+  { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", equipment: "dumbbell", primary: ["quads", "glutes"], secondary: ["hamstrings"] },
   { id: "lunge", name: "Walking Lunge", equipment: "dumbbell", primary: ["quads", "glutes"], secondary: ["hamstrings"] },
+  { id: "step-up", name: "Step-Up", equipment: "dumbbell", primary: ["quads", "glutes"], secondary: ["hamstrings", "calves"] },
+  { id: "leg-press", name: "Leg Press", equipment: "machine", primary: ["quads"], secondary: ["glutes", "hamstrings"] },
+  { id: "hack-squat", name: "Hack Squat", equipment: "machine", primary: ["quads"], secondary: ["glutes"] },
   { id: "leg-extension", name: "Leg Extension", equipment: "machine", primary: ["quads"], secondary: [] },
+  { id: "bodyweight-squat", name: "Bodyweight Squat", equipment: "bodyweight", primary: ["quads", "glutes"], secondary: ["hamstrings"] },
+  { id: "pistol-squat", name: "Pistol Squat", equipment: "bodyweight", primary: ["quads", "glutes"], secondary: ["hamstrings", "abs"] },
+  { id: "sissy-squat", name: "Sissy Squat", equipment: "bodyweight", primary: ["quads"], secondary: [] },
+  { id: "wall-sit", name: "Wall Sit", equipment: "bodyweight", primary: ["quads"], secondary: ["glutes"] },
+  { id: "box-jump", name: "Box Jump", equipment: "bodyweight", primary: ["quads", "glutes"], secondary: ["calves", "hamstrings"] },
+
+  // ---- hamstrings ----
   { id: "romanian-deadlift", name: "Romanian Deadlift", equipment: "barbell", primary: ["hamstrings", "glutes"], secondary: ["lower-back"] },
+  { id: "single-leg-rdl", name: "Single-Leg Romanian Deadlift", equipment: "dumbbell", primary: ["hamstrings", "glutes"], secondary: ["lower-back", "obliques"] },
   { id: "leg-curl", name: "Leg Curl", equipment: "machine", primary: ["hamstrings"], secondary: [] },
+  { id: "seated-leg-curl", name: "Seated Leg Curl", equipment: "machine", primary: ["hamstrings"], secondary: [] },
+  { id: "glute-ham-raise", name: "Glute-Ham Raise", equipment: "machine", primary: ["hamstrings", "glutes"], secondary: ["lower-back"] },
+  { id: "nordic-curl", name: "Nordic Hamstring Curl", equipment: "bodyweight", primary: ["hamstrings"], secondary: ["glutes"] },
+  { id: "cable-pull-through", name: "Cable Pull-Through", equipment: "cable", primary: ["glutes", "hamstrings"], secondary: ["lower-back"] },
+
+  // ---- glutes ----
   { id: "hip-thrust", name: "Hip Thrust", equipment: "barbell", primary: ["glutes"], secondary: ["hamstrings"] },
   { id: "glute-bridge", name: "Glute Bridge", equipment: "bodyweight", primary: ["glutes"], secondary: ["hamstrings"] },
+  { id: "frog-pump", name: "Frog Pump", equipment: "bodyweight", primary: ["glutes"], secondary: [] },
+  { id: "curtsy-lunge", name: "Curtsy Lunge", equipment: "dumbbell", primary: ["glutes"], secondary: ["quads", "hamstrings"] },
+  { id: "cable-kickback", name: "Cable Glute Kickback", equipment: "cable", primary: ["glutes"], secondary: ["hamstrings"] },
+  { id: "hip-abduction", name: "Hip Abduction", equipment: "machine", primary: ["glutes"], secondary: [] },
+  { id: "band-glute-bridge", name: "Band Glute Bridge", equipment: "band", primary: ["glutes"], secondary: ["hamstrings"] },
+
+  // ---- calves ----
   { id: "calf-raise", name: "Standing Calf Raise", equipment: "machine", primary: ["calves"], secondary: [] },
   { id: "seated-calf-raise", name: "Seated Calf Raise", equipment: "machine", primary: ["calves"], secondary: [] },
+  { id: "donkey-calf-raise", name: "Donkey Calf Raise", equipment: "machine", primary: ["calves"], secondary: [] },
+  { id: "leg-press-calf-raise", name: "Leg Press Calf Raise", equipment: "machine", primary: ["calves"], secondary: [] },
+  { id: "db-calf-raise", name: "Dumbbell Calf Raise", equipment: "dumbbell", primary: ["calves"], secondary: [] },
+  { id: "single-leg-calf-raise", name: "Single-Leg Calf Raise", equipment: "bodyweight", primary: ["calves"], secondary: [] },
+  { id: "tibialis-raise", name: "Tibialis Raise", equipment: "bodyweight", primary: ["calves"], secondary: [] },
+  { id: "jump-rope", name: "Jump Rope", equipment: "bodyweight", primary: ["calves"], secondary: ["quads"] },
 ];
 const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
 const EQUIPMENT_TYPES = Array.from(new Set(EXERCISES.map(e => e.equipment))).sort();
@@ -365,13 +511,30 @@ EQUIPMENT_TYPES.forEach(eq => {
   equipmentFilter.appendChild(opt);
 });
 
+// name + equipment + every muscle label, lowercased once and cached so
+// typing in the search box doesn't rebuild it for 160 exercises a keystroke
+const SEARCH_CACHE = new Map();
+function searchText(e) {
+  let s = SEARCH_CACHE.get(e.id);
+  if (s === undefined) {
+    s = [e.name, e.equipment]
+      .concat(e.primary.concat(e.secondary).map(m => MUSCLE_LABELS[m] || m))
+      .join(" ")
+      .toLowerCase();
+    SEARCH_CACHE.set(e.id, s);
+  }
+  return s;
+}
+
 function renderExerciseList() {
   const q = exerciseSearch.value.trim().toLowerCase();
   const eq = equipmentFilter.value;
   const filtered = EXERCISES.filter(e => {
     if (muscleFilter && !e.primary.includes(muscleFilter) && !e.secondary.includes(muscleFilter)) return false;
     if (eq && e.equipment !== eq) return false;
-    if (q && !e.name.toLowerCase().includes(q)) return false;
+    // with a library this size, searching only names is too blunt --
+    // "chest", "glutes" or "kettlebell" are all things you'd type
+    if (q && !searchText(e).includes(q)) return false;
     return true;
   });
 

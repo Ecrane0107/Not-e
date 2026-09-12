@@ -303,7 +303,7 @@ h1{
 }
 
 .exercise-list{
-  max-height:420px;
+  max-height:520px; /* roughly matches the map card beside it */
   overflow-y:auto;
 }
 .exercise-row{
