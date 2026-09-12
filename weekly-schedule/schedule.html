@@ -251,14 +251,27 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   color:var(--ink-mid);
   line-height:1.2;
 }
+/* a 30-minute block is only ~20px tall, but a name like "Physical
+   Therapy Appointment" wraps to three lines and used to get sliced
+   mid-word. --lines is set per block from the height that's actually
+   available (see drawBlock), so the name ends in an ellipsis on a clean
+   line instead; the full text is on the block's title tooltip and in
+   the edit dialog. */
 .block .block-text{
-  display:block;
+  display:-webkit-box;
+  -webkit-line-clamp:var(--lines, 3);
+  line-clamp:var(--lines, 3);
+  -webkit-box-orient:vertical;
+  overflow:hidden;
   font-size:12px;
   font-weight:500;
   color:var(--ink);
   line-height:1.25;
-  word-break:break-word;
+  overflow-wrap:anywhere;
 }
+/* 15-minute blocks can't fit a 12px line at all -- shrink rather than clip */
+.block.is-tiny{padding:1px 6px}
+.block.is-tiny .block-text{font-size:10px;line-height:1.1}
 
 .nowline{
   position:absolute;
@@ -789,6 +802,13 @@ function drawBlock(overlay, day, startMin, endMin, act, opts){
     block.style.background = hexToRgba(hex, 0.16);
   }
   const showTime = height >= 30;
+  const tiny = height < 22;
+  if(tiny) block.classList.add('is-tiny');
+  // how many lines of the name actually fit, so the text can be clamped
+  // to that instead of overflowing and being cut through the middle
+  const lineH = tiny ? 11 : 15;
+  const avail = height - (tiny ? 2 : 6) - (showTime ? 12 : 0);
+  block.style.setProperty('--lines', String(Math.max(1, Math.floor(avail / lineH))));
   const label = (opts.prefix || '') + escapeHtml(act.text) + (opts.suffix || '');
   block.innerHTML =
     (showTime ? '<span class="block-time">' + act.start + '–' + act.end + '</span>' : '') +
@@ -898,6 +918,7 @@ function renderLegend(){
     const name = document.createElement('div');
     name.className = 'legend-name';
     name.textContent = r.text;
+    name.title = r.text; // the row ellipsizes long names, so keep the full one reachable
     row.appendChild(name);
 
     const daysEl = document.createElement('div');
