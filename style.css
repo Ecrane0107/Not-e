@@ -63,24 +63,28 @@ body{
   z-index:1;
   max-width:1040px;
   margin:0 auto;
-  padding:100px 32px 40px; /* clears .topbar (fixed, same top-left corner) with real
-                              room to spare, not the 3px it had before it moved here */
+  padding:24px 32px 40px;
   min-height:100dvh;
   display:flex;
   flex-direction:column;
 }
 
-/* fixed top-right cluster: the display-settings button and the sitewide
-   sign-in widget share one fixed-position row, same pattern as the
-   little fixed "back to menu" buttons the individual project pages use */
+/* the display-settings button and the sitewide sign-in widget share one
+   row at the top of the page. This used to be position:fixed, with the
+   page's top padding hardcoded to clear it -- which only held as long as
+   the row stayed exactly one line tall. At high zoom or with a longer
+   signed-in name the widget grows and there's nothing left to clear it,
+   so the row sits in normal flow now: it can't overlap what follows it,
+   whatever height it ends up being. flex-wrap lets the widget drop below
+   the gear rather than running off the side. */
 .topbar{
-  position:fixed;
-  top:24px;
-  left:32px;
+  position:relative;
   z-index:5;
   display:flex;
   align-items:center;
   gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:32px;
 }
 .settings-btn{
   display:inline-flex;
@@ -162,15 +166,20 @@ body{
   text-align:right;
 }
 
-/* display-settings dropdown -- pinned under .topbar, everything in it
-   persists to localStorage only (see the inline script), no account
-   involved */
+/* display-settings dropdown -- anchored to the bottom of .topbar rather
+   than a hardcoded `top`, so it follows the button wherever that row
+   ends up. Being absolute (in-page) rather than fixed is what makes it
+   usable at high zoom: the panel is taller than a 256px-tall viewport,
+   and while it was fixed the bottom of it (mist toggle, reset button)
+   couldn't be reached at all -- now the page just scrolls to it.
+   Everything in it persists to localStorage only, no account involved. */
 .settings-panel{
-  position:fixed;
-  top:66px;
-  left:32px;
+  position:absolute;
+  top:calc(100% + 6px);
+  left:0;
   z-index:6;
   width:250px;
+  max-width:calc(100vw - 40px);
   padding:16px;
   background:var(--panel);
   border:1px solid var(--line);
@@ -264,9 +273,10 @@ body{
 }
 
 @media (max-width:560px){
-  .topbar{top:14px;left:16px}
+  .page{padding:14px 20px 28px}
+  .topbar{margin-bottom:22px}
   .auth-name{max-width:70px}
-  .settings-panel{top:56px;left:16px;right:16px;width:auto}
+  .settings-panel{width:auto;left:0;right:0;max-width:none}
 }
 
 header{margin-bottom:56px}

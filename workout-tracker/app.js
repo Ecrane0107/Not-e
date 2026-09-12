@@ -701,6 +701,122 @@ calGoalInput.addEventListener("input", () => {
 });
 
 // ---------------------------------------------------------------
+// calorie goal estimator — Mifflin-St Jeor for basal rate, times an
+// activity multiplier for maintenance. Same maths every calculator of
+// this kind uses; it's an estimate, which the copy in the panel says.
+// ---------------------------------------------------------------
+const PROFILE_KEY = "workout-tracker:calcprofile:v1";
+const ACTIVITY_LABELS = {
+  "1.2": "desk job", "1.375": "light", "1.55": "moderate",
+  "1.725": "hard", "1.9": "athlete",
+};
+let calcProfile = loadJSON(PROFILE_KEY, {
+  units: "imperial", sex: "male", age: "", cm: "", ft: "", inch: "", weight: "", activity: "1.375",
+});
+
+const calcEls = {
+  units: document.getElementById("calcUnits"),
+  sex: document.getElementById("calcSex"),
+  age: document.getElementById("calcAge"),
+  cm: document.getElementById("calcHeightCm"),
+  ft: document.getElementById("calcFt"),
+  inch: document.getElementById("calcIn"),
+  weight: document.getElementById("calcWeight"),
+  activity: document.getElementById("calcActivity"),
+  rowCm: document.getElementById("calcRowCm"),
+  rowFtIn: document.getElementById("calcRowFtIn"),
+  weightUnit: document.getElementById("calcWeightUnit"),
+  out: document.getElementById("calcOut"),
+};
+
+const LB_TO_KG = 0.45359237;
+const IN_TO_CM = 2.54;
+
+function calcTargets(p) {
+  const age = parseFloat(p.age);
+  const metric = p.units === "metric";
+  const weightKg = metric ? parseFloat(p.weight) : parseFloat(p.weight) * LB_TO_KG;
+  const heightCm = metric
+    ? parseFloat(p.cm)
+    : ((parseFloat(p.ft) || 0) * 12 + (parseFloat(p.inch) || 0)) * IN_TO_CM;
+  if (!Number.isFinite(age) || age <= 0) return null;
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
+  if (!Number.isFinite(heightCm) || heightCm <= 0) return null;
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + (p.sex === "female" ? -161 : 5);
+  const tdee = bmr * (parseFloat(p.activity) || 1.2);
+  return {
+    bmr: Math.round(bmr),
+    maintain: Math.round(tdee),
+    lose: Math.max(1200, Math.round(tdee - 500)),
+    gain: Math.round(tdee + 300),
+  };
+}
+
+function setGoalFromEstimate(value) {
+  calorieGoal = value;
+  calGoalInput.value = value;
+  saveJSON(GOAL_KEY, calorieGoal);
+  renderCalories();
+}
+
+function renderCalc() {
+  const metric = calcProfile.units === "metric";
+  calcEls.rowCm.hidden = !metric;
+  calcEls.rowFtIn.hidden = metric;
+  calcEls.weightUnit.textContent = metric ? "kg" : "lb";
+
+  const t = calcTargets(calcProfile);
+  calcEls.out.innerHTML = "";
+  if (!t) {
+    const hint = document.createElement("p");
+    hint.className = "calc-hint";
+    hint.textContent = "Fill in age, height and weight for an estimate.";
+    calcEls.out.appendChild(hint);
+    return;
+  }
+
+  const base = document.createElement("p");
+  base.className = "calc-basal";
+  base.innerHTML = "Basal rate <b>" + t.bmr.toLocaleString() + "</b> kcal/day &middot; "
+    + ACTIVITY_LABELS[calcProfile.activity] + " activity";
+  calcEls.out.appendChild(base);
+
+  [
+    { key: "lose", label: "Lose", note: "about 1 lb a week" },
+    { key: "maintain", label: "Maintain", note: "hold steady" },
+    { key: "gain", label: "Gain", note: "slow surplus" },
+  ].forEach(row => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "calc-target" + (calorieGoal === t[row.key] ? " is-current" : "");
+    btn.innerHTML = '<span class="ct-label">' + row.label + "</span>"
+      + '<span class="ct-value">' + t[row.key].toLocaleString() + "</span>"
+      + '<span class="ct-note">' + row.note + "</span>";
+    btn.setAttribute("aria-label", "Use " + t[row.key] + " kcal as the daily goal (" + row.label.toLowerCase() + ")");
+    btn.addEventListener("click", () => { setGoalFromEstimate(t[row.key]); renderCalc(); });
+    calcEls.out.appendChild(btn);
+  });
+}
+
+["units", "sex", "age", "cm", "ft", "inch", "weight", "activity"].forEach(k => {
+  const el = calcEls[k];
+  el.addEventListener("input", () => {
+    calcProfile = { ...calcProfile, [k]: el.value };
+    saveJSON(PROFILE_KEY, calcProfile);
+    renderCalc();
+  });
+  // a number input shouldn't eat the page scroll when it happens to be focused
+  if (el.type === "number") el.addEventListener("wheel", () => el.blur());
+});
+
+function hydrateCalc() {
+  ["units", "sex", "age", "cm", "ft", "inch", "weight", "activity"].forEach(k => {
+    if (calcProfile[k] !== undefined && calcProfile[k] !== null) calcEls[k].value = calcProfile[k];
+  });
+  renderCalc();
+}
+
+// ---------------------------------------------------------------
 // date navigation
 // ---------------------------------------------------------------
 function setDate(str) {
@@ -732,3 +848,4 @@ calGoalInput.value = calorieGoal;
 renderAll();
 renderWorkout();
 renderCalories();
+hydrateCalc();

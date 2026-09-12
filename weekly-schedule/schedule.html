@@ -292,13 +292,20 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
    display stays flex the whole time (display can't be transitioned) and
    opacity/visibility do the actual showing/hiding, with the visibility
    change delayed on close so it isn't interactive while fading out */
+/* align-items:flex-start + margin:auto on .modal keeps the dialog
+   centred when it fits and lets it overflow downward when it doesn't;
+   with align-items:center a modal taller than the viewport gets cut off
+   at BOTH ends and the Save button becomes unreachable, which is exactly
+   what happens at 400% zoom (a ~256px-tall viewport) */
 .backdrop{
   position:fixed; inset:0;
   background:rgba(8,9,13,0.6);
   z-index:30;
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:center;
+  overflow-y:auto;
+  overscroll-behavior:contain;
   padding:16px;
   opacity:0;
   visibility:hidden;
@@ -312,6 +319,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 .modal{
   width:100%;
   max-width:380px;
+  margin:auto; /* see .backdrop -- centres when it fits, scrolls when it doesn't */
   background:var(--panel-hi);
   border:1px solid var(--line);
   border-radius:12px;

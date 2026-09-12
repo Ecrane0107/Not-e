@@ -7,48 +7,48 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 <canvas id="bg"></canvas>
 <div class="bottom-mist" aria-hidden="true"></div>
 
-<div class="topbar">
-  <button type="button" class="settings-btn" id="settingsBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsPanel" aria-label="Display settings">
-    <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path fill="currentColor" fill-rule="evenodd" d="M21,12 L18.5,14.7 L18.4,18.4 L14.7,18.5 L12,21 L9.3,18.5 L5.6,18.4 L5.5,14.7 L3,12 L5.5,9.3 L5.6,5.6 L9.3,5.5 L12,3 L14.7,5.5 L18.4,5.6 L18.5,9.3 Z M8.8,12 A3.2,3.2 0 1,0 15.2,12 A3.2,3.2 0 1,0 8.8,12 Z"/>
-    </svg>
-  </button>
-  <div id="authWidget" class="auth-widget"></div>
-</div>
-
-<div class="settings-panel" id="settingsPanel" role="dialog" aria-label="Display settings" hidden>
-  <div class="settings-head">
-    <h2>Display</h2>
-    <button type="button" class="settings-close" id="settingsClose" aria-label="Close">&times;</button>
-  </div>
-
-  <div class="settings-row">
-    <label for="setHue">Theme color</label>
-    <input type="range" id="setHue" min="0" max="359" step="1">
-  </div>
-  <label class="settings-check">
-    <input type="checkbox" id="setRandomHue">
-    Random color each visit
-  </label>
-
-  <div class="settings-div"></div>
-  <p class="settings-label">Background components</p>
-
-  <label class="settings-check"><input type="checkbox" id="setRods"> Spinning rod ring</label>
-  <label class="settings-check"><input type="checkbox" id="setLights"> Flying lights</label>
-  <label class="settings-check"><input type="checkbox" id="setFlakes"> Drifting flakes</label>
-  <label class="settings-check"><input type="checkbox" id="setMist"> Bottom mist glow</label>
-
-  <button type="button" class="ghost-btn" id="settingsReset">Reset to defaults</button>
-</div>
-
 <div class="page">
+
+  <div class="topbar">
+    <button type="button" class="settings-btn" id="settingsBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsPanel" aria-label="Display settings">
+      <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="currentColor" fill-rule="evenodd" d="M21,12 L18.5,14.7 L18.4,18.4 L14.7,18.5 L12,21 L9.3,18.5 L5.6,18.4 L5.5,14.7 L3,12 L5.5,9.3 L5.6,5.6 L9.3,5.5 L12,3 L14.7,5.5 L18.4,5.6 L18.5,9.3 Z M8.8,12 A3.2,3.2 0 1,0 15.2,12 A3.2,3.2 0 1,0 8.8,12 Z"/>
+      </svg>
+    </button>
+    <div id="authWidget" class="auth-widget"></div>
+
+    <div class="settings-panel" id="settingsPanel" role="dialog" aria-label="Display settings" hidden>
+      <div class="settings-head">
+        <h2>Display</h2>
+        <button type="button" class="settings-close" id="settingsClose" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="settings-row">
+        <label for="setHue">Theme color</label>
+        <input type="range" id="setHue" min="0" max="359" step="1">
+      </div>
+      <label class="settings-check">
+        <input type="checkbox" id="setRandomHue">
+        Random color each visit
+      </label>
+
+      <div class="settings-div"></div>
+      <p class="settings-label">Background components</p>
+
+      <label class="settings-check"><input type="checkbox" id="setRods"> Spinning rod ring</label>
+      <label class="settings-check"><input type="checkbox" id="setLights"> Flying lights</label>
+      <label class="settings-check"><input type="checkbox" id="setFlakes"> Drifting flakes</label>
+      <label class="settings-check"><input type="checkbox" id="setMist"> Bottom mist glow</label>
+
+      <button type="button" class="ghost-btn" id="settingsReset">Reset to defaults</button>
+    </div>
+  </div>
 
   <header>
     <p class="eyebrow">Projects</p>
