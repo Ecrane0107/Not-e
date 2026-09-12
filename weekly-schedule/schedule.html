@@ -4,17 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Weekly Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
-
 :root{
-  --bg:#10121a;
-  --panel:#171a24;
-  --grid:#262a36;
-  --grid-strong:#333849;
-  --text:#e7e8ed;
-  --text-dim:#7a8094;
-  --text-faint:#4a4f60;
+  --ground:#0C0E0F;
+  --ground-deep:#08090A;
+  --panel:#101314;
+  --panel-hi:#1A1E20;
+  --line:#23282B;
+  --ink:#EDEFF0;
+  --ink-mid:#9AA1A6;
+  --ink-dim:#666D72;
+  --focus:#EDEFF0;
+  --good:#4fd17d;
+  --bad:#e2584f;
+
   --accent:#e8a33d;
   --today-tint:rgba(232,163,61,0.055);
   --c-teal:#4fb3a9;
@@ -25,88 +31,118 @@
   --c-amber:#e8a33d;
 }
 *{box-sizing:border-box;}
-html,body{
+html,body{height:100%}
+body{
   margin:0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, #1a1e2c 0%, transparent 60%),
-    var(--bg);
-  color:var(--text);
-  font-family:'Inter',sans-serif;
+    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    var(--ground-deep);
+  color:var(--ink);
+  font-family:"Space Grotesk",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
+  min-height:100dvh;
 }
-:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
 /* thin dark scrollbars everywhere on the page, not just the grid's own
    body-rows -- the default light-on-dark browser scrollbar stood out */
-*{ scrollbar-width:thin; scrollbar-color:var(--grid-strong) transparent; }
+*{ scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
 *::-webkit-scrollbar{ width:9px; height:9px; }
 *::-webkit-scrollbar-track{ background:transparent; }
-*::-webkit-scrollbar-thumb{ background:var(--grid-strong); border-radius:5px; }
-*::-webkit-scrollbar-thumb:hover{ background:var(--text-faint); }
-.wrap{
+*::-webkit-scrollbar-thumb{ background:var(--line); border-radius:5px; }
+*::-webkit-scrollbar-thumb:hover{ background:var(--ink-dim); }
+
+.page{
   max-width:1120px;
   margin:0 auto;
-  padding:28px 20px 60px;
+  padding:32px 32px 64px;
 }
-.topbar{
+
+.back-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:32px;
+  padding:7px 11px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 13px "Space Grotesk",sans-serif;
+  text-decoration:none;
+}
+.back-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+
+.eyebrow{
+  margin:0 0 12px;
+  font-size:12.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+h1{
+  margin:0;
+  font-size:32px;
+  line-height:1.15;
+  font-weight:700;
+  letter-spacing:-0.02em;
+  color:var(--ink);
+}
+.blurb{
+  margin:14px 0 0;
+  max-width:60ch;
+  font-family:"Newsreader",Georgia,serif;
+  font-size:15.5px;
+  line-height:1.55;
+  color:var(--ink-mid);
+}
+
+.toolbar{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
-  margin-bottom:22px;
+  margin:28px 0 24px;
   flex-wrap:wrap;
   gap:12px;
 }
-.title-block h1{
-  font-family:'JetBrains Mono',monospace;
-  font-weight:700;
-  font-size:20px;
-  letter-spacing:0.02em;
-  margin:0;
-  color:var(--text);
+.toolbar-stats .clock{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
 }
-.title-block .clock{
-  font-family:'JetBrains Mono',monospace;
-  font-size:12px;
-  color:var(--text-dim);
-  margin-top:4px;
-}
-.title-block .quickstat{
-  font-family:'JetBrains Mono',monospace;
-  font-size:11px;
-  color:var(--text-faint);
+.toolbar-stats .quickstat{
+  font-size:11.5px;
+  color:var(--ink-dim);
   margin-top:3px;
 }
-.title-block .quickstat b{ color:var(--accent); font-weight:700; }
-.topbar .actions{
+.toolbar-stats .quickstat b{ color:var(--accent); font-weight:700; }
+.toolbar .actions{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
 }
-.btn{
-  font-family:'Inter',sans-serif;
+.ghost-btn{
+  font-family:"Space Grotesk",sans-serif;
   font-size:12.5px;
   font-weight:500;
-  color:var(--text-dim);
-  background:var(--panel);
-  border:1px solid var(--grid-strong);
-  border-radius:6px;
+  color:var(--ink-mid);
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
   padding:8px 13px;
   cursor:pointer;
   transition:border-color .15s ease, color .15s ease, background .15s ease;
 }
-.btn:hover{ color:var(--text); border-color:var(--accent); }
-.btn.primary{ color:#171304; background:var(--accent); border-color:var(--accent); font-weight:600; }
-.btn.primary:hover{ filter:brightness(1.08); }
-.btn.danger.confirming{ color:#1a1315; background:var(--c-rose); border-color:var(--c-rose); }
-/* the back-to-menu link sits in the same button row as the tool's own
-   actions, styled the same way (.btn) so it fits right in -- anchors
-   need an explicit inline-block + no underline since .btn was written
-   assuming <button> elements */
-a.btn{ display:inline-block; text-decoration:none; }
+.ghost-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+.ghost-btn.danger:hover{ color:var(--bad); border-color:var(--bad); }
+.ghost-btn.danger.confirming{ color:var(--bad); background:rgba(226,88,79,.12); border-color:var(--bad); }
+/* anchors need an explicit inline-block + no underline since .ghost-btn
+   was written assuming <button> elements */
+a.ghost-btn{ display:inline-block; text-decoration:none; }
 
 .scroll-outer{
   overflow-x:auto;
-  border:1px solid var(--grid-strong);
-  border-radius:10px;
+  border:1px solid var(--line);
+  border-radius:12px;
   background:var(--panel);
 }
 .gridwrap{
@@ -120,22 +156,22 @@ a.btn{ display:inline-block; text-decoration:none; }
   top:0;
   z-index:3;
   background:var(--panel);
-  border-bottom:1px solid var(--grid-strong);
+  border-bottom:1px solid var(--line);
 }
 .header-cell{
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:11px;
   letter-spacing:0.08em;
-  color:var(--text-dim);
+  color:var(--ink-mid);
   padding:12px 8px;
   text-align:center;
-  border-left:1px solid var(--grid);
+  border-left:1px solid var(--line);
 }
 .header-cell:first-child{ border-left:none; }
 .header-cell .dnum{
   display:block;
   font-size:15px;
-  color:var(--text);
+  color:var(--ink);
   margin-top:2px;
   font-weight:700;
 }
@@ -154,13 +190,13 @@ a.btn{ display:inline-block; text-decoration:none; }
   display:grid;
   grid-template-columns:64px repeat(7,1fr);
   height:46px;
-  border-top:1px solid var(--grid);
+  border-top:1px solid var(--line);
 }
 .row:first-child{ border-top:none; }
 .time-cell{
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:11px;
-  color:var(--text-faint);
+  color:var(--ink-dim);
   padding:4px 8px 0 0;
   text-align:right;
   position:sticky;
@@ -169,7 +205,7 @@ a.btn{ display:inline-block; text-decoration:none; }
   z-index:2;
 }
 .slot{
-  border-left:1px solid var(--grid);
+  border-left:1px solid var(--line);
   position:relative;
   cursor:pointer;
 }
@@ -190,7 +226,7 @@ a.btn{ display:inline-block; text-decoration:none; }
   border-radius:5px;
   padding:3px 7px;
   overflow:hidden;
-  border-left:3px solid var(--text-dim);
+  border-left:3px solid var(--ink-mid);
   background:rgba(255,255,255,0.05);
   transition:filter .12s ease, transform .12s ease, box-shadow .12s ease;
   animation:block-in .18s ease both;
@@ -210,16 +246,16 @@ a.btn{ display:inline-block; text-decoration:none; }
 }
 .block .block-time{
   display:block;
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:9.5px;
-  color:var(--text-dim);
+  color:var(--ink-mid);
   line-height:1.2;
 }
 .block .block-text{
   display:block;
   font-size:12px;
   font-weight:500;
-  color:var(--text);
+  color:var(--ink);
   line-height:1.25;
   word-break:break-word;
 }
@@ -245,9 +281,9 @@ a.btn{ display:inline-block; text-decoration:none; }
 }
 
 .status{
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:11px;
-  color:var(--text-faint);
+  color:var(--ink-dim);
   margin-top:10px;
   text-align:center;
 }
@@ -276,8 +312,8 @@ a.btn{ display:inline-block; text-decoration:none; }
 .modal{
   width:100%;
   max-width:380px;
-  background:#1c202b;
-  border:1px solid var(--grid-strong);
+  background:var(--panel-hi);
+  border:1px solid var(--line);
   border-radius:12px;
   padding:20px;
   box-shadow:0 20px 50px rgba(0,0,0,0.5);
@@ -289,28 +325,28 @@ a.btn{ display:inline-block; text-decoration:none; }
   .backdrop, .modal{ transition:none; }
 }
 .modal h2{
-  font-family:'JetBrains Mono',monospace;
-  font-size:14px;
-  letter-spacing:0.04em;
+  font-family:"Space Grotesk",sans-serif;
+  font-size:15px;
+  font-weight:700;
   margin:0 0 16px;
-  color:var(--text);
+  color:var(--ink);
 }
 .field{ margin-bottom:14px; }
 .field label{
   display:block;
   font-size:11px;
-  color:var(--text-dim);
+  color:var(--ink-mid);
   margin-bottom:6px;
-  font-family:'JetBrains Mono',monospace;
-  letter-spacing:0.04em;
+  font-family:"Space Grotesk",sans-serif;
+  letter-spacing:0.02em;
 }
 .field input[type=text]{
   width:100%;
-  background:#12141c;
-  border:1px solid var(--grid-strong);
+  background:var(--ground);
+  border:1px solid var(--line);
   border-radius:6px;
-  color:var(--text);
-  font-family:'Inter',sans-serif;
+  color:var(--ink);
+  font-family:"Space Grotesk",sans-serif;
   font-size:13.5px;
   padding:9px 10px;
   outline:none;
@@ -323,13 +359,13 @@ a.btn{ display:inline-block; text-decoration:none; }
 .chip{
   flex:1;
   text-align:center;
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:10.5px;
   padding:7px 0;
   border-radius:5px;
-  border:1px solid var(--grid-strong);
-  background:#12141c;
-  color:var(--text-dim);
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-mid);
   cursor:pointer;
   user-select:none;
 }
@@ -347,18 +383,18 @@ a.btn{ display:inline-block; text-decoration:none; }
 .time-row .field{ flex:1; margin-bottom:0; }
 .time-row input[type=time]{
   width:100%;
-  background:#12141c;
-  border:1px solid var(--grid-strong);
+  background:var(--ground);
+  border:1px solid var(--line);
   border-radius:6px;
-  color:var(--text);
-  font-family:'JetBrains Mono',monospace;
+  color:var(--ink);
+  font-family:"Space Grotesk",sans-serif;
   font-size:13px;
   padding:8px 9px;
   outline:none;
   color-scheme:dark;
 }
 .time-row input[type=time]:focus{ border-color:var(--accent); }
-.time-arrow{ color:var(--text-faint); font-size:13px; margin-top:18px; }
+.time-arrow{ color:var(--ink-dim); font-size:13px; margin-top:18px; }
 .swatches{
   display:flex;
   gap:8px;
@@ -370,10 +406,10 @@ a.btn{ display:inline-block; text-decoration:none; }
   border:2px solid transparent;
   opacity:0.5;
 }
-.swatch.selected{ opacity:1; border-color:var(--text); transform:scale(1.08); }
+.swatch.selected{ opacity:1; border-color:var(--ink); transform:scale(1.08); }
 .hint{
   font-size:11.5px;
-  color:var(--c-rose);
+  color:var(--bad);
   margin-top:8px;
   min-height:14px;
 }
@@ -385,22 +421,22 @@ a.btn{ display:inline-block; text-decoration:none; }
 }
 .modal-actions .left button{
   background:none; border:none;
-  color:var(--text-dim);
+  color:var(--ink-mid);
   font-size:12px;
   cursor:pointer;
-  font-family:'Inter',sans-serif;
+  font-family:"Space Grotesk",sans-serif;
 }
-.modal-actions .left button:hover{ color:var(--c-rose); }
+.modal-actions .left button:hover{ color:var(--bad); }
 .modal-actions .right{ display:flex; gap:8px; }
 
 .io-textarea{
   width:100%;
   min-height:220px;
-  background:#12141c;
-  border:1px solid var(--grid-strong);
+  background:var(--ground);
+  border:1px solid var(--line);
   border-radius:6px;
-  color:var(--text);
-  font-family:'JetBrains Mono',monospace;
+  color:var(--ink);
+  font-family:"Space Grotesk",sans-serif;
   font-size:11.5px;
   line-height:1.5;
   padding:10px;
@@ -418,12 +454,12 @@ a.btn{ display:inline-block; text-decoration:none; }
   text-align:center;
   padding:7px 0;
   border-radius:6px;
-  border:1px solid var(--grid-strong);
-  background:#12141c;
-  color:var(--text-dim);
+  border:1px solid var(--line);
+  background:var(--ground);
+  color:var(--ink-mid);
   font-size:11.5px;
   cursor:pointer;
-  font-family:'Inter',sans-serif;
+  font-family:"Space Grotesk",sans-serif;
 }
 .io-toggle .opt.selected{
   border-color:var(--accent);
@@ -433,17 +469,18 @@ a.btn{ display:inline-block; text-decoration:none; }
 }
 .io-hint{
   font-size:11.5px;
-  color:var(--text-dim);
+  color:var(--ink-mid);
   margin-top:10px;
   min-height:14px;
 }
 
 .legend{
   margin-top:22px;
-  border:1px solid var(--grid-strong);
-  border-radius:10px;
+  border:1px solid var(--line);
+  border-radius:12px;
   background:var(--panel);
   padding:16px 18px 6px;
+  overflow:hidden;
 }
 .legend-header{
   display:flex;
@@ -454,22 +491,22 @@ a.btn{ display:inline-block; text-decoration:none; }
   margin-bottom:10px;
 }
 .legend-header h2{
-  font-family:'JetBrains Mono',monospace;
-  font-size:13px;
-  letter-spacing:0.06em;
-  color:var(--text-dim);
+  font-family:"Space Grotesk",sans-serif;
+  font-size:15px;
+  font-weight:700;
+  color:var(--ink);
   margin:0;
 }
 .legend-summary{
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:11.5px;
-  color:var(--text-dim);
+  color:var(--ink-mid);
 }
-.legend-summary b{ color:var(--text); font-weight:700; }
+.legend-summary b{ color:var(--ink); font-weight:700; }
 .legend-bar{
   height:6px;
   border-radius:4px;
-  background:var(--grid);
+  background:var(--line);
   overflow:hidden;
   display:flex;
   margin-bottom:14px;
@@ -486,7 +523,7 @@ a.btn{ display:inline-block; text-decoration:none; }
   padding:9px 6px;
   margin:0 -6px;
   border-radius:6px;
-  border-top:1px solid var(--grid);
+  border-top:1px solid var(--line);
   transition:background .12s ease;
 }
 .legend-row:hover{ background:rgba(255,255,255,0.03); }
@@ -499,7 +536,7 @@ a.btn{ display:inline-block; text-decoration:none; }
 .legend-name{
   font-size:13px;
   font-weight:500;
-  color:var(--text);
+  color:var(--ink);
   flex:1;
   min-width:0;
   overflow:hidden;
@@ -514,50 +551,60 @@ a.btn{ display:inline-block; text-decoration:none; }
 .legend-days span{
   width:16px; height:16px;
   border-radius:3px;
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:8.5px;
   display:flex;
   align-items:center;
   justify-content:center;
-  color:var(--text-faint);
-  background:var(--grid);
+  color:var(--ink-dim);
+  background:var(--line);
 }
 .legend-days span.active{
   color:#171304;
   font-weight:700;
 }
 .legend-hours{
-  font-family:'JetBrains Mono',monospace;
+  font-family:"Space Grotesk",sans-serif;
   font-size:12.5px;
   font-weight:700;
-  color:var(--text);
+  color:var(--ink);
   width:52px;
   text-align:right;
   flex-shrink:0;
 }
 .legend-empty{
   font-size:12.5px;
-  color:var(--text-faint);
+  color:var(--ink-dim);
   padding:10px 0 16px;
   text-align:center;
 }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="topbar">
-    <div class="title-block">
-      <h1>WEEKLY SCHEDULE</h1>
+<div class="page">
+
+  <a class="back-btn" href="../index.html">
+    <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Menu
+  </a>
+
+  <p class="eyebrow">Project</p>
+  <h1>Weekly Schedule</h1>
+  <p class="blurb">A calendar grid for your week. Add activities, watch the legend break down where your time actually goes, export or import the whole week as JSON when you want a copy.</p>
+
+  <div class="toolbar">
+    <div class="toolbar-stats">
       <div class="clock" id="clock"></div>
       <div class="quickstat" id="quickstat"></div>
     </div>
     <div class="actions">
-      <a class="btn" href="../index.html">&larr; Menu</a>
-      <button class="btn primary" id="addActivity">+ Add activity</button>
-      <button class="btn" id="jumpNow">&#8635; Jump to now</button>
-      <button class="btn" id="exportBtn">&#8681; Export JSON</button>
-      <button class="btn" id="importBtn">&#8679; Import JSON</button>
-      <button class="btn danger" id="clearWeek">&#10005; Clear week</button>
+      <button class="ghost-btn" id="addActivity">+ Add activity</button>
+      <button class="ghost-btn" id="jumpNow">&#8635; Jump to now</button>
+      <button class="ghost-btn" id="exportBtn">&#8681; Export JSON</button>
+      <button class="ghost-btn" id="importBtn">&#8679; Import JSON</button>
+      <button class="ghost-btn danger" id="clearWeek">&#10005; Clear week</button>
     </div>
   </div>
 
@@ -576,7 +623,7 @@ a.btn{ display:inline-block; text-decoration:none; }
 
   <div class="legend" id="legendPanel">
     <div class="legend-header">
-      <h2>LEGEND</h2>
+      <h2>Legend</h2>
       <div class="legend-summary" id="legendSummary"></div>
     </div>
     <div class="legend-bar" id="legendBar"></div>
@@ -586,7 +633,7 @@ a.btn{ display:inline-block; text-decoration:none; }
 
 <div class="backdrop" id="backdrop">
   <div class="modal">
-    <h2 id="modalTitle">ADD ACTIVITY</h2>
+    <h2 id="modalTitle">Add Activity</h2>
     <div class="field">
       <label>Activity</label>
       <input type="text" id="fText" maxlength="60" placeholder="e.g. Gym, Study, Standup">
@@ -616,8 +663,8 @@ a.btn{ display:inline-block; text-decoration:none; }
     <div class="modal-actions">
       <div class="left"><button id="fDelete" style="display:none;">Delete activity</button></div>
       <div class="right">
-        <button class="btn" id="fCancel">Cancel</button>
-        <button class="btn primary" id="fSave">Save</button>
+        <button class="ghost-btn" id="fCancel">Cancel</button>
+        <button class="ghost-btn" id="fSave">Save</button>
       </div>
     </div>
   </div>
@@ -625,7 +672,7 @@ a.btn{ display:inline-block; text-decoration:none; }
 
 <div class="backdrop" id="ioBackdrop">
   <div class="modal" style="max-width:480px;">
-    <h2 id="ioTitle">EXPORT SCHEDULE</h2>
+    <h2 id="ioTitle">Export Schedule</h2>
     <textarea class="io-textarea" id="ioTextarea" spellcheck="false" placeholder='[
   { "text": "Sleep", "days": ["mon","tue","wed","thu","fri"], "start": "21:00", "end": "05:00", "color": "violet" },
   { "text": "Gym", "days": ["mon","wed","fri"], "start": "06:30", "end": "07:30", "color": "sage" }
@@ -638,13 +685,13 @@ a.btn{ display:inline-block; text-decoration:none; }
     <div class="modal-actions">
       <div class="left"></div>
       <div class="right" id="ioActionsExport" style="display:none;">
-        <button class="btn" id="ioCopy">Copy JSON</button>
-        <button class="btn" id="ioDownload">Download .json</button>
-        <button class="btn" id="ioCloseExport">Done</button>
+        <button class="ghost-btn" id="ioCopy">Copy JSON</button>
+        <button class="ghost-btn" id="ioDownload">Download .json</button>
+        <button class="ghost-btn" id="ioCloseExport">Done</button>
       </div>
       <div class="right" id="ioActionsImport" style="display:none;">
-        <button class="btn" id="ioCancelImport">Cancel</button>
-        <button class="btn primary" id="ioLoad">Load JSON</button>
+        <button class="ghost-btn" id="ioCancelImport">Cancel</button>
+        <button class="ghost-btn" id="ioLoad">Load JSON</button>
       </div>
     </div>
   </div>
@@ -816,11 +863,11 @@ function renderLegend(){
   }
 
   summary.innerHTML = '<b>' + fmtHours(totalScheduledMin) + '</b> scheduled · <b>' + fmtHours(freeMin) + '</b> free of 168h' +
-    (totalScheduledMin > totalWeekMin ? ' <span style="color:var(--c-rose)">(overlapping)</span>' : '');
+    (totalScheduledMin > totalWeekMin ? ' <span style="color:var(--bad)">(overlapping)</span>' : '');
   document.getElementById('quickstat').innerHTML = '<b>' + fmtHours(freeMin) + '</b> free this week';
 
   rows.forEach(r=>{
-    const hex = TAGS[r.color] || 'var(--text-faint)';
+    const hex = TAGS[r.color] || 'var(--ink-dim)';
     const pct = Math.min(100, (r.minutes / totalWeekMin) * 100);
     if(pct > 0){
       const seg = document.createElement('div');
@@ -837,7 +884,7 @@ function renderLegend(){
 
     const dot = document.createElement('div');
     dot.className = 'legend-dot';
-    dot.style.background = TAGS[r.color] || 'var(--text-faint)';
+    dot.style.background = TAGS[r.color] || 'var(--ink-dim)';
     row.appendChild(dot);
 
     const name = document.createElement('div');
@@ -852,7 +899,7 @@ function renderLegend(){
       s.textContent = letter;
       if(r.days.has(i)){
         s.classList.add('active');
-        s.style.background = TAGS[r.color] || 'var(--text-dim)';
+        s.style.background = TAGS[r.color] || 'var(--ink-mid)';
       }
       daysEl.appendChild(s);
     });
@@ -1000,7 +1047,7 @@ function openModal(opts){
   if(opts.activity){
     const act = opts.activity;
     editingId = act.id;
-    document.getElementById('modalTitle').textContent = 'EDIT ACTIVITY';
+    document.getElementById('modalTitle').textContent = 'Edit Activity';
     document.getElementById('fText').value = act.text;
     document.getElementById('fStart').value = act.start;
     document.getElementById('fEnd').value = act.end;
@@ -1009,7 +1056,7 @@ function openModal(opts){
     document.getElementById('fDelete').style.display = 'inline-block';
   } else {
     editingId = null;
-    document.getElementById('modalTitle').textContent = 'ADD ACTIVITY';
+    document.getElementById('modalTitle').textContent = 'Add Activity';
     document.getElementById('fText').value = '';
     const day = opts.day !== undefined ? opts.day : todayIdx();
     const hour = opts.hour !== undefined ? opts.hour : new Date().getHours();
@@ -1034,7 +1081,7 @@ function checkOvernightHint(){
   const start = document.getElementById('fStart').value;
   const end = document.getElementById('fEnd').value;
   if(start && end && timeToMinutes(end) < timeToMinutes(start)){
-    hint.style.color = 'var(--text-dim)';
+    hint.style.color = 'var(--ink-mid)';
     hint.textContent = "Runs past midnight — it'll continue into the next day on the grid.";
   } else {
     hint.textContent = '';
@@ -1172,7 +1219,7 @@ function parseImportJSON(str){
 
 function openExportModal(){
   ioMode = 'export';
-  document.getElementById('ioTitle').textContent = 'EXPORT SCHEDULE';
+  document.getElementById('ioTitle').textContent = 'Export Schedule';
   const ta = document.getElementById('ioTextarea');
   ta.value = activitiesToJSON();
   ta.readOnly = true;
@@ -1180,13 +1227,13 @@ function openExportModal(){
   document.getElementById('ioActionsExport').style.display = 'flex';
   document.getElementById('ioActionsImport').style.display = 'none';
   document.getElementById('ioHint').textContent = activities.length + ' activit' + (activities.length===1?'y':'ies') + ' — copy this or download it to move your schedule elsewhere.';
-  document.getElementById('ioHint').style.color = 'var(--text-dim)';
+  document.getElementById('ioHint').style.color = 'var(--ink-mid)';
   document.getElementById('ioBackdrop').classList.add('open');
 }
 function openImportModal(){
   ioMode = 'import';
   importMerge = 'add';
-  document.getElementById('ioTitle').textContent = 'IMPORT SCHEDULE';
+  document.getElementById('ioTitle').textContent = 'Import Schedule';
   const ta = document.getElementById('ioTextarea');
   ta.value = '';
   ta.readOnly = false;
@@ -1195,7 +1242,7 @@ function openImportModal(){
   document.getElementById('ioActionsExport').style.display = 'none';
   document.getElementById('ioActionsImport').style.display = 'flex';
   document.getElementById('ioHint').textContent = 'Paste JSON in the format shown by Export.';
-  document.getElementById('ioHint').style.color = 'var(--text-dim)';
+  document.getElementById('ioHint').style.color = 'var(--ink-mid)';
   document.getElementById('ioBackdrop').classList.add('open');
   ta.focus();
 }
@@ -1223,12 +1270,12 @@ document.getElementById('ioCopy').addEventListener('click', async ()=>{
   const hint = document.getElementById('ioHint');
   try{
     await navigator.clipboard.writeText(ta.value);
-    hint.style.color = 'var(--c-sage)';
+    hint.style.color = 'var(--good)';
     hint.textContent = 'Copied to clipboard.';
   }catch(e){
     ta.focus();
     ta.select();
-    hint.style.color = 'var(--text-dim)';
+    hint.style.color = 'var(--ink-mid)';
     hint.textContent = "Couldn't auto-copy — text is selected, press Ctrl/Cmd+C.";
   }
 });
@@ -1244,7 +1291,7 @@ document.getElementById('ioDownload').addEventListener('click', ()=>{
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }catch(e){
-    document.getElementById('ioHint').style.color = 'var(--c-rose)';
+    document.getElementById('ioHint').style.color = 'var(--bad)';
     document.getElementById('ioHint').textContent = 'Download blocked here — use Copy JSON instead.';
   }
 });
@@ -1255,11 +1302,11 @@ document.getElementById('ioLoad').addEventListener('click', ()=>{
     activities = importMerge === 'replace' ? parsed : activities.concat(parsed);
     renderActivities();
     queueSave();
-    hint.style.color = 'var(--c-sage)';
+    hint.style.color = 'var(--good)';
     hint.textContent = 'Loaded ' + parsed.length + ' activit' + (parsed.length===1?'y':'ies') + '.';
     setTimeout(closeIOModal, 800);
   }catch(e){
-    hint.style.color = 'var(--c-rose)';
+    hint.style.color = 'var(--bad)';
     hint.textContent = e.message;
   }
 });
