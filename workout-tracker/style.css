@@ -13,18 +13,19 @@
      muscle heat-map poster) sitting on the dark panel, not a dark
      silhouette -- crisp outlines around every region read much better
      than shades-of-dark-gray ever did */
-  /* muscle tissue sits a shade warmer/deeper than the skin-and-bone
-     filler regions (head, neck, hands, feet, joints), so the
-     musculature reads as musculature instead of the whole figure
-     flattening into one wireframe */
-  --muscle-body-fill:#F2EEE4;
-  --muscle-outline:#2A2620;
-  --muscle-off:#E2D2BE;
-  --muscle-off-line:#2A2620;
-  --muscle-hover:#F6E9C4;
-  --muscle-primary:#e0685a;
-  --muscle-secondary:#dba24f;
-  --muscle-filtered:#4f7fb0;
+  /* the map is an anatomy chart: a flat grey body with the musculature
+     drawn on top in muscle-red, and the gaps between muscles showing the
+     body through. Untargeted muscles are a muted salmon so the figure
+     still reads as anatomy at rest; targeting pushes them to vivid red */
+  --map-paper:#F4F6F8;
+  --body-grey:#C7CEDA;
+  --body-grey-line:#A7B1C2;
+  --muscle-off:#DE8E83;
+  --muscle-off-line:#B46F67;
+  --muscle-hover:#F2C0A0;
+  --muscle-primary:#E1382B;
+  --muscle-secondary:#EFA23C;
+  --muscle-filtered:#3F79BC;
 
   --cal-food:#5a9bd5;
   --cal-over:#e0685a;
@@ -187,7 +188,7 @@ h1{
   width:100%;
   max-width:190px;
   height:auto;
-  background:var(--muscle-body-fill);
+  background:var(--map-paper);
   border-radius:10px;
 }
 .map-label{
@@ -198,21 +199,28 @@ h1{
   color:var(--ink-dim);
   margin-top:2px;
 }
-/* geometry lives in a 35x93 viewBox (89 individually-named anatomical
-   regions, see app.js). non-scaling-stroke means stroke-width is read in
-   screen pixels instead of the tiny user units, so the outlines stay a
-   crisp hairline at any rendered size -- which is what keeps this many
-   small regions legible rather than a mush of overlapping lines */
+/* the body underneath -- flat grey, no interaction, includes head,
+   hands and feet so the muscles never have to account for them */
+.body-silhouette{
+  fill:var(--body-grey);
+  stroke:var(--body-grey-line);
+  stroke-width:1.2;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none;
+}
+/* non-scaling-stroke reads stroke-width in screen pixels rather than
+   the source's ~1300-unit space, so outlines stay a hairline at any
+   rendered size instead of swelling into blobs */
 .muscle-shape{
   fill:var(--muscle-off);
-  stroke:var(--muscle-outline);
-  stroke-width:0.7;
+  stroke:var(--muscle-off-line);
+  stroke-width:0.5;
   stroke-linejoin:round;
   vector-effect:non-scaling-stroke;
   cursor:pointer;
   transition:fill .12s ease;
 }
-/* .is-hover is applied by JS to every region in the hovered group, not
+/* .is-hover is applied by JS to every shape in the hovered group, not
    just the one under the cursor */
 .muscle-shape.is-hover{fill:var(--muscle-hover)}
 .muscle-shape.is-primary{fill:var(--muscle-primary)}
@@ -220,11 +228,7 @@ h1{
 .muscle-shape.is-filtered{fill:var(--muscle-filtered)}
 /* declared after the fill states so the heavier outline still lands on
    a group that's already coloured by an exercise or a filter */
-.muscle-shape.is-hover{stroke-width:1.7}
-
-/* head, neck, hands, feet, joints, spine -- they fill the figure out
-   but aren't a trackable muscle, so no cursor/hover/click */
-.muscle-filler{fill:var(--muscle-body-fill);stroke:var(--muscle-outline);stroke-width:0.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.muscle-shape.is-hover{stroke-width:1.4;stroke:#8A4A42}
 
 .map-legend{
   display:flex;
