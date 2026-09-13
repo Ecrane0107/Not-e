@@ -985,75 +985,75 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Aliasing",
-          "Two or more names referring to one object."
+          "Two or more names referring to one object. Assigning through either name changes what both see, which is where the classic surprise comes from: a list handed to a function comes back modified. Primitives rarely alias because they are copied; containers almost always do."
         ],
         [
           "Binding",
-          "The association between a name and an object. Assignment creates or changes it."
+          "The association between a name and an object. Assignment creates or changes the binding, not the object — x = y makes x refer to the same thing y refers to rather than duplicating it. Rebinding a name never disturbs the object it used to point at."
         ],
         [
           "Closure",
-          "A function that captures and keeps alive variables from its enclosing scope."
+          "A function that captures and keeps alive variables from its enclosing scope. The captured variables are shared rather than snapshotted, so closures made in a loop all see the loop variable's final value unless each turn of the loop gets its own binding. This is what lets a function returned from a factory remember the arguments the factory was called with."
         ],
         [
           "Coercion",
-          "Implicit conversion between types, as when + turns a number into a string."
+          "Implicit conversion between types, as when + turns a number into a string. It is convenient in small doses and a reliable source of bugs at scale, because the rules differ by language and by operator — the same + may add or concatenate depending on which operand came first. An explicit conversion costs one call and removes the guessing."
         ],
         [
           "Composite",
-          "A type built from others: arrays, structs, objects, tuples."
+          "A type built from others: arrays, structs, objects, tuples. The distinction that matters day to day is that composites are usually handled through a reference, so copying the name copies the handle and not the contents. Most questions about aliasing are really questions about composites."
         ],
         [
           "Deep copy",
-          "Duplicates the whole structure, following references all the way down."
+          "Duplicates the whole structure, following references all the way down, so the result shares nothing with the original. It costs time proportional to the total size and has to decide what to do about cycles, which is why few languages do it by default. Reach for it when you need a genuinely independent copy and know the structure is finite."
         ],
         [
           "Dynamic typing",
-          "Types are checked as the program runs. Errors surface when the line executes, if it executes."
+          "Types are checked as the program runs. Errors surface when the line executes, if it executes — a type mistake on a rarely-taken branch can sit undiscovered for months. The trade is flexibility and less ceremony up front against fewer guarantees before you ship."
         ],
         [
           "Immutable",
-          "Unchangeable after creation; operations produce new objects instead."
+          "Unchangeable after creation; operations produce new objects instead. Because nothing can modify it underneath you, an immutable value can be shared freely across a program, and across threads, without locking. The cost is allocation: a modified version means a whole new object."
         ],
         [
           "Lexical scoping",
-          "Resolving names by where code is written, rather than by the runtime call chain."
+          "Resolving names by where the code is written, rather than by the runtime call chain. You can therefore work out which variable a name refers to by reading outward through the enclosing blocks, without knowing who called the function. The alternative, dynamic scoping, resolves against the caller and is now rare precisely because it defeats local reasoning."
         ],
         [
           "Lifetime",
-          "How long an object exists — governed by reachability, not by scope."
+          "How long an object exists — governed by reachability, not by scope. A name going out of scope ends that binding, but the object survives while anything else still refers to it, which is how a closure keeps its captured variables alive after the enclosing function has returned. Where memory is managed by hand, lifetime is your responsibility, and getting it wrong is what produces dangling pointers."
         ],
         [
           "Mutable",
-          "Able to be changed in place after creation."
+          "Able to be changed in place after creation. Mutation is efficient, since nothing new is allocated, but every holder of a reference sees the change, so an object passed into a function can come back different. Most of the puzzlement about a list changing on its own is mutation seen through an alias."
         ],
         [
           "Primitive",
-          "A value the machine handles directly: integer, float, boolean, character. Typically stored inline."
+          "A value the machine handles directly: integer, float, boolean, character. Typically stored inline rather than behind a reference, which is why assigning one copies it and aliasing does not arise. The exact set is language-specific, and some languages blur the line by boxing primitives into objects when one is needed."
         ],
         [
           "Scope",
-          "The region of code where a name is visible."
+          "The region of code where a name is visible. Narrow scopes are easier to reason about because there are fewer places the name could have been changed, which is the argument for declaring variables as late and as locally as possible. Scope governs visibility only; how long the object lives is lifetime, a separate question."
         ],
         [
           "Shadowing",
-          "An inner binding hiding an outer one of the same name."
+          "An inner binding hiding an outer one of the same name. It is legal and occasionally deliberate, but it makes the outer variable unreachable for the rest of the block, so an accidental shadow looks exactly like a variable that mysteriously refuses to update. Most linters warn about it for that reason."
         ],
         [
           "Shallow copy",
-          "Duplicates the outer container, shares everything inside."
+          "Duplicates the outer container and shares everything inside it. Adding or removing elements in the copy leaves the original alone, but mutating an element mutates it for both. It is cheap and usually what you want, which is also why copying first is not always the defence it appears to be."
         ],
         [
           "Static typing",
-          "Types are checked before the program runs. Errors are caught at compile time."
+          "Types are checked before the program runs. Errors are caught at compile time, including on branches that would almost never execute, which is the main practical argument for it. The cost is that the checker has to be convinced, so some correct programs are rejected until they are written a different way."
         ],
         [
           "Strong / weak typing",
-          "How willing the language is to convert between types implicitly. Orthogonal to static versus dynamic, though the terms are often confused."
+          "How willing the language is to convert between types implicitly. It is orthogonal to static versus dynamic, though the terms are often confused: Python is dynamic but strong, refusing to add a number to a string, while C is static but weak, happy to reinterpret the same bytes through a cast. Both words are informal, so it is usually clearer to describe the specific behaviour you mean."
         ],
         [
           "Temporal dead zone",
-          "The region between the top of a block and a let declaration, where the name exists but cannot be read."
+          "The region between the top of a block and a let declaration, where the name exists but cannot yet be read. It exists so that using a variable before declaring it is an error rather than silently handing back undefined, which is what var did. The name is misleading — nothing about it is temporal, it is purely positional."
         ]
       ]
     },
@@ -1712,119 +1712,119 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "0x prefix",
-          "The near-universal marker that a literal is hexadecimal: 0xFF. Binary uses 0b, octal uses 0o or a leading zero."
+          "The near-universal marker that a literal is hexadecimal: 0xFF. Binary uses 0b and octal uses 0o, and the prefix exists because 10 is a valid number in every base — without one, a literal is ambiguous. The older convention of a bare leading zero for octal is a standing trap, since 0755 and 755 are different numbers."
         ],
         [
           "AND (&)",
-          "1 only when both inputs are 1. Used to test or clear bits."
+          "1 only when both inputs are 1. Its everyday use is clearing bits: AND with a mask holding 0 where you want to erase and 1 where you want to keep. It also tests a bit, since x & 8 is non-zero exactly when the 8s bit of x is set."
         ],
         [
           "ASCII",
-          "The 7-bit encoding covering English letters, digits and punctuation, occupying code points 0 to 127."
+          "The 7-bit encoding covering English letters, digits and punctuation, occupying code points 0 to 127. Its layout was designed for convenience: the digits are contiguous, so subtracting the character 0 converts a digit to its value, and the two cases of a letter differ by exactly one bit. Every modern encoding leaves those 128 assignments untouched, which is why plain ASCII text is already valid UTF-8."
         ],
         [
           "Bit",
-          "One binary digit, holding 0 or 1. The word is a contraction of binary digit, coined by John Tukey."
+          "One binary digit, holding 0 or 1. The word is a contraction of binary digit, coined by John Tukey. It is also the unit of information: one bit is exactly what it takes to settle one question with two equally likely answers."
         ],
         [
           "Byte",
-          "Eight bits treated as a unit. Eight is a historical convention, not a law, but it is now universal."
+          "Eight bits treated as a unit. Eight is a historical convention rather than a law — early machines used six, seven and nine — but it is universal enough now that standards say octet only when they must be unambiguous. One byte holds 256 distinct values, which is just enough for one ASCII character or two hex digits."
         ],
         [
           "Code point",
-          "A number identifying a character, from U+0000 to U+10FFFF. About 150,000 are currently assigned."
+          "A number identifying a character, from U+0000 to U+10FFFF. About 150,000 are currently assigned, leaving a great deal of room. A code point is not a byte and not a character on screen: how it is stored is the encoding's business, and what a reader perceives as one character may take several code points."
         ],
         [
           "Encoding",
-          "A rule for turning code points into bytes. UTF-8, UTF-16 and UTF-32 are three different rules for the same code points."
+          "A rule for turning code points into bytes. UTF-8, UTF-16 and UTF-32 are three different rules for the same code points, so one piece of text has three different byte sequences and none of them is the correct one. Bytes carry no record of which rule produced them, which is why an encoding must be declared or agreed rather than guessed."
         ],
         [
           "Exponent",
-          "11 bits in a float64, stored with a bias of 1023 so it can represent negative exponents without its own sign."
+          "11 bits in a float64, stored with a bias of 1023 so it can cover negative exponents without a sign bit of its own. The stored value minus 1023 gives the true exponent, so a stored 1023 means 2 to the power 0. Two bit patterns are reserved — all zeros and all ones — for zero, subnormals, infinity and NaN."
         ],
         [
           "float32",
-          "The same scheme with 8 exponent bits and 23 mantissa bits. Roughly 7 decimal digits, which is why it is the default in machine learning where precision matters less than memory."
+          "The same scheme with 8 exponent bits and 23 mantissa bits, giving roughly 7 decimal digits. That is why it is the default in machine learning, where halving memory and bandwidth matters more than the precision given up. Training often goes further still, to 16-bit formats, keeping only the accumulations that need it in higher precision."
         ],
         [
           "Grapheme cluster",
-          "What a reader would call a single character, which may be several code points — a letter plus a combining accent, or an emoji with a skin-tone modifier."
+          "What a reader would call a single character, which may be several code points — a letter plus a combining accent, or an emoji with a skin-tone modifier. This is why the length of a string is genuinely ambiguous: it has a length in bytes, in code points and in grapheme clusters, and they rarely agree. Cursor movement and truncation want the grapheme count; almost nothing else does."
         ],
         [
           "Hex digits",
-          "0-9 then A-F, where A is 10 and F is 15. Case is conventionally irrelevant."
+          "0-9 then A-F, where A is 10 and F is 15, and case is conventionally irrelevant. Hex earns its place because 16 is 2 to the fourth, so one hex digit is exactly four bits. Converting between hex and binary therefore needs no arithmetic at all, only a lookup of sixteen patterns."
         ],
         [
           "Left shift (<<)",
-          "Moves bits toward the high end, filling with zeros. Each shift doubles the value."
+          "Moves bits toward the high end, filling with zeros. Each shift doubles the value, so x << 3 is x times 8 — which is how a compiler turns multiplication by a power of two into one fast instruction. Bits pushed off the top are simply lost, so shifting far enough silently yields zero."
         ],
         [
           "Machine epsilon",
-          "The smallest gap between representable floats near 1, and the scale of unavoidable rounding error."
+          "The smallest gap between representable floats near 1, and so the scale of unavoidable rounding error — about 2.2 x 10^-16 for a float64. It is the reason floating-point comparisons use a tolerance instead of equality. The gap is relative rather than absolute: out near a million, the spacing between neighbours is a million times wider."
         ],
         [
           "Mantissa",
-          "52 stored bits. A leading 1 is implied and not stored, giving 53 bits of effective precision — about 15 to 17 decimal digits."
+          "52 stored bits, with a leading 1 implied and not stored, giving 53 bits of effective precision — about 15 to 17 decimal digits. This is where precision lives: the exponent settles how big a number is, the mantissa settles how exactly it is known. Adding a tiny number to a huge one does nothing precisely because the tiny one falls off the end of the mantissa."
         ],
         [
           "Masking",
-          "Using AND or OR with a bit pattern to test, set or clear specific bits."
+          "Using AND or OR with a bit pattern to test, set or clear specific bits. AND with a mask keeps the bits the mask has set and clears the rest; OR with a mask sets those bits and leaves the rest alone. It is how a dozen flags are packed into one integer, and how a field is extracted from a larger value."
         ],
         [
           "Mojibake",
-          "Text corrupted by decoding bytes with the wrong encoding, as when UTF-8 is read as Latin-1."
+          "Text corrupted by decoding bytes with the wrong encoding, as when UTF-8 is read as Latin-1 and one accented letter arrives as two pieces of nonsense. The bytes are usually intact and only the interpretation is wrong, so it can often be recovered by decoding again correctly. The name is Japanese, literally character transformation."
         ],
         [
           "Nibble",
-          "Four bits, half a byte, exactly one hex digit. The name is a joke that stuck."
+          "Four bits, half a byte, exactly one hex digit. The name is a joke that stuck. It is a genuinely useful unit because of that hex correspondence — reading a byte as two nibbles is the same as reading it as two hex digits."
         ],
         [
           "Noise margin",
-          "The voltage gap between what counts as 0 and what counts as 1. Wide margins are why digital signals survive being copied while analogue ones degrade."
+          "The voltage gap between what counts as 0 and what counts as 1. Wide margins are why digital signals survive copying while analogue ones degrade: a value nudged part-way across the gap still resolves to the same digit and is then regenerated cleanly. This is the whole reason computing is digital rather than analogue."
         ],
         [
           "Normalisation (floats)",
-          "Rewriting a number as 1.something × 2ⁿ so the leading digit is always 1 and need not be stored."
+          "Rewriting a number as 1.something times a power of two, so the leading digit is always 1 and need not be stored. That free bit is exactly where the 53rd bit of precision comes from. Numbers too small to be normalised are stored subnormally instead, trading precision away for the ability to reach closer to zero."
         ],
         [
           "NOT (~)",
-          "Flips every bit. Width matters: ~0 is all ones, whose value depends on the type's size."
+          "Flips every bit. Width matters: ~0 is all ones, and whether that reads as -1 or as a large positive number depends on the type's size and signedness. It is not the same as logical not, which turns a truthy value into false rather than inverting a bit pattern."
         ],
         [
           "OR (|)",
-          "1 when either input is 1. Used to set bits."
+          "1 when either input is 1. It is used to set bits: OR with a mask turns on exactly the bits the mask has set and leaves every other bit as it was. Paired with AND for clearing, it is how a set of flags is maintained inside a single integer."
         ],
         [
           "Overflow",
-          "A result leaving the range its type can represent, wrapping around rather than growing."
+          "A result leaving the range its type can represent, wrapping around rather than growing. In two's complement the wrap is silent and lands on the opposite sign, so adding to a large positive number can produce a negative one. Languages differ sharply here — some define the wrap, some call it undefined behaviour, some check for it — and which you are in matters a great deal."
         ],
         [
           "Right shift (>>)",
-          "Moves bits toward the low end. Each shift halves, discarding what falls off the end."
+          "Moves bits toward the low end, each shift halving and discarding what falls off the end. It is therefore integer division by a power of two that rounds toward negative infinity rather than toward zero, which is not the same as ordinary division for negative numbers. For signed types the vacated high bits are usually filled with the sign bit, which is why many languages also offer an unsigned shift that fills with zeros."
         ],
         [
           "Sign bit",
-          "1 bit. 0 for positive, 1 for negative."
+          "1 bit: 0 for positive, 1 for negative. In floating point it sits entirely apart from the magnitude, which is why both +0 and -0 exist and nonetheless compare equal. Two's complement integers have no separate sign bit in the same sense — their top bit carries a negative place value and takes part in the arithmetic."
         ],
         [
           "Two's complement",
-          "Representing negatives by inverting all bits and adding one, so one adder handles both signs."
+          "Representing negatives by inverting all bits and adding one, so a single adder handles both signs. Subtraction becomes addition of the negation, and there is exactly one zero, which is why it beat the alternatives. The range is asymmetric — one more negative value than positive — so negating the most negative number overflows back to itself."
         ],
         [
           "Unicode",
-          "The standard assigning a unique code point to every character in every script."
+          "The standard assigning a unique code point to every character in every script. It separates a character's identity from how it is stored, which is what allows one document to mix scripts at all. It also standardises case mapping, sorting and normalisation, which turn out to be far harder problems than handing out the numbers."
         ],
         [
           "UTF-8",
-          "Variable width, one to four bytes. ASCII text is byte-identical to its ASCII encoding, which is the main reason it won the web."
+          "Variable width, one to four bytes per code point. ASCII text is byte-identical to its ASCII encoding, which is the main reason it won the web: existing tools kept working unchanged. It is also self-synchronising, since a byte's top bits say whether it begins a character or continues one, so a decoder that lands mid-character can recover."
         ],
         [
           "Word",
-          "The number of bits a processor handles as one natural chunk — 64 on most machines you will use."
+          "The number of bits a processor handles as one natural chunk — 64 on most machines you will meet. It sets the width of the registers and of a pointer, which is why a 64-bit machine can address vastly more memory than a 32-bit one. The term is used loosely, and some contexts still say word to mean 16 bits for historical reasons."
         ],
         [
           "XOR (^)",
-          "1 when the inputs differ. Used to toggle bits, and to detect difference."
+          "1 when the inputs differ. It toggles bits, and it detects difference: x ^ x is zero for any x, and a value XORed with the same mask twice comes back unchanged. That self-inverting property is why it turns up in checksums, in simple ciphers, and in the trick for swapping two values without a temporary."
         ]
       ]
     },
@@ -2092,75 +2092,75 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Argument",
-          "The actual value supplied at a call site, matched to a parameter."
+          "The actual value supplied at a call site, matched to a parameter. The distinction from parameter is worth keeping: the parameter is the name in the declaration, the argument is what arrives when the call happens. Languages differ in how the two are matched — by position, by name, or both."
         ],
         [
           "Parameter",
-          "The name a function declares to receive an argument."
+          "The name a function declares in order to receive an argument. It behaves like a local variable initialised from the call, so assigning to it rebinds that local name and leaves the caller's variable alone. Whether mutating what it points at reaches the caller is a separate question, settled by the calling convention."
         ],
         [
           "Signature",
-          "A function's parameters and return type — its contract with callers."
+          "A function's parameters and return type — its contract with callers. It is what a caller must satisfy and what they may rely on, which is why changing a signature breaks code that an equivalent change to the body would not. In a statically typed language it is also exactly what the compiler checks each call against."
         ],
         [
           "Side effect",
-          "Anything a function does besides computing its return value."
+          "Anything a function does besides computing its return value: writing to something outside itself, printing, touching a file, sending a request. Side effects are what make a program useful, and also what make it hard to test, since the returned value no longer tells you everything that happened. The usual discipline is to concentrate them rather than scatter them."
         ],
         [
           "Stack frame",
-          "The record of one function call: return address, parameters, locals."
+          "The record of one function call: return address, parameters, locals. Frames are pushed on call and popped on return, which is what makes locals vanish automatically and why allocating them costs almost nothing. The chain of live frames is precisely what a stack trace prints."
         ],
         [
           "Activation record",
-          "Another name for a stack frame."
+          "Another name for a stack frame, commoner in compiler and language-theory writing than in everyday use. The two terms are interchangeable. Activation is arguably the more precise word, since one function can have many simultaneous activations during recursion."
         ],
         [
           "Stack overflow",
-          "A crash from pushing more frames than the stack can hold, usually via unbounded recursion."
+          "A crash from pushing more frames than the stack can hold, usually through unbounded recursion. The stack is a fixed region reserved when the thread starts, typically about a megabyte, so the ceiling is thousands of frames rather than millions. A missing or unreachable base case is the usual cause; genuinely deep but correct recursion is the other."
         ],
         [
           "Pass by value",
-          "The parameter receives a copy of the argument's value."
+          "The parameter receives a copy of the argument's value, so assigning to the parameter cannot affect the caller — there is nothing shared to affect. For a large structure that copy has a real cost, which is why languages that work this way usually offer a way to pass big things by reference on purpose. C is the standard example, and its pointers are themselves passed by value."
         ],
         [
           "Pass by reference",
-          "The parameter is the caller's own variable, not a copy."
+          "The parameter is the caller's own variable rather than a copy, so assigning to it changes what the caller sees. It is genuinely rare: C++ references and C# ref are real examples, while most languages that appear to do this are doing call by sharing instead. The difference shows up exactly when a function assigns to its parameter rather than mutating through it."
         ],
         [
           "Call by sharing",
-          "Pass a copy of a reference; mutation is shared, rebinding is not."
+          "Pass a copy of a reference: mutation is shared, rebinding is not. This is what Python, Java, JavaScript and Ruby actually do, and it explains the behaviour that trips people up — appending to a list argument is visible to the caller, but assigning a whole new list to the parameter is not. Neither pass by value nor pass by reference describes it accurately, which is why it has its own name."
         ],
         [
           "Closure",
-          "A function bundled with the variables it captured from its enclosing scope."
+          "A function bundled together with the variables it captured from its enclosing scope. That bundle is what lets the function outlive the scope which created it and still work. Captured variables are shared rather than copied, so two closures made in the same scope observe each other's changes."
         ],
         [
           "Lexical scope",
-          "Scope determined by where code is written, not by who calls it."
+          "Scope determined by where code is written, not by who calls it. A reader can therefore resolve every name by looking outward through the enclosing text, which is why it is now essentially universal. The alternative, dynamic scope, makes a function's meaning depend on its caller and survives mainly in shell variables and a few special forms."
         ],
         [
           "Pure function",
-          "No side effects; same output for the same input, always."
+          "No side effects, and the same output for the same input, always. Pure functions are the easy ones: testable with no setup, safe to call in any order, safe to cache, safe to run in parallel. No program can be entirely pure and still do anything observable, so the aim is a pure core with the effects pushed out to the edges."
         ],
         [
           "Referential transparency",
-          "A call can be replaced by its result without changing behaviour."
+          "A call can be replaced by its result without changing the program's behaviour. This is the property that makes purity useful rather than merely tidy, because it is what licenses caching, reordering and common-subexpression elimination. A single side effect destroys it."
         ],
         [
           "Higher-order function",
-          "A function that takes a function as an argument, returns one, or both."
+          "A function that takes a function as an argument, returns one, or both. Map, filter and sort-with-a-comparator are the everyday cases: the shape of the operation is written once and the specific behaviour is handed in per call. It is the main way a language without macros lets you abstract over behaviour rather than over data."
         ],
         [
           "Decorator",
-          "A higher-order function that wraps another function to extend its behaviour."
+          "A higher-order function that wraps another to extend its behaviour — logging, timing, caching, access checks — without editing the original. The wrapper takes the function and returns a replacement with the same signature, so existing callers are unaffected. Python has dedicated syntax for it, but the pattern needs no language support at all."
         ],
         [
           "Memoisation",
-          "Caching a function's results, keyed by its arguments, inside a closure or table."
+          "Caching a function's results, keyed by its arguments, in a closure or a table. It turns repeated work into a lookup, which is what collapses naive exponential recursion into linear time when subproblems overlap. It is only valid for pure functions, and the cache is a memory cost that has to be bounded somehow."
         ],
         [
           "Variadic parameter",
-          "A parameter that collects an arbitrary number of extra arguments."
+          "A parameter that collects an arbitrary number of extra arguments into one list or array. It is how printf, and most logging and formatting functions, accept a call of any length. The collected arguments lose their individual names, so a variadic interface tends to be positional by nature."
         ]
       ]
     },
@@ -2400,51 +2400,51 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Base case",
-          "The case solved directly, with no further recursive call."
+          "The case solved directly, with no further recursive call. Every recursion needs at least one, and every path through the recursive case has to reach one eventually, or the stack grows until it fails. Getting the base case slightly wrong — off by one, or forgetting the empty input — is the most common recursion bug there is."
         ],
         [
           "Recursive case",
-          "The case that reduces the problem to a smaller instance and combines results."
+          "The case that reduces the problem to a smaller instance and combines the results. Smaller is the operative word: the reduction must make measurable progress toward the base case on every path, or the recursion never terminates. Most correctness arguments about recursion are just that progress argument plus the base case."
         ],
         [
           "Recursive leap of faith",
-          "Trusting a recursive call to solve the smaller problem correctly, without tracing it."
+          "Trusting a recursive call to solve the smaller problem correctly, without tracing it. It is not hand-waving but the induction hypothesis in disguise: if the base case is right, and the recursive case is right given a correct smaller answer, the whole thing is right. Trying to trace several levels by hand is exactly where people get lost."
         ],
         [
           "Stack overflow",
-          "A crash from exceeding the stack's finite frame capacity, typically via unbounded recursion."
+          "A crash from exceeding the stack's finite frame capacity, typically through unbounded recursion. The depth available is a few thousand frames in most runtimes, so it arrives far sooner than running out of memory would suggest. When the recursion is correct but genuinely deep, the fix is an explicit stack or an iterative rewrite, not a bigger stack."
         ],
         [
           "Tail position",
-          "The very last action in a function, whose result is returned with no further work."
+          "The very last action in a function, whose result is returned with no further work. A call is not in tail position if anything happens to its result afterwards — multiplying it, or even wrapping it in a try block — which is why return n * fact(n-1) is not tail recursive. Moving a call into tail position usually means carrying the pending work forward in an accumulator."
         ],
         [
           "Tail call",
-          "A function call made in tail position."
+          "A function call made in tail position. Because nothing remains to be done once it returns, the caller's frame is no longer needed the moment the call is made. That single observation is what tail-call elimination is built on."
         ],
         [
           "Tail-call elimination",
-          "A runtime reusing the current frame for a tail call instead of pushing a new one."
+          "A runtime reusing the current frame for a tail call rather than pushing a new one, so the recursion runs in constant stack space. Scheme and most functional languages guarantee it; JavaScript specifies it but engines largely never shipped it, and Python declines deliberately so that stack traces stay intact. Whether you can rely on it is a property of the implementation, not of the language as described."
         ],
         [
           "Accumulator",
-          "A parameter carrying a running result forward, enabling tail-recursive rewrites."
+          "A parameter carrying a running result forward, which is what makes a tail-recursive rewrite possible. Instead of computing the answer on the way back up, the answer is built on the way down and simply handed out by the base case. The rewrite often reverses the order in which things are combined, which matters when the operation is not associative."
         ],
         [
           "Overlapping subproblems",
-          "The same smaller problem recurring across different branches of a recursion."
+          "The same smaller problem recurring across different branches of a recursion. Naive Fibonacci is the standard illustration: computing fib(30) recomputes fib(10) thousands of times over. Where subproblems overlap, caching them collapses the cost from exponential to polynomial, which is the whole idea behind dynamic programming."
         ],
         [
           "Memoisation",
-          "Caching a function's results by argument to avoid recomputing overlapping subproblems."
+          "Caching a function's results by argument so overlapping subproblems are computed once. It is the top-down form of dynamic programming: the recursion is left exactly as written and a lookup table is placed in front of it. The bottom-up form fills the same table in order and does without the recursion entirely."
         ],
         [
           "Divide and conquer",
-          "Recursion into disjoint subproblems whose results are combined; no overlap to memoise."
+          "Recursion into disjoint subproblems whose results are then combined, with no overlap to memoise. Merge sort and binary search are the usual examples: each level splits the input and the pieces never share work. The cost is therefore analysed as a recurrence over the split, rather than by counting distinct subproblems."
         ],
         [
           "Explicit stack",
-          "A stack data structure managed by hand, used to convert recursion into a loop."
+          "A stack data structure managed by hand, used to turn a recursion into a loop. It does precisely what the call stack was doing, but in heap memory, so the depth limit becomes available memory rather than the thread's stack size. It is the standard remedy when a correct recursion is simply too deep to run."
         ]
       ]
     },
@@ -2700,63 +2700,63 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Pointer",
-          "A value holding a memory address rather than data itself."
+          "A value holding a memory address rather than data itself. It is what makes shared structures, linked data and dynamic allocation possible, because a fixed-size handle can refer to something of any size. Underneath it is just an integer with a type attached, which is both its power and its danger."
         ],
         [
           "Dereference",
-          "Following a pointer to read or write the data at its address."
+          "Following a pointer to read or write the data at its address. Every dereference is a bet that the address is valid and that what sits there really is the type you believe it is. When either is wrong, the result is a crash if you are lucky and silent corruption if you are not."
         ],
         [
           "Null pointer",
-          "A reserved address meaning \"points at nothing\"; dereferencing it is invalid."
+          "A reserved address meaning this points at nothing; dereferencing it is invalid. It is conventionally zero, and most systems deliberately leave that page unmapped so the mistake faults immediately instead of quietly reading garbage. Languages with option types sidestep the problem entirely by making absence part of the type."
         ],
         [
           "Stack allocation",
-          "Memory in the current call's frame, freed automatically when the call returns."
+          "Memory inside the current call's frame, released automatically when the call returns. It costs essentially nothing — allocating is moving a pointer — which is why locals are cheap. The catch is lifetime: returning a pointer to a local hands back an address that has already gone invalid."
         ],
         [
           "Heap allocation",
-          "Memory that persists until explicitly freed or garbage collected."
+          "Memory that persists until it is explicitly freed or garbage collected, independent of any call's lifetime. It is what you need when a structure must outlive the function that built it, or when its size is not known until run time. It costs more than the stack, both in the allocator's bookkeeping and in the discipline needed to release it."
         ],
         [
           "Aliasing",
-          "Two or more pointers referring to the same object."
+          "Two or more pointers referring to the same object. It is how sharing is achieved, and also why a function can change something the caller never expected it to touch. Compilers care as well: they cannot reorder or cache reads through pointers that might alias, which is why some languages offer a way to promise they do not."
         ],
         [
           "Shallow copy",
-          "Duplicates one level of structure; nested pointers remain shared."
+          "Duplicates one level of structure; nested pointers stay shared. The copy is independent in its own layout but not in what it refers to, so mutating a nested object is visible through both. It is cheap, and usually what was wanted, provided everyone involved knows that is what happened."
         ],
         [
           "Deep copy",
-          "Duplicates a structure all the way down, following every pointer."
+          "Duplicates a structure all the way down, following every pointer, so nothing at all is shared with the original. It costs time proportional to the total size, and it needs a plan for cycles or it will not terminate. Sharing the immutable parts is a common compromise, since nothing can observe the difference."
         ],
         [
           "Dangling pointer",
-          "A pointer whose target is no longer valid — freed, popped, or moved."
+          "A pointer whose target is no longer valid — freed, popped, or moved. The pointer itself is unchanged and still looks perfectly reasonable, which is exactly the problem: nothing about it marks it as stale. Setting pointers to null as soon as they are freed turns silent corruption into an immediate, obvious crash."
         ],
         [
           "Use-after-free",
-          "Dereferencing a pointer after its memory has been freed and possibly reused."
+          "Dereferencing a pointer after its memory has been freed and possibly handed out again. It often appears to work, because the old data is frequently still sitting there untouched, which makes it a bug that hides during testing and surfaces under load. It is also a serious security hole: an attacker who controls what gets allocated into that space controls what you read."
         ],
         [
           "Double free",
-          "Freeing the same memory twice, which can corrupt the allocator's bookkeeping."
+          "Freeing the same memory twice, which can corrupt the allocator's bookkeeping. Allocators keep their own structures in and around the blocks they manage, so a second free can be manipulated into writing chosen data into them. Like use-after-free, it is as much a security problem as a stability one."
         ],
         [
           "Ownership",
-          "A discipline for deciding which pointer is responsible for freeing an object."
+          "A discipline for deciding which pointer is responsible for freeing an object. Once every allocation has exactly one owner, both questions — when to free, and whether it has happened already — have answers. Rust enforces this in its type system; in C and C++ it is a convention that has to be documented and then actually followed."
         ],
         [
           "Reference counting",
-          "Freeing an object once the count of references to it reaches zero."
+          "Freeing an object once the number of references to it reaches zero. It reclaims memory promptly and predictably, which is why Python and Swift use it, but it costs an increment and a decrement on every copy and it cannot collect cycles. Cyclic structures need weak references, or a tracing collector running alongside."
         ],
         [
           "Tracing garbage collection",
-          "Reclaiming memory unreachable from a set of roots, rather than counting references."
+          "Reclaiming memory unreachable from a set of roots — globals, stacks, registers — rather than counting references. It handles cycles for free, since an unreachable cycle is simply never traced, and it takes the cost out of the ordinary pointer copy. The price is pauses and less predictable timing, which is the usual objection from real-time and embedded work."
         ],
         [
           "Pointer arithmetic",
-          "Adding to a pointer moves it by whole elements, scaled by the pointed-to type's size."
+          "Adding to a pointer moves it by whole elements, scaled by the size of the type pointed at, so p + 1 on an int pointer advances four bytes rather than one. This is exactly what array indexing compiles down to. It is also entirely unchecked in C, which is why walking off the end of an array is possible in the first place."
         ]
       ]
     },
@@ -2988,55 +2988,55 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Encapsulation",
-          "Bundling state with the behaviour responsible for keeping it consistent."
+          "Bundling state with the behaviour responsible for keeping it consistent. The point is not secrecy for its own sake but that an invariant has a single guardian: if only the class can touch the field, only the class can break it. A getter and setter for every field is encapsulation in name only, since it leaves the state exactly as exposed as it was."
         ],
         [
           "Invariant",
-          "A fact about an object's state that stays true across every valid operation on it."
+          "A fact about an object's state that stays true across every valid operation on it — a balance that is never negative, a list that stays sorted. Invariants are what encapsulation exists to protect, and they are the first thing worth writing down when designing a class. Every public method may assume the invariant on entry and must restore it before it returns."
         ],
         [
           "Inheritance",
-          "Modelling an is-a relationship by deriving one class's fields and methods from another."
+          "Modelling an is-a relationship by deriving one class's fields and methods from another. It couples the subclass to the parent's implementation and not merely its interface, so a change upstream can break a subclass that never touched the affected code. Modern practice reaches for it far less than it once did, reserving it for cases of genuine substitutability."
         ],
         [
           "Composition",
-          "Modelling a has-a relationship by holding references to other objects that provide behaviour."
+          "Modelling a has-a relationship by holding references to other objects that supply the behaviour. It couples only to those objects' interfaces, and the arrangement can be changed at run time, which is why it is now the usual default over inheritance. The cost is a little more wiring, since behaviour has to be delegated explicitly rather than inherited silently."
         ],
         [
           "Polymorphism",
-          "Calling a method without knowing which concrete type will handle it, and getting the right one anyway."
+          "Calling a method without knowing which concrete type will handle it, and getting the right one anyway. It is what lets one function work on any type satisfying an interface, so new types can be added without editing the code that uses them. This is the mechanism the open/closed principle is built on."
         ],
         [
           "Interface",
-          "A contract of method signatures with no attached implementation."
+          "A contract of method signatures with no attached implementation. It names what a caller may rely on while leaving every decision about how wide open, which is what makes two unrelated types interchangeable to the same code. Keeping an interface small is most of what makes it easy to satisfy."
         ],
         [
           "Late binding",
-          "Resolving which method implementation runs at the moment of the call, based on the object's real type."
+          "Resolving which method implementation runs at the moment of the call, from the object's real type rather than the type of the variable holding it. It is what makes polymorphism work, and it is usually implemented as a per-class table of function pointers that every such call goes through. The indirection costs a little speed and buys all the flexibility."
         ],
         [
           "Liskov substitution principle",
-          "A subtype must be usable anywhere its base type is expected, without behavioural surprises."
+          "A subtype must be usable anywhere its base type is expected, without behavioural surprises. It constrains behaviour rather than signatures: a subclass may not demand more than its parent did, nor promise less. The classic violation is Square subclassing Rectangle, where setting the width silently changes the height and breaks every caller that assumed otherwise."
         ],
         [
           "Single responsibility",
-          "A class should have exactly one reason to change."
+          "A class should have exactly one reason to change. The test is not how many methods it has but how many separate concerns would each force an edit — a class touched by both a pricing rule and a database schema has two. Splitting along those lines is what stops unrelated changes from colliding in the same file."
         ],
         [
           "Open/closed principle",
-          "Open for extension, closed for modification — add behaviour without editing what already works."
+          "Open for extension, closed for modification — add behaviour without editing what already works. In practice that means new cases arrive as new types satisfying an existing interface, rather than as new branches inside an existing switch. It is a direction to lean rather than a law, since guessing the axis of change wrongly only adds ceremony."
         ],
         [
           "Interface segregation",
-          "Prefer several small, specific interfaces over one large general one."
+          "Prefer several small, specific interfaces over one large general one. A type forced to implement methods it has no use for will fill them with stubs or exceptions, which is the clearest sign the interface was doing too much. Small interfaces are also easy to satisfy by accident, which is exactly what lets unrelated types interoperate."
         ],
         [
           "Dependency inversion",
-          "Depend on interfaces rather than concrete classes, so policy does not depend on detail."
+          "Depend on interfaces rather than concrete classes, so policy does not depend on detail. The inversion is in who owns the interface: it belongs to the high-level code that uses it, not the low-level code that implements it. That ownership is what allows the database to be swapped without the business rules noticing."
         ],
         [
           "Speculative generality",
-          "Flexibility built in before it is needed, paid for now against a benefit that may never arrive."
+          "Flexibility built in before it is needed, paid for now against a benefit that may never arrive. It shows up as an abstract base class with exactly one subclass, or a parameter nothing ever varies. The cost is immediate and certain — more to read, more to change — while the predicted future rarely turns up in the shape that was guessed."
         ]
       ]
     },
@@ -3265,51 +3265,51 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Arrange-act-assert",
-          "The three-part shape of a well-formed test: set up, perform, verify."
+          "The three-part shape of a well-formed test: set up the world, perform the one action under test, verify the result. Keeping the three visibly separate is what makes a failing test readable, since it is obvious which part went wrong. A test with several act steps is usually several tests sharing one name."
         ],
         [
           "Unit test",
-          "A test isolating a small piece of logic, with dependencies faked or removed."
+          "A test isolating a small piece of logic, with its dependencies faked or removed. Because it touches nothing external it runs in milliseconds, which is what makes it reasonable to run thousands of them on every save. The trade is that a green suite of unit tests says nothing about whether the pieces fit together."
         ],
         [
           "Integration test",
-          "A test checking that two or more real components cooperate correctly."
+          "A test checking that two or more real components cooperate correctly. It catches precisely what unit tests cannot: mismatched assumptions at the seams, a wrong query, a serialisation that does not round-trip. It is slower and harder to set up, so the usual advice is to have far fewer of them than unit tests."
         ],
         [
           "End-to-end test",
-          "A test driving the real system through its real interface, as a user would."
+          "A test driving the real system through its real interface, the way a user would. It is the only kind that can tell you the whole thing actually works, and also the slowest and most brittle to maintain. A handful covering the critical paths is the normal compromise."
         ],
         [
           "Test double",
-          "A stand-in for a real dependency used in a test."
+          "A stand-in for a real dependency used in a test. The umbrella term covers stubs, mocks, fakes and spies, which differ in how much they pretend and how much they record. Reaching for one is an admission that the real dependency is too slow, too unpredictable or too expensive to use here."
         ],
         [
           "Stub",
-          "A test double that returns canned answers to expected calls."
+          "A test double that returns canned answers to expected calls. It exists to get the code under test past a dependency, not to be examined afterwards — nothing is asserted about how it was used. Use one when the dependency merely supplies input to the thing you are actually testing."
         ],
         [
           "Mock",
-          "A test double that also records and verifies how it was called."
+          "A test double that also records and verifies how it was called. It moves the assertion from the result to the interaction, which is right when the interaction is the point: that an email was sent, that a card was charged exactly once. Overused, it welds tests to implementation details, so a harmless refactor breaks a hundred of them at once."
         ],
         [
           "Fake",
-          "A lightweight working implementation used in place of a real dependency."
+          "A lightweight working implementation used in place of a real dependency — an in-memory store standing in for a database. Unlike a stub it genuinely works, so a test can exercise a real sequence of operations against it. The risk is drift: a fake that no longer behaves like the real thing passes tests the real one would fail."
         ],
         [
           "Flaky test",
-          "A test that fails intermittently with no underlying code change."
+          "A test that fails intermittently with no underlying code change. The usual causes are timing, state shared between tests, and dependence on real clocks, networks or iteration order. A tolerated flake is worse than no test, because a suite people have learned to re-run is a suite nobody believes."
         ],
         [
           "Minimal reproduction",
-          "The smallest input and steps that reliably trigger a reported bug."
+          "The smallest input and sequence of steps that reliably triggers a reported bug. Producing one is most of the debugging: everything removed without the failure going away is a thing proven irrelevant. It is also what turns a vague report into something another person can act on."
         ],
         [
           "Bisecting",
-          "Binary-searching commit history for the change that introduced a regression."
+          "Binary-searching commit history for the change that introduced a regression. Given one known-good and one known-bad commit, each test halves the range, so a thousand commits take about ten checks. git bisect keeps the bookkeeping straight and can run the test for you at each step."
         ],
         [
           "Regression",
-          "A previously working behaviour that has broken."
+          "A previously working behaviour that has broken. The word is the reason test suites exist at all: the point of keeping an old test is to notice when tomorrow's change quietly undoes today's fix. Every regression a user finds before a test does is an argument for one more test."
         ]
       ]
     },
@@ -3499,59 +3499,59 @@ Object.assign(BOOKLETS, {
       }
     ],
     "vocab": [
-      [
-        "Module",
-        "A unit of a system grouping related functions, types, and state behind a boundary."
-      ],
-      [
-        "Public interface",
-        "The functions, types, and values a module exposes to callers — its contract."
-      ],
-      [
-        "Private implementation",
-        "Everything behind a module's interface, free to change without affecting callers."
-      ],
-      [
-        "Information hiding",
-        "Concealing a module's internals behind a stable public interface."
-      ],
-      [
-        "Coupling",
-        "How much one module depends on another module's details."
-      ],
-      [
-        "Cohesion",
-        "How closely related the responsibilities inside one module are to each other."
-      ],
-      [
-        "Circular dependency",
-        "Two modules that each depend on the other, directly or indirectly."
-      ],
-      [
-        "Layered architecture",
-        "An arrangement where higher-level modules depend on lower-level ones, not vice versa."
-      ],
-      [
-        "Dependency inversion",
-        "High- and low-level modules both depending on a shared abstraction, rather than one depending directly on the other's concrete implementation."
-      ],
-      [
-        "Abstraction",
-        "An interface capturing what something does without committing to how."
-      ],
-      [
-        "Semantic versioning",
-        "A major.minor.patch scheme signalling the size and safety of a change."
-      ],
-      [
-        "Breaking change",
-        "A change to a public interface that can break existing callers."
-      ],
-      [
-        "Major version",
-        "The semantic-versioning position incremented for a breaking change."
+        [
+          "Module",
+          "A unit of a system grouping related functions, types and state behind a boundary. The boundary is the whole point: it lets someone use the module without reading it, and lets you change the inside without telling anyone. What counts as a module differs by language — a file, a package, a namespace — but the idea does not."
+        ],
+        [
+          "Public interface",
+          "The functions, types and values a module exposes to callers — its contract. Everything in it is a promise that is expensive to take back, which is why keeping it small is worth real effort. Anything not in it can be changed freely, so the smaller the interface, the more freedom you keep."
+        ],
+        [
+          "Private implementation",
+          "Everything behind a module's interface, free to change without affecting callers. It is where the freedom to improve lives: rewriting a private algorithm is a local decision, while changing a public signature is a negotiation with everyone who calls it. Languages that cannot enforce the split fall back on convention, such as a leading underscore."
+        ],
+        [
+          "Information hiding",
+          "Concealing a module's internals behind a stable public interface so callers cannot come to depend on them. Parnas's original argument was that modules should be drawn around the decisions most likely to change, so each anticipated change stays inside one module. It is the same reasoning as encapsulation, one level up from the class."
+        ],
+        [
+          "Coupling",
+          "How much one module depends on another module's details. Low coupling is what allows a module to be understood, tested and changed on its own, because there are few other places that have to be consulted. Coupling to an interface is far cheaper than coupling to an implementation, which is the point behind most of the design principles."
+        ],
+        [
+          "Cohesion",
+          "How closely related the responsibilities inside one module are to each other. High cohesion means the module has a single subject, so a reader can predict what is in it and a change tends to stay within it. Low cohesion is the utility module that everything imports and nobody can describe in a sentence."
+        ],
+        [
+          "Circular dependency",
+          "Two modules that each depend on the other, directly or through a chain. Neither can then be understood, built or tested without the other, so the pair is really one module with a file boundary drawn through the middle. The fix is usually to extract the shared part, or to turn one direction around through an interface."
+        ],
+        [
+          "Layered architecture",
+          "An arrangement where higher-level modules depend on lower-level ones and never the reverse. That acyclic direction is what makes the system readable: any layer can be understood knowing only what lies beneath it. Strict layering also forbids skipping a layer, which is a stronger rule than most codebases actually keep."
+        ],
+        [
+          "Dependency inversion",
+          "High- and low-level modules both depending on a shared abstraction, rather than one depending directly on the other's concrete implementation. The interface is owned by the high-level side, and that ownership is what turns the dependency arrow around. It is what lets storage or transport be replaced without the policy above noticing."
+        ],
+        [
+          "Abstraction",
+          "An interface capturing what something does without committing to how. A good one can be used correctly without reading the implementation; a leaky one forces you to know the details anyway, which usually means the boundary was drawn in the wrong place. Abstraction is not the same as indirection — a layer that hides nothing is cost without benefit."
+        ],
+        [
+          "Semantic versioning",
+          "A major.minor.patch scheme signalling the size and safety of a change. Patch is a fix, minor adds compatibly, major may break you, so a dependency range can be written with some idea of the risk being taken. It is a promise made by people, so it holds exactly as well as the maintainers keep it."
+        ],
+        [
+          "Breaking change",
+          "A change to a public interface that can break existing callers — removing a function, renaming a field, tightening what is accepted or loosening what is returned. Behaviour counts as much as signatures: a function that starts throwing where it used to return nothing has broken its callers just as surely. Announcing these is what a major version is for."
+        ],
+        [
+          "Major version",
+          "The semantic-versioning position incremented for a breaking change. Bumping it is the signal to everyone downstream that upgrading is not automatic and the notes need reading. Version 0.x is the conventional escape hatch, where anything may change and no promise is being made yet."
+        ]
       ]
-    ]
   },
   "functional":   {
       "title": "Functional programming",
@@ -3754,63 +3754,63 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Pure function",
-          "A function whose output depends only on its inputs and which causes no side effects."
+          "A function whose output depends only on its inputs and which causes no side effects. Purity is what makes a function safe to cache, to reorder, to skip when its result is unused, and to run on another thread without a lock. It is also what makes it testable with no setup at all: pass values in, check the value out."
         ],
         [
           "Side effect",
-          "Any observable change other than a function's return value — mutation, I/O, logging."
+          "Any observable change other than a function's return value — mutation, I/O, logging. Effects are the entire reason a program is worth running, so the goal is never to eliminate them but to know where they are. Scattered through the logic they make every function hard to reason about; gathered at the edges they stay manageable."
         ],
         [
           "Immutability",
-          "Data that cannot be changed after creation; operations return new values instead."
+          "Data that cannot be changed after creation; operations return new values instead. Nothing can be modified behind your back, so a value can be shared freely between parts of a program and across threads without coordination. The apparent cost of copying is largely avoided by structural sharing."
         ],
         [
           "Structural sharing",
-          "Reusing the unchanged parts of an immutable structure instead of copying them."
+          "Reusing the unchanged parts of an immutable structure instead of copying them. Updating one element of a persistent tree rebuilds only the path from the root to that element and points at the existing nodes for everything else, so an update costs log n rather than n. This is what makes immutable collections practical rather than merely principled."
         ],
         [
           "Referential transparency",
-          "An expression can be replaced by its value with no change in program behavior."
+          "An expression can be replaced by its value with no change in program behaviour. It is the formal statement of what purity buys, and it is the licence a compiler needs to cache, reorder or eliminate a computation. A single hidden effect anywhere in the expression takes it away."
         ],
         [
           "map",
-          "Transform every element of a collection into a new collection, one-to-one."
+          "Transform every element of a collection into a new collection, one-to-one. The output has the same length as the input, which is the property that distinguishes it from filter and makes it safe to zip results back against the original. Because each element is handled independently, map is the easiest operation of all to parallelise."
         ],
         [
           "filter",
-          "Keep only the elements of a collection that pass a predicate."
+          "Keep only the elements of a collection that pass a predicate. The output is a subsequence of the input, so order is preserved but length is not. Chaining filter before map is usually cheaper than the reverse, since the expensive transformation then runs on fewer elements."
         ],
         [
           "fold / reduce",
-          "Combine every element of a collection into a single accumulated value."
+          "Combine every element of a collection into a single accumulated value, given a starting value and a combining function. Map and filter can both be written as folds, which makes it the most general of the three. Whether it folds from the left or the right matters whenever the operation is not associative."
         ],
         [
           "Higher-order function",
-          "A function that takes a function as an argument or returns one."
+          "A function that takes a function as an argument or returns one. It is what lets the shape of an operation be written once and the specific behaviour supplied per call, which is how map, filter and sort avoid being rewritten for every element type. Returning a function is also how partial application and decorators are built."
         ],
         [
           "Partial application",
-          "Fixing some of a function's arguments ahead of time to produce a new, narrower function."
+          "Fixing some of a function's arguments ahead of time to produce a new, narrower function. It turns a general function into a specific one without writing a wrapper, which is how a configured logger or a preset formatter is usually made. The result is an ordinary function and can be passed anywhere one is expected."
         ],
         [
           "Currying",
-          "Restructuring a multi-argument function into a chain of single-argument functions."
+          "Restructuring a multi-argument function into a chain of single-argument functions, so f(a, b) becomes f(a)(b). It makes partial application automatic, since supplying one argument simply returns the next function in the chain. It is standard in ML and Haskell and available as a library elsewhere."
         ],
         [
           "Function composition",
-          "Building a new function by chaining the output of one function into the input of another."
+          "Building a new function by feeding the output of one into the input of another. It lets a pipeline be assembled as a value and named, rather than spelled out at each call site. Composition is associative, which is why a long pipeline can be grouped and refactored freely."
         ],
         [
           "Functional core, imperative shell",
-          "Isolating side effects in a thin outer layer while keeping the decision logic pure."
+          "Isolating side effects in a thin outer layer while keeping the decision logic pure. The core decides what should happen and returns a description of it; the shell carries it out. It is the practical way to get purity's testability without pretending a program can avoid touching the world."
         ],
         [
           "Memoization",
-          "Caching a pure function's results, valid precisely because the same input always gives the same output."
+          "Caching a pure function's results, valid precisely because the same input always gives the same output. It trades memory for time, which is what turns an exponential naive recursion into a linear one when subproblems overlap. Applying it to an impure function is a bug, because the cached answer may no longer be the right one."
         ],
         [
           "Mutation",
-          "Changing a value in place rather than producing a new one."
+          "Changing a value in place rather than producing a new one. It is efficient and entirely reasonable on a value nothing else holds, which is why even functional languages mutate freely inside a local scope. It becomes a problem only when the mutated thing is shared, at which point it is visible to holders who never asked for it."
         ]
       ]
     }

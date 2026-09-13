@@ -258,55 +258,55 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Big-O",
-          "An asymptotic upper bound on growth, ignoring constant factors."
+          "An asymptotic upper bound on growth, ignoring constant factors. It answers how the cost scales, not how long something takes — an O(n) algorithm with a large constant can easily lose to an O(n log n) one at any size you care about. It is an upper bound, so O(n) is technically also O(n squared), even though nobody says so."
         ],
         [
           "Big-Theta",
-          "A tight asymptotic bound: growth matches both above and below."
+          "A tight asymptotic bound: growth matches both above and below. It is what people usually mean when they say Big-O, since claiming an algorithm is O(n squared) is true but uninformative if it is really linear. Theta is the honest notation and O is the customary one."
         ],
         [
           "Big-Omega",
-          "An asymptotic lower bound on growth."
+          "An asymptotic lower bound on growth: the cost is at least this, up to a constant. It is the notation for arguing that a problem cannot be solved faster than some bound — comparison sorting being Omega(n log n), for instance. Lower bounds are usually much harder to prove than upper bounds, because they must hold for every possible algorithm."
         ],
         [
           "Asymptotic",
-          "Describing behaviour in the limit of large input size, not at small n."
+          "Describing behaviour in the limit of large input size, rather than at small n. This is what licenses dropping constants and lower-order terms, and it is also the notation's main limitation: it says nothing about the sizes you may actually run on. Small inputs are exactly where the discarded constants dominate."
         ],
         [
           "Worst case",
-          "The input that produces the largest possible cost for a given size."
+          "The input that produces the largest possible cost for a given size. It is the default because it is a guarantee rather than a hope, and because an adversary — or simply unlucky real data — can produce it. Quicksort's O(n squared) worst case is the standard example of a bound that rarely shows up but still matters."
         ],
         [
           "Average case",
-          "Expected cost over an assumed distribution of inputs."
+          "Expected cost over an assumed distribution of inputs. The assumption is doing real work and is usually unstated: average-case results for hash tables assume the keys are not adversarial, which stops being true the moment they arrive from users. Where the distribution cannot be trusted, randomising the algorithm is safer than assuming the input."
         ],
         [
           "Amortised analysis",
-          "Bounding average cost per operation across any sequence, not any single call."
+          "Bounding average cost per operation across any sequence, not any single call. A dynamic array's append is amortised O(1) even though the occasional resize is O(n), because those resizes are rare enough to pay for themselves. It is a worst-case guarantee over the sequence, which is what distinguishes it from average-case analysis."
         ],
         [
           "In-place",
-          "An algorithm using O(1) auxiliary space beyond its input."
+          "An algorithm using O(1) auxiliary space beyond its input. It matters when the data is large relative to memory, and it is what lets a sort run on an array without room for a second copy. The usual price is destroying the original order, and often a more delicate implementation."
         ],
         [
           "Auxiliary space",
-          "Extra memory an algorithm uses beyond the input itself."
+          "Extra memory an algorithm uses beyond the input itself. Counting it separately is what makes in-place meaningful at all, since every algorithm trivially uses space proportional to its input. Recursion counts: the call stack is auxiliary space, which is why a recursive sort is not in-place even if it never allocates."
         ],
         [
           "Recurrence",
-          "An equation defining a recursive algorithm's cost in terms of smaller inputs."
+          "An equation defining a recursive algorithm's cost in terms of smaller inputs, such as T(n) = 2T(n/2) + n for merge sort. Solving it turns the structure of the recursion into a closed-form growth rate. The recursion tree is the usual way to see the answer before proving it."
         ],
         [
           "Master theorem",
-          "A direct formula for the complexity of recurrences of the form T(n) = aT(n/b) + f(n)."
+          "A direct formula for the complexity of recurrences of the form T(n) = aT(n/b) + f(n). It compares the work done splitting against the work done at the leaves and reports whichever dominates, covering most divide-and-conquer algorithms in one step. Recurrences that do not fit the form need the recursion tree or substitution instead."
         ],
         [
           "Randomised algorithm",
-          "An algorithm whose own random choices, not the input, determine its bad cases."
+          "An algorithm whose own random choices, not the input, determine its bad cases. Randomised quicksort is the standard example: no particular input is slow, because the pivot choice does not depend on the data. This converts an adversary's advantage into a probability you control."
         ],
         [
           "Accounting method",
-          "Proving amortised bounds by charging cheap operations extra credit to pay for rare expensive ones."
+          "Proving amortised bounds by charging cheap operations extra credit to pay for rare expensive ones. Each append to a dynamic array is charged a little more than it costs, and the savings are spent on the next resize. If the credit balance never goes negative, the charged rate is a valid amortised bound."
         ]
       ]
     },
@@ -557,67 +557,67 @@ Object.assign(BOOKLETS, {
       "vocab": [
         [
           "Root",
-          "The single node with no parent, at the top of a tree."
+          "The single node with no parent, at the top of a tree. Every operation starts there, which is why a tree's height is the cost of reaching anything. Losing the root loses the tree, since nothing else points to it."
         ],
         [
           "Leaf",
-          "A node with no children."
+          "A node with no children. In a balanced tree roughly half of all nodes are leaves, which is why algorithms whose cost is bounded by a node's height are so much cheaper than they first appear. Leaves are also where the data lives in structures like a B+ tree."
         ],
         [
           "Depth",
-          "The number of edges from the root down to a node."
+          "The number of edges from the root down to a node. The root has depth 0, and depth is a property of a node rather than of the tree. It is what determines how many steps a search has already taken when it reaches that node."
         ],
         [
           "Height",
-          "The longest root-to-leaf path in a tree."
+          "The longest root-to-leaf path in a tree, and therefore the worst-case cost of a search. Keeping it near log n is the entire purpose of self-balancing, since an unbalanced tree degenerates into a linked list with a height of n. Height is a property of the whole tree, where depth belongs to a node."
         ],
         [
           "Subtree",
-          "A node together with everything beneath it, itself a complete tree."
+          "A node together with everything beneath it, itself a complete tree. This self-similarity is what makes recursion the natural way to work with trees: almost every tree algorithm handles a node and then calls itself on each subtree. It is also what makes rotations local, since a subtree can be moved without disturbing anything inside it."
         ],
         [
           "Binary search tree",
-          "A binary tree where every node's left subtree is smaller and right subtree is larger."
+          "A binary tree where every node's left subtree is smaller and right subtree is larger. The ordering turns search into a sequence of comparisons that discard half the remaining tree each time — provided the tree is balanced. Inserting already-sorted data into a plain BST produces exactly the unbalanced case, which is why self-balancing variants exist."
         ],
         [
           "In-order traversal",
-          "Visit left subtree, then node, then right subtree — sorted order for a BST."
+          "Visit left subtree, then node, then right subtree — which yields sorted order for a BST. That is the cheapest way to get a sorted listing out of a search tree, and it is why in-order is the traversal usually meant when none is specified. It is also the basis of an iterator that walks a tree lazily."
         ],
         [
           "Pre-order traversal",
-          "Visit the node, then its left subtree, then its right subtree."
+          "Visit the node, then its left subtree, then its right subtree. Because the node is emitted before its children, pre-order is the order to use when serialising a tree for later reconstruction. It is also the natural order for copying a tree."
         ],
         [
           "Post-order traversal",
-          "Visit both subtrees before the node."
+          "Visit both subtrees before the node. This is the order for anything that has to finish with the children first — freeing a tree, computing each node's height, or evaluating an expression tree bottom-up. Attempting those in pre-order gives the wrong answer or frees memory still in use."
         ],
         [
           "Level-order traversal",
-          "Visit nodes breadth-first, one depth at a time, using a queue."
+          "Visit nodes breadth-first, one depth at a time, using a queue. It is the only common traversal that is not naturally recursive, since the queue replaces the call stack. It is what you want when nearer nodes should be reached first, which is the same reason BFS finds shortest paths."
         ],
         [
           "Self-balancing tree",
-          "A tree that restructures itself to keep height at O(log n) regardless of insertion order."
+          "A tree that restructures itself to keep height at O(log n) regardless of insertion order. Without one, ordered input degrades a BST to a linked list and every operation to linear time. The cost is a little bookkeeping on insert and delete, which is almost always worth paying."
         ],
         [
           "Rotation",
-          "A local restructuring that changes which node is on top while preserving BST order."
+          "A local restructuring that changes which node is on top while preserving BST order. It touches only a handful of pointers and leaves the in-order sequence untouched, which is exactly what makes it safe to apply for balance. Every self-balancing tree is built from rotations."
         ],
         [
           "AVL tree",
-          "A self-balancing BST that tracks a balance factor and rotates to keep it bounded."
+          "A self-balancing BST that tracks a balance factor per node and rotates to keep it within one. The strict condition keeps it shorter than a red-black tree, so lookups are slightly faster, at the cost of more rotations during insert and delete. It suits read-heavy workloads for that reason."
         ],
         [
           "Red-black tree",
-          "A self-balancing BST with a looser balance condition, cheaper to maintain than AVL."
+          "A self-balancing BST with a looser balance condition, cheaper to maintain than AVL. It allows a height up to twice the optimum, which buys fewer rotations per update — the reason it backs most standard library ordered maps. It is the usual choice when reads and writes are both common."
         ],
         [
           "Trie",
-          "A tree for strings where each edge is a character and shared prefixes share a path."
+          "A tree for strings where each edge is a character and shared prefixes share a path. Lookup costs the length of the key rather than log of the number of keys, so it does not slow down as the dictionary grows. It also makes prefix queries and autocomplete natural, at a considerable cost in memory."
         ],
         [
           "B-tree",
-          "A wide, shallow search tree whose high fanout minimises disk page reads."
+          "A wide, shallow search tree whose high fanout minimises disk page reads. Each node is sized to a disk page and holds hundreds of keys, so a few million records sit three or four levels deep and a lookup costs three or four reads. This is why it is the structure underneath essentially every database index and filesystem."
         ]
       ]
     },
