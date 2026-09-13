@@ -1,13 +1,4 @@
 :root{
-  --ground:#0C0E0F;
-  --ground-deep:#08090A;
-  --panel:#101314;
-  --panel-hi:#1A1E20;
-  --line:#23282B;
-  --ink:#EDEFF0;
-  --ink-mid:#9AA1A6;
-  --ink-dim:#666D72;
-  --focus:#EDEFF0;
   --ember:#FF7A3D;
   --ember-hot:#FFD08A;
 }
@@ -241,14 +232,14 @@ h1{
 }
 .primary-btn{
   padding:10px 20px;
-  background:#fff;
+  background:var(--accent);
   color:#141413;
   border:0;
   border-radius:7px;
   font:600 14px "Space Grotesk",sans-serif;
   cursor:pointer;
 }
-.primary-btn:hover{background:#DDE3E7}
+.primary-btn:hover{background:var(--accent-hover)}
 .primary-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .ghost-btn{
   padding:10px 16px;

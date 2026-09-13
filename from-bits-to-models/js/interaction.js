@@ -183,14 +183,14 @@ function select(id){
 // map: a pill with that category's border. Edges carry no category, so there
 // is no line style left to show.
 function swatch(t){
-  return `<span class="swatch" style="border-color:${t.color}"></span>`;
+  return `<span class="swatch" style="--sw:${trackColor(t)}"></span>`;
 }
 
 function chipList(ids, emptyText){
   if (!ids.length) return `<p class="none">${emptyText}</p>`;
   return `<div class="chips">` + ids.map(id => {
     const n = byId.get(id);
-    return `<button class="chip" data-goto="${n.id}" style="border-left-color:${TRACKS[n.track].color}">${n.label}</button>`;
+    return `<button class="chip" data-goto="${n.id}" style="border-left-color:${trackColor(TRACKS[n.track])}">${n.label}</button>`;
   }).join("") + `</div>`;
 }
 
@@ -811,7 +811,9 @@ search.addEventListener("input", () => {
    All three stick, because the panel is something you set up once for the
    way you work rather than every time you open the map. */
 
-const RAIL_KEY = "fbtm:rail:v1";
+// v2: the key was bumped so a layout picked while trying these out does not
+// keep overriding the top-to-bottom default.
+const RAIL_KEY = "fbtm:rail:v2";
 const RAIL_MIN = 232, RAIL_MAX = 520, RAIL_DEFAULT = 296;
 
 const railGrip = document.getElementById("railGrip");
@@ -987,6 +989,19 @@ function paintGrain(){
   g.putImageData(img, 0, 0);
   document.getElementById("grain").style.backgroundImage = `url(${n.toDataURL()})`;
 }
+
+// Swatches and chips carry their category colour as an inline style, and the
+// ramp differs per theme, so the parts that were written once have to be
+// written again when the theme flips. The canvas repaints itself from PAINT.
+window.addEventListener("themechange", () => {
+  linesEl.querySelectorAll(".line-btn").forEach(b => {
+    const sw = b.querySelector(".swatch");
+    if (sw) sw.style.setProperty("--sw", trackColor(TRACKS[b.dataset.track]));
+  });
+  if (state.selected) renderDrawer(byId.get(state.selected));
+  paintGrain();
+  dirty = true;
+});
 
 function boot(){
   paintGrain();

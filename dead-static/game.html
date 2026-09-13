@@ -1,12 +1,15 @@
 <!doctype html>
 <html>
 <head>
+<script>try{var t=localStorage.getItem("site:theme");document.documentElement.dataset.theme=(t==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dead Static</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;700;900&family=Geist+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/theme.css?v=2">
+<link rel="stylesheet" href="../assets/sitebar.css?v=2">
 <link rel="stylesheet" href="style.css?v=2">
 <style>
   .back-btn{
@@ -32,13 +35,6 @@
 </style>
 </head>
 <body>
-
-<a class="back-btn" href="../index.html">
-  <svg viewBox="0 0 12 12" width="10" height="10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  Menu
-</a>
 
 <div id="root"></div>
 
@@ -66,5 +62,6 @@
   await import(blobUrl);
 </script>
 
+<script src="../assets/sitebar.js?v=2" data-root="../" data-where="Dead Static"></script>
 </body>
 </html>

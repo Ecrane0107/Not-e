@@ -1,12 +1,15 @@
 <!doctype html>
 <html>
 <head>
+<script>try{var t=localStorage.getItem("site:theme");document.documentElement.dataset.theme=(t==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Home</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css?v=2">
+<link rel="stylesheet" href="assets/sitebar.css?v=2">
 <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
@@ -16,18 +19,12 @@
 <div class="page">
 
   <div class="topbar">
-    <button type="button" class="settings-btn" id="settingsBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsPanel" aria-label="Display settings">
-      <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path fill="currentColor" fill-rule="evenodd" d="M21,12 L18.5,14.7 L18.4,18.4 L14.7,18.5 L12,21 L9.3,18.5 L5.6,18.4 L5.5,14.7 L3,12 L5.5,9.3 L5.6,5.6 L9.3,5.5 L12,3 L14.7,5.5 L18.4,5.6 L18.5,9.3 Z M8.8,12 A3.2,3.2 0 1,0 15.2,12 A3.2,3.2 0 1,0 8.8,12 Z"/>
-      </svg>
-    </button>
     <div id="authWidget" class="auth-widget"></div>
 
-    <div class="settings-panel" id="settingsPanel" role="dialog" aria-label="Display settings" hidden>
-      <div class="settings-head">
-        <h2>Display</h2>
-        <button type="button" class="settings-close" id="settingsClose" aria-label="Close">&times;</button>
-      </div>
+    <!-- Moved into the site bar's Settings panel on load; it is the one
+         place settings live now, so this is only a holding pen. -->
+    <div class="settings-fields" id="displayFields" hidden>
+      <h3>Background</h3>
 
       <div class="settings-row">
         <label for="setHue">Theme color</label>
@@ -401,28 +398,16 @@
   // ---------------------------------------------------------------
   // settings panel open/close
   // ---------------------------------------------------------------
-  const settingsBtn = document.getElementById("settingsBtn");
-  const settingsPanel = document.getElementById("settingsPanel");
-  function openSettings() {
-    settingsPanel.hidden = false;
-    settingsBtn.setAttribute("aria-expanded", "true");
-  }
-  function closeSettings() {
-    settingsPanel.hidden = true;
-    settingsBtn.setAttribute("aria-expanded", "false");
-  }
-  settingsBtn.addEventListener("click", () => {
-    if (settingsPanel.hidden) openSettings(); else closeSettings();
-  });
-  document.getElementById("settingsClose").addEventListener("click", closeSettings);
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !settingsPanel.hidden) closeSettings();
-  });
-  document.addEventListener("click", (e) => {
-    if (settingsPanel.hidden) return;
-    if (settingsPanel.contains(e.target) || settingsBtn.contains(e.target)) return;
-    closeSettings();
+  // The controls are authored in the page but presented inside the site bar's
+  // Settings panel, so there is a single gear on every page.
+  window.addEventListener("sitebarready", function moveIntoSiteBar(){
+    const fields = document.getElementById("displayFields");
+    const slot = window.SiteBar && window.SiteBar.settingsExtra();
+    if (!fields || !slot) return;
+    fields.hidden = false;
+    slot.appendChild(fields);
   });
 </script>
+<script src="assets/sitebar.js?v=2" data-root="" data-where=""></script>
 </body>
 </html>

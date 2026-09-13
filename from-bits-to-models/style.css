@@ -1,17 +1,7 @@
   :root{
     /* the page is dark, so browser-drawn furniture -- scrollbars, form
        controls, the overscroll gutter -- has to be told that too */
-    color-scheme:dark;
 
-    --ground:#0C0E0F;
-    --ground-deep:#08090A;
-    --panel:#101314;
-    --panel-hi:#1A1E20;
-    --line:#23282B;
-    --ink:#EDEFF0;
-    --ink-mid:#9AA1A6;
-    --ink-dim:#666D72;
-    --focus:#EDEFF0;
 
     --rail:296px;
     --drawer:352px;
@@ -78,23 +68,6 @@
   .browse-toggle svg{transition:transform .16s ease}
   .browse-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
   .browse-toggle:hover{color:var(--ink);border-color:var(--ink-dim)}
-  .back-btn{
-    display:inline-flex;
-    align-items:center;
-    gap:7px;
-    padding:7px 11px;
-    background:var(--ground);
-    border:1px solid var(--line);
-    border-radius:7px;
-    color:var(--ink-mid);
-    font:500 13px "Space Grotesk",sans-serif;
-    text-decoration:none;
-    white-space:nowrap;
-  }
-  .back-btn svg{flex:0 0 auto}
-  .back-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
-  .back-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-
   .rail-collapse{
     margin-left:auto;
     flex:0 0 auto;
@@ -112,12 +85,12 @@
   /* the only thing left on screen once the panel is gone */
   .rail-reopen{
     position:fixed;
-    top:12px;
+    top:calc(var(--chrome-top) + var(--sitebar-h) + 10px);
     left:12px;
     z-index:8;
     width:32px;height:32px;
     display:grid;place-items:center;
-    background:rgba(16,19,20,.9);
+    background:var(--panel);
     border:1px solid var(--line);
     border-radius:8px;
     color:var(--ink-mid);
@@ -241,7 +214,7 @@
     border:1px solid var(--ink-dim);
     border-radius:3px;
   }
-  .goal-btn[aria-pressed="true"] .box{background:#fff;border-color:#fff}
+  .goal-btn[aria-pressed="true"] .box{background:var(--accent);border-color:var(--accent)}
   .goal-note{
     margin:8px 18px 0;
     font-family:"Newsreader",Georgia,serif;
@@ -268,10 +241,10 @@
   .start-btn:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
   .dot{
     width:7px;height:7px;border-radius:50%;
-    background:#fff;
+    background:var(--ink);
     flex:0 0 7px;
     margin-top:5px;
-    box-shadow:0 0 0 3px rgba(255,255,255,.14);
+    box-shadow:0 0 0 3px var(--panel-hi);
   }
   .start-text{display:block;min-width:0}
   .start-text strong{display:block;font-size:13.5px;font-weight:500}
@@ -304,17 +277,21 @@
   }
   .line-btn:hover{background:var(--panel-hi)}
   .line-btn:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+  /* An active category is stated positively -- a filled swatch and a raised
+     row -- rather than left to read as "the one that isn't greyed". */
+  .line-btn[aria-pressed="true"]{background:var(--panel-hi);color:var(--ink)}
+  .line-btn[aria-pressed="true"] .swatch{background:var(--sw)}
   .line-btn[aria-pressed="false"]{color:var(--ink-dim)}
-  .line-btn[aria-pressed="false"] .swatch{opacity:.3}
+  .line-btn[aria-pressed="false"] .swatch{opacity:.45}
   .line-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .line-count{margin-left:auto;color:var(--ink-dim);font-size:12.5px;font-weight:400}
 
   /* a miniature of the pill you look for on the map */
   .swatch{
     width:22px;height:13px;flex:0 0 22px;
-    border:1.5px solid;
+    border:1.5px solid var(--sw);
     border-radius:4px;
-    background:#131719;
+    background:var(--node-fill);
   }
   .legend-note{
     margin:10px 18px 0;
@@ -367,7 +344,7 @@
 
   /* ---------- map ---------- */
   .map{position:relative;flex:1;min-width:0;
-    background:radial-gradient(ellipse 90% 70% at 50% 45%, #101314 0%, #08090A 78%)}
+    background:radial-gradient(ellipse 90% 70% at 50% 45%, var(--panel) 0%, var(--ground-deep) 78%)}
   .grain{position:absolute;inset:0;pointer-events:none;opacity:.05;background-repeat:repeat}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
   canvas.dragging{cursor:grabbing}
@@ -396,7 +373,7 @@
   .map-ctrl{
     width:36px;height:36px;
     display:flex;align-items:center;justify-content:center;
-    background:rgba(16,19,20,.82);
+    background:var(--panel);
     border:1px solid var(--line);
     border-radius:8px;
     color:var(--ink);
@@ -542,7 +519,8 @@
   /* ---------- booklet reader ---------- */
   .reader{
     position:fixed;
-    inset:0;
+    /* its own fixed overlay, so the shell's offset misses it */
+    inset:calc(var(--chrome-top) + var(--sitebar-h)) 0 var(--chrome-bottom) 0;
     z-index:60;
     display:flex;
     background:var(--ground-deep);
@@ -581,7 +559,7 @@
   .read-inner{max-width:660px;margin:0 auto}
   .read-close{
     position:fixed;
-    top:22px;
+    top:calc(var(--chrome-top) + var(--sitebar-h) + 14px);
     right:26px;
     padding:7px 13px;
     background:var(--panel);
@@ -611,14 +589,14 @@
     font-family:"Newsreader",Georgia,serif;
     font-size:18px;
     line-height:1.62;
-    color:#DDE3E7;
+    color:var(--prose);
     margin:0 0 18px;
   }
   .read-inner ul{
     font-family:"Newsreader",Georgia,serif;
     font-size:18px;
     line-height:1.6;
-    color:#DDE3E7;
+    color:var(--prose);
     margin:0 0 18px;
     padding-left:22px;
   }
@@ -702,7 +680,7 @@
   aside.note{
     margin:0 0 22px;
     padding:14px 16px;
-    background:rgba(255,255,255,.03);
+    background:var(--ground);
     border:1px solid var(--line);
     border-radius:9px;
     font-family:"Newsreader",Georgia,serif;
@@ -864,7 +842,7 @@
     border:1px solid rgba(91,201,139,.3);
     border-radius:8px;
     font:400 16px/1.55 "Newsreader",Georgia,serif;
-    color:#DDE3E7;
+    color:var(--prose);
   }
   .quiz .qfb{
     margin:14px 0 0;
@@ -889,11 +867,11 @@
   .qbtn:disabled{opacity:.4;cursor:default}
   .qbtn.is-primary{
     margin-left:auto;
-    background:#fff;
-    border-color:#fff;
-    color:#08090A;
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--on-accent);
   }
-  .qbtn.is-primary:hover:not(:disabled){background:#DDE3E7;border-color:#DDE3E7;color:#08090A}
+  .qbtn.is-primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover);color:var(--on-accent)}
 
   .qdone{padding:26px 0 0;text-align:center}
   .quiz .qdone-score{
@@ -928,15 +906,15 @@
     width:100%;
     margin:0 0 22px;
     padding:11px 14px;
-    background:#fff;
+    background:var(--accent);
     border:0;
     border-radius:8px;
-    color:#08090A;
+    color:var(--on-accent);
     font:500 14px "Space Grotesk",sans-serif;
     cursor:pointer;
     text-align:left;
   }
-  .open-booklet:hover{background:#DDE3E7}
+  .open-booklet:hover{background:var(--accent-hover)}
   .open-booklet small{display:block;margin-top:2px;font-weight:400;opacity:.65}
 
   @media (max-width:900px){

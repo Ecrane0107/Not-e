@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>try{var t=localStorage.getItem("site:theme");document.documentElement.dataset.theme=(t==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Weekly Schedule</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/theme.css?v=2">
+<link rel="stylesheet" href="../assets/sitebar.css?v=2">
 <style>
 :root{
   --ground:#0C0E0F;
@@ -96,6 +99,42 @@ h1{
   color:var(--ink-mid);
 }
 
+.layoutbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:14px;
+  margin:0 0 14px;
+  padding:11px 14px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+}
+.layoutbar-title{
+  font-family:"Space Grotesk",sans-serif;
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--ink-dim);
+}
+.layoutbar label{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-family:"Space Grotesk",sans-serif;
+  font-size:12.5px;
+  color:var(--ink-mid);
+}
+.layoutbar select{
+  padding:5px 8px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:6px;
+  color:var(--ink);
+  font:400 12.5px "Space Grotesk",sans-serif;
+}
+.layoutbar select:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
 .toolbar{
   display:flex;
   align-items:flex-start;
@@ -151,7 +190,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 }
 .header-row{
   display:grid;
-  grid-template-columns:64px repeat(7,1fr);
+  grid-template-columns:64px repeat(var(--cols,7),1fr);
   position:sticky;
   top:0;
   z-index:3;
@@ -188,8 +227,8 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 }
 .row{
   display:grid;
-  grid-template-columns:64px repeat(7,1fr);
-  height:46px;
+  grid-template-columns:64px repeat(var(--cols,7),1fr);
+  height:var(--rowh,46px);
   border-top:1px solid var(--line);
 }
 .row:first-child{ border-top:none; }
@@ -604,13 +643,6 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 <body>
 <div class="page">
 
-  <a class="back-btn" href="../index.html">
-    <svg viewBox="0 0 12 12" width="11" height="11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M7.5 2.5 3 6l4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Menu
-  </a>
-
   <p class="eyebrow">Project</p>
   <h1>Weekly Schedule</h1>
   <p class="blurb">A calendar grid for your week. Add activities, watch the legend break down where your time actually goes, export or import the whole week as JSON when you want a copy.</p>
@@ -627,6 +659,38 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
       <button class="ghost-btn" id="importBtn">&#8679; Import JSON</button>
       <button class="ghost-btn danger" id="clearWeek">&#10005; Clear week</button>
     </div>
+  </div>
+
+  <div class="layoutbar" id="layoutBar">
+    <span class="layoutbar-title">Week layout</span>
+    <label>Starts on
+      <select id="optWeekStart">
+        <option value="0">Monday</option>
+        <option value="6">Sunday</option>
+        <option value="5">Saturday</option>
+      </select>
+    </label>
+    <label>Days
+      <select id="optDays">
+        <option value="all">All seven</option>
+        <option value="weekdays">Weekdays</option>
+        <option value="weekend">Weekend</option>
+      </select>
+    </label>
+    <label>Hours
+      <select id="optHours">
+        <option value="all">All 24</option>
+        <option value="day">Daytime, 6am&ndash;11pm</option>
+        <option value="work">Working, 8am&ndash;6pm</option>
+      </select>
+    </label>
+    <label>Row height
+      <select id="optDensity">
+        <option value="compact">Compact</option>
+        <option value="normal">Normal</option>
+        <option value="tall">Tall</option>
+      </select>
+    </label>
   </div>
 
   <div class="scroll-outer">
@@ -725,8 +789,52 @@ const TAGS = {
   rose:'#db6e8c', sage:'#8fae6b', amber:'#e8a33d'
 };
 const STORE_KEY = 'weekly-schedule-v2';
-const ROW_H = 46;
-const PX_PER_MIN = ROW_H / 60;
+const LAYOUT_KEY = 'weekly-schedule:layout:v1';
+
+/* How the week is laid out. Activities are always stored against canonical
+   Monday=0..Sunday=6 days and real clock times; this only decides what is
+   drawn and where, so changing it never edits anyone's week. */
+const DENSITY = { compact:34, normal:46, tall:66 };
+const HOUR_WINDOWS = { all:[0,24], day:[6,23], work:[8,18] };
+
+let layout = { weekStart:0, days:'all', hours:'all', density:'normal' };
+try {
+  const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+  if (saved && typeof saved === 'object') layout = Object.assign(layout, saved);
+} catch(e){ /* corrupt or blocked storage just means defaults */ }
+
+let ROW_H = DENSITY[layout.density] || 46;
+let PX_PER_MIN = ROW_H / 60;
+let visibleDays = [0,1,2,3,4,5,6];   // canonical indices, in display order
+let hourFrom = 0, hourTo = 24;
+
+function applyLayout(){
+  ROW_H = DENSITY[layout.density] || 46;
+  PX_PER_MIN = ROW_H / 60;
+  const win = HOUR_WINDOWS[layout.hours] || HOUR_WINDOWS.all;
+  hourFrom = win[0]; hourTo = win[1];
+
+  // rotate so the chosen day leads, then drop the days not wanted
+  const start = Number(layout.weekStart) || 0;
+  const rotated = [];
+  for (let i = 0; i < 7; i++) rotated.push((start + i) % 7);
+  const keep = layout.days === 'weekdays' ? d => d <= 4
+             : layout.days === 'weekend'  ? d => d >= 5
+             : () => true;
+  visibleDays = rotated.filter(keep);
+  if (!visibleDays.length) visibleDays = rotated;   // never show an empty grid
+
+  const root = document.documentElement;
+  root.style.setProperty('--cols', String(visibleDays.length));
+  root.style.setProperty('--rowh', ROW_H + 'px');
+}
+
+// where a canonical day sits on screen, or -1 when it is not shown
+function dayColumn(d){ return visibleDays.indexOf(d); }
+
+function saveLayout(){
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch(e){}
+}
 
 let activities = []; // {id, text, color, days:[0..6], start:'HH:MM', end:'HH:MM'}
 let columnMetrics = [];
@@ -743,32 +851,33 @@ function buildHeader(){
   const el = document.getElementById('headerRow');
   el.innerHTML = '<div class="header-cell"></div>';
   const t = todayIdx();
-  DAYS.forEach((d,i)=>{
+  visibleDays.forEach(d=>{
     const div = document.createElement('div');
-    div.className = 'header-cell' + (i===t ? ' today' : '');
-    div.innerHTML = d + '<span class="dnum">' + (i===t ? '•' : '') + '</span>';
+    div.className = 'header-cell' + (d===t ? ' today' : '');
+    div.innerHTML = DAYS[d] + '<span class="dnum">' + (d===t ? '•' : '') + '</span>';
     el.appendChild(div);
   });
 }
 
 function buildRows(){
   const inner = document.getElementById('rowsInner');
+  inner.querySelectorAll('.row').forEach(r=>r.remove());
   const t = todayIdx();
-  for(let h=0; h<24; h++){
+  for(let h=hourFrom; h<hourTo; h++){
     const row = document.createElement('div');
     row.className = 'row';
     const tc = document.createElement('div');
     tc.className = 'time-cell';
     tc.textContent = pad(h) + ':00';
     row.appendChild(tc);
-    for(let d=0; d<7; d++){
+    visibleDays.forEach(d=>{
       const slot = document.createElement('div');
       slot.className = 'slot' + (d===t ? ' today-col' : '');
       slot.dataset.day = d;
       slot.dataset.hour = h;
       slot.addEventListener('click', ()=> openModal({ day:d, hour:h }));
       row.appendChild(slot);
-    }
+    });
     inner.insertBefore(row, document.getElementById('overlay'));
   }
 }
@@ -786,9 +895,19 @@ function measureColumns(){
 
 // ---------- rendering activity blocks ----------
 function drawBlock(overlay, day, startMin, endMin, act, opts){
-  const col = columnMetrics[day + 1];
+  const ci = dayColumn(day);
+  if(ci < 0) return;                       // that day is not on screen
+  const col = columnMetrics[ci + 1];
   if(!col) return;
-  const top = startMin * PX_PER_MIN;
+
+  // clip to the visible hour window, and drop what falls entirely outside
+  const winStart = hourFrom * 60, winEnd = hourTo * 60;
+  const s0 = Math.max(startMin, winStart);
+  const e0 = Math.min(endMin, winEnd);
+  if(e0 <= s0) return;
+  startMin = s0; endMin = e0;
+
+  const top = (startMin - winStart) * PX_PER_MIN;
   const height = Math.max(16, (endMin - startMin) * PX_PER_MIN - 2);
   const block = document.createElement('div');
   block.className = 'block' + (opts.cutBottom ? ' cut-bottom' : '') + (opts.cutTop ? ' cut-top' : '');
@@ -957,8 +1076,13 @@ function positionNowLine(){
   const now = new Date();
   const frac = now.getHours() + now.getMinutes()/60;
   const line = document.getElementById('nowline');
-  line.style.top = (frac * ROW_H) + 'px';
-  line.style.setProperty('--dayfrac', todayIdx());
+  const ci = dayColumn(todayIdx());
+  // hidden when today is not among the days shown, or now is outside the window
+  const off = ci < 0 || frac < hourFrom || frac > hourTo;
+  line.style.display = off ? 'none' : '';
+  if(off) return;
+  line.style.top = ((frac - hourFrom) * ROW_H) + 'px';
+  line.style.setProperty('--dayfrac', ci);
 }
 function updateClock(){
   const now = new Date();
@@ -1165,7 +1289,7 @@ document.addEventListener('keydown', (e)=>{
 document.getElementById('jumpNow').addEventListener('click', ()=>{
   const body = document.getElementById('bodyRows');
   const now = new Date();
-  body.scrollTop = Math.max(0, now.getHours()*ROW_H - 120);
+  body.scrollTop = Math.max(0, (now.getHours() - hourFrom)*ROW_H - 120);
 });
 
 let clearArmed = false;
@@ -1340,7 +1464,37 @@ document.getElementById('ioLoad').addEventListener('click', ()=>{
   }
 });
 
+// ---------- week layout controls ----------
+// Redrawing is cheap and the week itself is untouched, so every change just
+// rebuilds the grid from scratch rather than trying to patch it.
+function redrawGrid(){
+  applyLayout();
+  buildHeader();
+  buildRows();
+  measureColumns();
+  renderActivities();
+  positionNowLine();
+}
+
+(function wireLayoutControls(){
+  const bind = (id, key, cast) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(layout[key]);
+    el.addEventListener('change', ()=>{
+      layout[key] = cast ? cast(el.value) : el.value;
+      saveLayout();
+      redrawGrid();
+    });
+  };
+  bind('optWeekStart', 'weekStart', Number);
+  bind('optDays', 'days');
+  bind('optHours', 'hours');
+  bind('optDensity', 'density');
+})();
+
 // ---------- init ----------
+applyLayout();
 buildHeader();
 buildRows();
 buildDayChips();
@@ -1356,8 +1510,9 @@ setTimeout(()=>{
   renderActivities();
   const body = document.getElementById('bodyRows');
   const now = new Date();
-  body.scrollTop = Math.max(0, now.getHours()*ROW_H - 120);
+  body.scrollTop = Math.max(0, (now.getHours() - hourFrom)*ROW_H - 120);
 }, 60);
 </script>
+<script src="../assets/sitebar.js?v=2" data-root="../" data-where="Weekly Schedule"></script>
 </body>
 </html>

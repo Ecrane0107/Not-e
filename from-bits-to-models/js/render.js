@@ -106,9 +106,25 @@ function edgeAlpha(a, b){
 /* Every edge means one thing — the concept it points at needs the one it
    leaves — so every edge is drawn the same: same colour, same solid stroke.
    Only state changes it: dim by default, brighter on hover or in a selected
-   chain, white and thicker along a route. */
-const EDGE_COLOR = "#9AA1A6";
-const EDGE_LIT   = "#FFFFFF";
+   chain, and the full ink colour along a route.
+
+   The canvas cannot use var(), so the palette is read out of the stylesheet
+   once and re-read whenever the theme changes. */
+const PAINT = {};
+function readPalette(){
+  const cs = getComputedStyle(document.documentElement);
+  const get = (n, fallback) => (cs.getPropertyValue(n).trim() || fallback);
+  PAINT.edge     = get("--edge", "#9AA1A6");
+  PAINT.edgeLit  = get("--edge-lit", "#FFFFFF");
+  PAINT.nodeFill = get("--node-fill", "#131719");
+  PAINT.ink      = get("--ink", "#EDEFF0");
+  PAINT.accent   = get("--accent", "#FFFFFF");
+  PAINT.onAccent = get("--on-accent", "#08090A");
+  PAINT.inkDim   = get("--ink-dim", "#666D72");
+  dirty = true;
+}
+readPalette();
+window.addEventListener("themechange", () => { readPalette(); });
 
 // Endpoints and the two bezier controls between a and b, in screen space.
 function edgeGeom(a, b){
@@ -165,7 +181,7 @@ function draw(){
     const lit = alpha > 0.45;
     const onRoute = alpha >= 0.999;
     ctx.lineWidth = Math.max(1, (onRoute ? 2.6 : lit ? 1.9 : 1.3) * cam.k);
-    ctx.strokeStyle = lit ? EDGE_LIT : EDGE_COLOR;
+    ctx.strokeStyle = lit ? PAINT.edgeLit : PAINT.edge;
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -190,7 +206,7 @@ function draw(){
     const [cx, cy] = toScreen(n.x, n.y);
     if (cx + w < -40 || cx - w > viewW + 40 || cy + h < -40 || cy - h > viewH + 40) continue;
 
-    const color = TRACKS[n.track].color;
+    const color = trackColor(TRACKS[n.track]);
     const isFocus = n.id === state.selected || n.id === state.hover;
 
     ctx.globalAlpha = alpha;
@@ -198,19 +214,19 @@ function draw(){
 
     let textMain, textSigil;
     if (isFocus) {
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = PAINT.accent;
       ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = Math.max(1.5, 3 * cam.k);
       ctx.stroke();
-      textMain = "#08090A"; textSigil = "#575E63";
+      textMain = PAINT.onAccent; textSigil = PAINT.inkDim;
     } else {
-      ctx.fillStyle = "#131719";
+      ctx.fillStyle = PAINT.nodeFill;
       ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = Math.max(1, 1.3 * cam.k);
       ctx.stroke();
-      textMain = "#EDEFF0"; textSigil = color;
+      textMain = PAINT.ink; textSigil = color;
     }
 
     // entry points emit from a marked source point
@@ -219,10 +235,10 @@ function draw(){
       const px = lr ? cx - w / 2 - 11 * cam.k : cx;
       const py = lr ? cy : cy - h / 2 - 11 * cam.k;
       const r = Math.max(2, 3.2 * cam.k);
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = PAINT.ink;
       ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = alpha * 0.4;
-      ctx.strokeStyle = "#FFFFFF";
+      ctx.strokeStyle = PAINT.ink;
       ctx.lineWidth = Math.max(0.7, 1 * cam.k);
       ctx.beginPath(); ctx.arc(px, py, r * 2.5, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = alpha;

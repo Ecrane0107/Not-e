@@ -1,0 +1,75 @@
+/* ============================================================
+   SHARED PALETTE — one source of truth for both themes.
+
+   Every page used to declare these nine variables itself, with the
+   same dark values copied into each stylesheet. They live here now,
+   so a page's own :root only carries what is genuinely its own.
+
+   Load this BEFORE the page's stylesheet.
+
+   Roles, so the light values are not just "the dark ones inverted":
+     --ground-deep  the backdrop the page sits on
+     --ground       the page surface, and the well inside a panel
+     --panel        a raised surface: cards, rails, drawers
+     --panel-hi     that surface under the pointer
+     --line         borders and rules
+     --ink          body text and headings
+     --ink-mid      secondary text
+     --ink-dim      captions, placeholders, disabled
+     --accent       a solid button's fill
+     --on-accent    text on that fill
+   ============================================================ */
+
+:root,
+:root[data-theme="dark"]{
+  color-scheme:dark;
+
+  --ground:#0C0E0F;
+  --ground-deep:#08090A;
+  --panel:#101314;
+  --panel-hi:#1A1E20;
+  --line:#23282B;
+  --ink:#EDEFF0;
+  --ink-mid:#9AA1A6;
+  --ink-dim:#666D72;
+  --focus:#EDEFF0;
+
+  --accent:#FFFFFF;
+  --on-accent:#08090A;
+  --accent-hover:#DDE3E7;
+
+  /* long-form reading text, a touch softer than --ink */
+  --prose:#DDE3E7;
+  /* the concept map's node fill, used by CSS and by the canvas alike */
+  --node-fill:#131719;
+  --edge:#9AA1A6;
+  --edge-lit:#FFFFFF;
+
+  /* a hairline shadow does nothing on near-black; light mode needs one */
+  --lift:none;
+}
+
+:root[data-theme="light"]{
+  color-scheme:light;
+
+  --ground:#F4F4F1;
+  --ground-deep:#EDEDE8;
+  --panel:#FFFFFF;
+  --panel-hi:#E9E9E3;
+  --line:#DCDCD3;
+  --ink:#16181B;
+  --ink-mid:#585F66;
+  --ink-dim:#848B93;
+  --focus:#16181B;
+
+  --accent:#16181B;
+  --on-accent:#FFFFFF;
+  --accent-hover:#34383D;
+
+  --prose:#23262A;
+  --node-fill:#FFFFFF;
+  --edge:#6E767D;
+  --edge-lit:#16181B;
+
+  --lift:0 1px 2px rgba(20,22,26,.05);
+}
