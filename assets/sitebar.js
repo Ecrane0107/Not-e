@@ -112,7 +112,10 @@
       '<button type="button" data-theme-set="dark" aria-pressed="true">' + icon.moon + "Dark</button>" +
       '<button type="button" data-theme-set="light" aria-pressed="false">' + icon.sun + "Light</button>" +
     "</div>" +
-    '<div id="sbExtra"></div>';
+    '<div id="sbExtra"></div>' +
+    "<h3>Data</h3>" +
+    '<p class="sb-note" id="sbDataNote"></p>' +
+    '<button type="button" class="sb-wide-btn sb-danger" id="sbClear">Clear all saved data</button>';
 
   var help = document.createElement("div");
   help.className = "sb-pop";
@@ -121,22 +124,81 @@
   help.setAttribute("aria-label", "About this site");
   help.hidden = true;
   help.innerHTML =
-    '<div class="sb-pop-head"><h2>About this site</h2>' +
+    '<div class="sb-pop-head"><h2>Where your data lives</h2>' +
       '<button type="button" class="sb-close" data-sb-close aria-label="Close">&times;</button></div>' +
-    "<p>A small collection of things to read and use — a map of computer " +
-      "science you can study from, and a few tools that keep track of " +
-      "something for you. Pick one from the menu; this bar brings you back.</p>" +
-    "<h3>Where your data goes</h3>" +
-    "<p>Nowhere. There is no account, no sign-in and no server holding " +
-      "anything: every page here is a plain file your browser downloads and " +
-      "runs on its own.</p>" +
+    "<p>In this browser, and nowhere else. There is no account, no sign-in " +
+      "and no server keeping anything: every page here is a plain file your " +
+      "browser downloads and runs on its own.</p>" +
     "<p>What you type — a budget, a workout plan, a week's schedule, how far " +
-      "you have read — is saved in this browser's own storage on this device, " +
-      "and it is only ever read back by the same page that wrote it.</p>" +
-    "<p>So it survives closing the tab and restarting the computer, but it " +
-      "does not follow you to another browser, another device, or a private " +
-      "window. Clearing your browsing data clears it too, and nobody else can " +
-      "see it — including me.</p>";
+      "you have read — goes into this browser's own storage on this device, " +
+      "filed under this site's address, and it is only ever read back by the " +
+      "page that wrote it. Nothing is uploaded, because there is nowhere to " +
+      "upload it to.</p>" +
+    "<p>That means it survives closing the tab and restarting the computer, " +
+      "but it does not follow you anywhere: open the site in a different " +
+      "browser, on a different device, or in a private window and it will " +
+      "start empty. Nobody else can read it, including me.</p>" +
+    "<p>It also means the browser owns it. Clearing your browsing data for " +
+      "this site clears it, and so does the button in Settings. Neither can " +
+      "be undone, so export anything you would miss first.</p>";
+
+  /* ---------- clearing it all ----------
+     This throws away every tool's saved work and cannot be undone, so it
+     asks twice: the first click only arms the button, and it disarms itself
+     again after a few seconds or as soon as the panel closes. */
+  function storedKeys() {
+    try {
+      return Object.keys(localStorage);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function describeStored() {
+    var n = storedKeys().length;
+    // localStorage is per origin, and both copies of this site are published
+    // under the same github.io domain, so one clear takes out both.
+    return n === 0
+      ? "Nothing is saved in this browser yet."
+      : n + (n === 1 ? " item is" : " items are") + " saved in this browser " +
+        "for this site — every tool's, not just this page's. Clearing cannot " +
+        "be undone. The theme resets, and any tool that ships with a starter " +
+        "set of its own will lay that out again, the way it does on a first " +
+        "visit.";
+  }
+
+  function wireClear() {
+    var btn = settings.querySelector("#sbClear");
+    var note = settings.querySelector("#sbDataNote");
+    if (!btn || !note) return;
+    var armed = false, timer = null;
+
+    function disarm() {
+      armed = false;
+      clearTimeout(timer);
+      btn.textContent = "Clear all saved data";
+      btn.classList.remove("is-armed");
+      note.textContent = describeStored();
+    }
+    disarm();
+    clearReset = disarm;
+
+    btn.addEventListener("click", function () {
+      if (!armed) {
+        if (!storedKeys().length) return;   // nothing to throw away
+        armed = true;
+        btn.textContent = "Click again to erase it";
+        btn.classList.add("is-armed");
+        note.textContent = "This cannot be undone. Export anything you want " +
+                           "to keep first.";
+        timer = setTimeout(disarm, 6000);
+        return;
+      }
+      try { localStorage.clear(); } catch (e) { /* blocked storage */ }
+      location.reload();
+    });
+  }
+  var clearReset = function () {};
 
   function mount() {
     applyStoredTheme();
@@ -171,6 +233,9 @@
       var open = panel.hidden;
       panel.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
+      // never leave the erase button armed behind a closed panel, and
+      // recount on the way in, since another tab may have saved since
+      clearReset();
       if (open) {
         var first = panel.querySelector("button, a, input, select");
         if (first) first.focus();
@@ -187,6 +252,7 @@
     [settings, help].forEach(function (panel) {
       panel.querySelector("[data-sb-close]").addEventListener("click", function () {
         panel.hidden = true;
+        clearReset();
         var b = bar.querySelector(panel === settings ? "#sbSettings" : "#sbHelp");
         b.setAttribute("aria-expanded", "false");
         b.focus();
@@ -197,11 +263,14 @@
       b.addEventListener("click", function () { setTheme(b.dataset.themeSet); });
     });
 
+    wireClear();
+
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       [settings, help].forEach(function (panel) {
         if (panel.hidden) return;
         panel.hidden = true;
+        clearReset();
         bar.querySelector(panel === settings ? "#sbSettings" : "#sbHelp")
            .setAttribute("aria-expanded", "false");
       });
@@ -212,6 +281,7 @@
       [settings, help].forEach(function (panel) {
         if (panel.hidden || panel.contains(e.target) || bar.contains(e.target)) return;
         panel.hidden = true;
+        clearReset();
         bar.querySelector(panel === settings ? "#sbSettings" : "#sbHelp")
            .setAttribute("aria-expanded", "false");
       });

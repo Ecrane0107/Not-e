@@ -152,6 +152,35 @@
 #sbExtra:empty{display:none}
 #sbExtra{margin-top:6px}
 
+/* ---------- erasing everything ---------- */
+.sb-pop .sb-note{
+  margin:0 0 9px;
+  font-family:"Space Grotesk",sans-serif;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--ink-dim);
+}
+.sb-wide-btn{
+  display:block;
+  width:100%;
+  padding:9px 12px;
+  background:var(--ground);
+  border:1px solid var(--line);
+  border-radius:7px;
+  color:var(--ink-mid);
+  font:500 13px "Space Grotesk",sans-serif;
+  cursor:pointer;
+}
+.sb-wide-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.sb-danger:hover{color:var(--danger);border-color:var(--danger)}
+/* armed: it takes a second click, and it should look like it means it */
+.sb-danger.is-armed{
+  background:var(--danger);
+  border-color:var(--danger);
+  color:var(--on-danger);
+}
+.sb-danger.is-armed:hover{color:var(--on-danger)}
+
 /* ---------- page clearance ----------
    A scrolling page is pushed down by the bar. A fixed app shell cannot be
    pushed — it is sized to the viewport — so it gives up that much height
