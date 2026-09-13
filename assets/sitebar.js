@@ -20,10 +20,25 @@
   var THEME_KEY = "site:theme";
 
   /* ---------- theme ---------- */
-  // The pre-paint snippet in each page's <head> has already set this; we only
-  // read it back so the buttons open in the right state.
   function currentTheme() {
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  }
+  function storedTheme() {
+    try {
+      return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+    } catch (e) {
+      return "dark";
+    }
+  }
+  // Storage is the authority, not the markup. The snippet in each page's
+  // <head> exists only to get the right theme painted on the first frame; if
+  // a page is served from cache without it, the theme would otherwise be
+  // whatever the stylesheet defaults to, and the setting would look ignored.
+  function applyStoredTheme() {
+    var want = storedTheme();
+    if (currentTheme() === want) return;
+    document.documentElement.dataset.theme = want;
+    window.dispatchEvent(new CustomEvent("themechange", { detail: { theme: want } }));
   }
   function setTheme(name) {
     document.documentElement.dataset.theme = name;
@@ -126,6 +141,7 @@
       "see it — including me.</p>";
 
   function mount() {
+    applyStoredTheme();
     document.body.insertBefore(bar, document.body.firstChild);
     document.body.appendChild(settings);
     document.body.appendChild(help);
