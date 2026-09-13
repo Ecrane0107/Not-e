@@ -76,10 +76,10 @@
   };
 
   /* ---------- the bar ---------- */
-  // Identical on every page, the home page included. Dropping Back and Menu
-  // there because they have nowhere to go shifted everything else along, so
-  // the one strip meant to be constant was the one thing that moved. They
-  // stay put and are simply disabled instead.
+  // Back is left-anchored and Settings/Help are pushed to the right edge by
+  // the spacer, so both ends sit in the same place on every page whatever is
+  // between them. Menu is the one thing that varies, and only because on the
+  // menu it would be a button for going where you already are.
   var atHome = /(^|\/)index\.html$/.test(location.pathname) ||
                /\/$/.test(location.pathname);
 
@@ -88,11 +88,9 @@
   bar.innerHTML =
     '<button type="button" class="sb-btn sb-btn--wide" id="sbBack" aria-label="Go back">' +
       icon.back + "<span>Back</span></button>" +
-    (atHome
-      ? '<span class="sb-btn sb-btn--wide is-here" id="sbHome" aria-current="page">' +
-          icon.home + "<span>Menu</span></span>"
-      : '<a class="sb-btn sb-btn--wide" id="sbHome" href="' + ROOT + 'index.html" aria-label="Main menu">' +
-          icon.home + "<span>Menu</span></a>") +
+    (atHome ? "" :
+      '<a class="sb-btn sb-btn--wide" id="sbHome" href="' + ROOT + 'index.html" aria-label="Main menu">' +
+        icon.home + "<span>Menu</span></a>") +
     (WHERE ? '<span class="sb-where">' + WHERE + "</span>" : "") +
     '<span class="sb-spacer"></span>' +
     '<button type="button" class="sb-btn sb-btn--icon" id="sbSettings" aria-haspopup="dialog" ' +

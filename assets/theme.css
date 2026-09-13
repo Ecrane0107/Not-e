@@ -20,6 +20,16 @@
      --on-accent    text on that fill
    ============================================================ */
 
+/* Thin scrollbars everywhere. Three pages had styled theirs and the rest had
+   not, so the default bar was both a different colour and a different width —
+   which quietly moved the right edge of the page, and with it anything
+   anchored to it, by a few pixels from page to page. */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-dim)}
+
 :root,
 :root[data-theme="dark"]{
   color-scheme:dark;
