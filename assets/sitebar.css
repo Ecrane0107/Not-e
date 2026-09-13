@@ -50,6 +50,16 @@
 .sb-btn:hover{color:var(--ink);border-color:var(--ink-dim)}
 .sb-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
 .sb-btn svg{flex:0 0 auto}
+
+/* Back with nothing behind it, and Menu while you are already on the menu.
+   Both keep their place so the strip never shifts between pages. */
+.sb-btn:disabled,
+.sb-btn.is-here{
+  opacity:.45;
+  cursor:default;
+}
+.sb-btn:disabled:hover,
+.sb-btn.is-here:hover{color:var(--ink-mid);border-color:var(--line)}
 .sb-btn--icon{width:30px;padding:0;justify-content:center}
 .sb-spacer{margin-left:auto}
 

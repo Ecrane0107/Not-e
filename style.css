@@ -5,7 +5,7 @@ html,body{height:100%}
 body{
   margin:0;
   background:
-    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% -10%, var(--body-tint) 0%, transparent 60%),
     var(--ground-deep);
   color:var(--ink);
   font-family:"Space Grotesk",system-ui,sans-serif;
@@ -274,11 +274,11 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   aspect-ratio:1/1;
   padding:20px;
   border-radius:6px;
-  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(135deg, var(--glass), var(--glass-2));
+  border:1px solid var(--glass-edge);
   box-shadow:
-    inset 1px 1px 0 rgba(255,255,255,.25),
-    inset -1px -1px 0 rgba(0,0,0,.45);
+    inset 1px 1px 0 var(--glass-lit),
+    inset -1px -1px 0 var(--glass-shade);
   backdrop-filter:blur(8px) saturate(1.05);
   -webkit-backdrop-filter:blur(8px) saturate(1.05);
   text-decoration:none;
@@ -287,8 +287,8 @@ h1 span{display:block;color:var(--ink-dim);font-weight:400}
   transition:transform .18s ease, border-color .18s ease, background .18s ease;
 }
 .tile:hover{
-  background:linear-gradient(135deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
-  border-color:rgba(255,255,255,.32);
+  background:linear-gradient(135deg, var(--glass-hi), var(--glass-hi-2));
+  border-color:var(--glass-edge-hi);
 }
 .tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 

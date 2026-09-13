@@ -61,18 +61,23 @@
   };
 
   /* ---------- the bar ---------- */
-  // The home page is the menu, so Back and Menu would both be no-ops there.
+  // Identical on every page, the home page included. Dropping Back and Menu
+  // there because they have nowhere to go shifted everything else along, so
+  // the one strip meant to be constant was the one thing that moved. They
+  // stay put and are simply disabled instead.
   var atHome = /(^|\/)index\.html$/.test(location.pathname) ||
                /\/$/.test(location.pathname);
 
   var bar = document.createElement("header");
   bar.className = "sitebar";
   bar.innerHTML =
-    (atHome ? "" :
-      '<button type="button" class="sb-btn sb-btn--wide" id="sbBack" aria-label="Go back">' +
-        icon.back + "<span>Back</span></button>" +
-      '<a class="sb-btn sb-btn--wide" id="sbHome" href="' + ROOT + 'index.html" aria-label="Main menu">' +
-        icon.home + "<span>Menu</span></a>") +
+    '<button type="button" class="sb-btn sb-btn--wide" id="sbBack" aria-label="Go back">' +
+      icon.back + "<span>Back</span></button>" +
+    (atHome
+      ? '<span class="sb-btn sb-btn--wide is-here" id="sbHome" aria-current="page">' +
+          icon.home + "<span>Menu</span></span>"
+      : '<a class="sb-btn sb-btn--wide" id="sbHome" href="' + ROOT + 'index.html" aria-label="Main menu">' +
+          icon.home + "<span>Menu</span></a>") +
     (WHERE ? '<span class="sb-where">' + WHERE + "</span>" : "") +
     '<span class="sb-spacer"></span>' +
     '<button type="button" class="sb-btn sb-btn--icon" id="sbSettings" aria-haspopup="dialog" ' +
@@ -135,9 +140,10 @@
   function wire() {
     var back = bar.querySelector("#sbBack");
     if (back) {
+      // Opened in a fresh tab there is nothing behind this page. The button
+      // keeps its place either way — it just says so rather than pretending.
+      if (history.length <= 1) back.disabled = true;
       back.addEventListener("click", function () {
-        // Landing here directly means there is no history to go back through,
-        // so fall back to the menu rather than doing nothing.
         if (history.length > 1) history.back();
         else location.href = ROOT + "index.html";
       });

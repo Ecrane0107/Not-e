@@ -8,23 +8,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/theme.css?v=2">
-<link rel="stylesheet" href="../assets/sitebar.css?v=2">
+<link rel="stylesheet" href="../assets/theme.css?v=3">
+<link rel="stylesheet" href="../assets/sitebar.css?v=3">
 <style>
 :root{
-  --ground:#0C0E0F;
-  --ground-deep:#08090A;
-  --panel:#101314;
-  --panel-hi:#1A1E20;
-  --line:#23282B;
-  --ink:#EDEFF0;
-  --ink-mid:#9AA1A6;
-  --ink-dim:#666D72;
-  --focus:#EDEFF0;
+  /* the shared palette lives in assets/theme.css -- only what is this
+     page's own belongs here */
   --good:#4fd17d;
   --bad:#e2584f;
 
-  --accent:#e8a33d;
+  /* amber marks today. It used to be called --accent, which collided with
+     the theme's own --accent and tinted the site bar's controls on this
+     page alone. */
+  --sched-accent:#e8a33d;
   --today-tint:rgba(232,163,61,0.055);
   --c-teal:#4fb3a9;
   --c-sky:#5b9bd5;
@@ -38,7 +34,7 @@ html,body{height:100%}
 body{
   margin:0;
   background:
-    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% -10%, var(--body-tint) 0%, transparent 60%),
     var(--ground-deep);
   color:var(--ink);
   font-family:"Space Grotesk",system-ui,sans-serif;
@@ -60,20 +56,6 @@ body{
   padding:32px 32px 64px;
 }
 
-.back-btn{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  margin-bottom:32px;
-  padding:7px 11px;
-  background:var(--ground);
-  border:1px solid var(--line);
-  border-radius:7px;
-  color:var(--ink-mid);
-  font:500 13px "Space Grotesk",sans-serif;
-  text-decoration:none;
-}
-.back-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
 
 .eyebrow{
   margin:0 0 12px;
@@ -153,7 +135,7 @@ h1{
   color:var(--ink-dim);
   margin-top:3px;
 }
-.toolbar-stats .quickstat b{ color:var(--accent); font-weight:700; }
+.toolbar-stats .quickstat b{ color:var(--sched-accent); font-weight:700; }
 .toolbar .actions{
   display:flex;
   gap:8px;
@@ -214,8 +196,8 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   margin-top:2px;
   font-weight:700;
 }
-.header-cell.today{ color:var(--accent); }
-.header-cell.today .dnum{ color:var(--accent); }
+.header-cell.today{ color:var(--sched-accent); }
+.header-cell.today .dnum{ color:var(--sched-accent); }
 
 .body-rows{
   position:relative;
@@ -248,7 +230,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   position:relative;
   cursor:pointer;
 }
-.slot:hover{ background:rgba(255,255,255,0.025); }
+.slot:hover{ background:var(--panel-hi); }
 .slot.today-col{ background:var(--today-tint); }
 .slot.today-col:hover{ background:rgba(232,163,61,0.09); }
 
@@ -266,7 +248,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   padding:3px 7px;
   overflow:hidden;
   border-left:3px solid var(--ink-mid);
-  background:rgba(255,255,255,0.05);
+  background:var(--panel-hi);
   transition:filter .12s ease, transform .12s ease, box-shadow .12s ease;
   animation:block-in .18s ease both;
 }
@@ -276,12 +258,12 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 .block.cut-bottom{
   border-bottom-left-radius:0;
   border-bottom-right-radius:0;
-  border-bottom:1px dashed rgba(255,255,255,0.25);
+  border-bottom:1px dashed var(--ink-dim);
 }
 .block.cut-top{
   border-top-left-radius:0;
   border-top-right-radius:0;
-  border-top:1px dashed rgba(255,255,255,0.25);
+  border-top:1px dashed var(--ink-dim);
 }
 .block .block-time{
   display:block;
@@ -316,7 +298,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   position:absolute;
   left:0; right:0;
   height:0;
-  border-top:1.5px solid var(--accent);
+  border-top:1.5px solid var(--sched-accent);
   z-index:2;
   pointer-events:none;
   box-shadow:0 0 8px rgba(232,163,61,0.6);
@@ -328,8 +310,8 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   top:-3.5px;
   width:7px;height:7px;
   border-radius:50%;
-  background:var(--accent);
-  box-shadow:0 0 6px var(--accent);
+  background:var(--sched-accent);
+  box-shadow:0 0 6px var(--sched-accent);
 }
 
 .status{
@@ -411,7 +393,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   padding:9px 10px;
   outline:none;
 }
-.field input[type=text]:focus{ border-color:var(--accent); }
+.field input[type=text]:focus{ border-color:var(--sched-accent); }
 .day-chips{
   display:flex;
   gap:5px;
@@ -431,8 +413,8 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
 }
 .chip.selected{
   background:rgba(232,163,61,0.15);
-  border-color:var(--accent);
-  color:var(--accent);
+  border-color:var(--sched-accent);
+  color:var(--sched-accent);
   font-weight:700;
 }
 .time-row{
@@ -453,7 +435,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   outline:none;
   color-scheme:dark;
 }
-.time-row input[type=time]:focus{ border-color:var(--accent); }
+.time-row input[type=time]:focus{ border-color:var(--sched-accent); }
 .time-arrow{ color:var(--ink-dim); font-size:13px; margin-top:18px; }
 .swatches{
   display:flex;
@@ -503,7 +485,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   resize:vertical;
   outline:none;
 }
-.io-textarea:focus{ border-color:var(--accent); }
+.io-textarea:focus{ border-color:var(--sched-accent); }
 .io-toggle{
   display:flex;
   gap:8px;
@@ -522,8 +504,8 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   font-family:"Space Grotesk",sans-serif;
 }
 .io-toggle .opt.selected{
-  border-color:var(--accent);
-  color:var(--accent);
+  border-color:var(--sched-accent);
+  color:var(--sched-accent);
   background:rgba(232,163,61,0.12);
   font-weight:600;
 }
@@ -586,7 +568,7 @@ a.ghost-btn{ display:inline-block; text-decoration:none; }
   border-top:1px solid var(--line);
   transition:background .12s ease;
 }
-.legend-row:hover{ background:rgba(255,255,255,0.03); }
+.legend-row:hover{ background:var(--panel-hi); }
 .legend-row:first-child{ border-top:none; }
 .legend-dot{
   width:10px; height:10px;
@@ -1513,6 +1495,6 @@ setTimeout(()=>{
   body.scrollTop = Math.max(0, (now.getHours() - hourFrom)*ROW_H - 120);
 }, 60);
 </script>
-<script src="../assets/sitebar.js?v=2" data-root="../" data-where="Weekly Schedule"></script>
+<script src="../assets/sitebar.js?v=3" data-root="../" data-where="Weekly Schedule"></script>
 </body>
 </html>

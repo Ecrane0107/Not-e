@@ -5,7 +5,7 @@ html,body{height:100%}
 body{
   margin:0;
   background:
-    radial-gradient(ellipse 90% 60% at 50% -10%, #14181A 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% -10%, var(--body-tint) 0%, transparent 60%),
     var(--ground-deep);
   color:var(--ink);
   font-family:"Space Grotesk",system-ui,sans-serif;
