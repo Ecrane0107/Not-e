@@ -24,6 +24,11 @@ const state = {
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// The canvas can still be zero-sized when boot runs — fonts.ready sometimes
+// beats first layout — and a fit against a 0×0 viewport just pins the camera
+// at the minimum zoom. So fit is deferred until the canvas has a real size.
+let sized = false;
+
 function resize(){
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   const r = canvas.getBoundingClientRect();
@@ -32,10 +37,26 @@ function resize(){
   canvas.height = Math.round(r.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   dirty = true;
+  if (!sized && viewW > 0 && viewH > 0) {
+    sized = true;
+    // redo the layout too: one of them sizes its margin from the viewport
+    if (bounds) { layout(ctx); fit(); }
+  }
 }
 
 function fit(animateless){
+  if (!viewW || !viewH) return;   // nothing to fit into yet; resize will call back
   const m = 48;
+  // One tall column is a thing you read and scroll, not a shape to take in at
+  // once: squeezing 63 rows into the viewport drops the zoom below the level
+  // where labels are drawn at all. Fit its width and start at the top instead.
+  if (orient === "column") {
+    cam.k = Math.max(0.25, Math.min((viewW - m * 2) / bounds.w, 1.05));
+    cam.x = viewW / 2 - (bounds.minX + bounds.w / 2) * cam.k;
+    cam.y = m - bounds.minY * cam.k;
+    dirty = true;
+    return;
+  }
   const k = Math.min((viewW - m * 2) / bounds.w, (viewH - m * 2) / bounds.h, 1.05);
   cam.k = Math.max(k, 0.25);
   cam.x = viewW / 2 - (bounds.minX + bounds.w / 2) * cam.k;
@@ -91,6 +112,15 @@ const EDGE_LIT   = "#FFFFFF";
 
 // Endpoints and the two bezier controls between a and b, in screen space.
 function edgeGeom(a, b){
+  // One column: every node shares an x, so a line between two of them would
+  // run straight down through everything in between. Leave from the left edge
+  // instead and bow out into the margin, further the longer the reach.
+  if (orient === "column") {
+    const [x1, y1] = toScreen(a.x - a.w / 2, a.y);
+    const [x2, y2] = toScreen(b.x - b.w / 2, b.y);
+    const bow = Math.min(linearBow * cam.k, Math.abs(y2 - y1) * 0.42 + 22 * cam.k);
+    return [x1, y1, x1 - bow, y1, x2 - bow, y2, x2, y2];
+  }
   const lr = orient === "lr";
   const [x1, y1] = lr ? toScreen(a.x + a.w / 2, a.y) : toScreen(a.x, a.y + a.h / 2);
   const [x2, y2] = lr ? toScreen(b.x - b.w / 2, b.y) : toScreen(b.x, b.y - b.h / 2);
@@ -126,8 +156,11 @@ function draw(){
     if (alpha < 0.02) continue;
 
     const [x1, y1, c1x, c1y, c2x, c2y, x2, y2] = edgeGeom(a, b);
-    if (Math.max(x1, x2) < -60 || Math.min(x1, x2) > viewW + 60 ||
-        Math.max(y1, y2) < -60 || Math.min(y1, y2) > viewH + 60) continue;
+    // A bezier stays inside the hull of its four control points, so culling on
+    // all of them is both correct and tight. Endpoints alone would drop the
+    // column layout's arcs, which swing far to the left of where they end.
+    if (Math.max(x1, c1x, c2x, x2) < -60 || Math.min(x1, c1x, c2x, x2) > viewW + 60 ||
+        Math.max(y1, c1y, c2y, y2) < -60 || Math.min(y1, c1y, c2y, y2) > viewH + 60) continue;
 
     const lit = alpha > 0.45;
     const onRoute = alpha >= 0.999;

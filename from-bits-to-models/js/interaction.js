@@ -750,6 +750,9 @@ function layoutIcon(key){
     lanes:    `<rect x="2" y="2" width="4" height="16" rx="1.4"/>
                <rect x="8" y="2" width="4" height="16" rx="1.4"/>
                <rect x="14" y="2" width="4" height="16" rx="1.4"/>`,
+    linear:   box(7, 2, 11) + box(7, 8.5, 11) + box(7, 15, 11) +
+              `<path d="M7 3.5 Q2 10 7 16.5" fill="none" stroke="currentColor"
+                 stroke-width="1.3" stroke-linecap="round"/>`,
     sequence: box(2, 3, 7) + box(11, 3, 7) + box(2, 8.5, 7) + box(11, 8.5, 7) +
               box(2, 14, 7) + box(11, 14, 7)
   };

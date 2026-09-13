@@ -1,20 +1,24 @@
 /* ============================================================
-   3. LAYOUT — four ways to arrange the same graph.
+   3. LAYOUT — five ways to arrange the same graph.
 
    Every layout writes n.x / n.y plus n.cross, a single number that
    orders nodes within a tier. Study order falls out of (tier, cross),
    so each layout also decides what "reading order" means for itself.
+   A layout may also ask for extra room around the nodes via boundsPad,
+   for anything it draws outside their boxes.
    ============================================================ */
 
 const NODE_H = 34, CROSS_GAP = 12, FLOW_GAP = 96;
 const LANE_GAP = 54, BAND_GAP = 58;          // category lanes
 const SEQ_GAP_X = 18, SEQ_GAP_Y = 11;        // study sequence
+const LINEAR_GAP = 13, LINEAR_BOW = 300;     // straight down
 
 let columns = [];
 let STUDY = [];                 // every node in reading order
+let linearBow = LINEAR_BOW;     // how far the column layout's arcs swing out
 
 // Which layout is drawn, and which screen axis its edges follow. `orient`
-// stays the name the renderer knows: "tb" or "lr".
+// stays the name the renderer knows: "tb", "lr" or "column".
 let layoutMode = "tb";
 let orient = "tb";
 
@@ -22,6 +26,7 @@ const LAYOUTS = {
   tb:       { name:"Layered — top to bottom", axis:"tb",     run:layoutLayered },
   lr:       { name:"Layered — left to right", axis:"lr",     run:layoutLayered },
   lanes:    { name:"Category lanes",          axis:"tb",     run:layoutLanes },
+  linear:   { name:"Straight down",           axis:"column", run:layoutLinear },
   sequence: { name:"Study sequence",          axis:"tb",     run:layoutSequence }
 };
 
@@ -48,14 +53,27 @@ function measureLabels(ctx){
 const flowSize  = n => orient === "lr" ? n.w : n.h;
 const crossSize = n => orient === "lr" ? n.h : n.w;
 
+// Extra room a layout wants around the node boxes, so fit() does not crop
+// whatever it draws out there. Reset before every run.
+let boundsPad = { l:0, r:0, t:0, b:0 };
+
 function layout(ctx){
   measureLabels(ctx);
   computeTiers();
   const mode = LAYOUTS[layoutMode] ? layoutMode : "tb";
   orient = LAYOUTS[mode].axis;
+  boundsPad = { l:0, r:0, t:0, b:0 };
   LAYOUTS[mode].run();
   assignStudyOrder();
   bounds = computeBounds();
+}
+
+// The order a syllabus-shaped layout lists concepts in: by tier, and within a
+// tier by category then name. Shared so "straight down" and "study sequence"
+// number their concepts identically.
+function studyOrdered(){
+  return visibleNodes().slice().sort((a, b) =>
+    a.tier - b.tier || a.track.localeCompare(b.track) || a.label.localeCompare(b.label));
 }
 
 /* ---------- layered: columns by tier, barycentre passes to cut crossings --- */
@@ -153,14 +171,37 @@ function layoutLanes(){
   });
 }
 
+/* ---------- straight down: one column, in order, 1 to N ------------------- */
+
+// The plainest reading of the map: a syllabus you scroll. Pills are flush
+// left so the step numbers line up down the page.
+//
+// That leaves every node on one x, which would send edges straight down
+// *through* the concepts in between. Instead they bow out into the margin on
+// the left, wider the further a dependency reaches — so a concept that needs
+// something forty steps back shows it as a long arc, and its neighbours stay
+// readable. The renderer draws it: see the "column" case in edgeGeom.
+function layoutLinear(){
+  const nodes = studyOrdered();
+  nodes.forEach((n, i) => {
+    n.x = n.w / 2;                      // flush left, not centred
+    n.y = i * (NODE_H + LINEAR_GAP);
+    n.cross = i;
+  });
+  // The margin is reserved space, so a fixed one would eat half a phone's
+  // width and push the zoom below where labels are drawn. Size it to the
+  // viewport: narrow screens get tighter arcs and readable text.
+  linearBow = Math.max(90, Math.min(LINEAR_BOW, viewW * 0.3));
+  boundsPad.l = linearBow + 30;
+}
+
 /* ---------- study sequence: the reading order itself, wrapped into rows ---- */
 
 // Not a picture of the graph so much as a picture of the syllabus: 1 to N in
 // order, left to right. Hovering a concept still lights its edges, so it
 // doubles as a way to ask "where does number 34 actually lead?".
 function layoutSequence(){
-  const nodes = visibleNodes().slice().sort((a, b) =>
-    a.tier - b.tier || a.track.localeCompare(b.track) || a.label.localeCompare(b.label));
+  const nodes = studyOrdered();
   const colW = Math.max(...nodes.map(n => n.w)) + SEQ_GAP_X;
   const rowH = NODE_H + SEQ_GAP_Y;
   // Aim the block at roughly 16:9. Cells are far wider than they are tall, so
@@ -193,5 +234,7 @@ function computeBounds(){
     minX = Math.min(minX, n.x - n.w / 2); maxX = Math.max(maxX, n.x + n.w / 2);
     minY = Math.min(minY, n.y - n.h / 2); maxY = Math.max(maxY, n.y + n.h / 2);
   });
+  minX -= boundsPad.l; maxX += boundsPad.r;
+  minY -= boundsPad.t; maxY += boundsPad.b;
   return { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY };
 }
